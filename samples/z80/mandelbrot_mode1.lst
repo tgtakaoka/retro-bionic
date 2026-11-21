@@ -1,0 +1,793 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; The Z80 mandelbrot taking interrupts in mode 1, for chips such as the
+          0 :                    ;;; KL5C8400 in KC80 mode that have no mode 0 or 2.
+          0 :                            include "z80.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; z80
+(1)       0 :                            cpu     z80
+(1)       0 :                    ;;; FLAGS Register
+(1)       0 : =80                F_SIGN:         equ     10000000B ; set to 1 if negative
+(1)       0 : =40                F_ZERO:         equ     01000000B ; set to 1 if zero
+(1)       0 : =10                F_HALF_CARRY:   equ     00010000B ; set to 1 if carry from bit-3
+(1)       0 : =4                 F_PARITY:       equ     00000100B ; set to 1 if even parity
+(1)       0 : =4                 F_OVERFLOW:     equ     00000100B ; set to 1 if overflow
+(1)       0 : =2                 F_NBCD:         equ     00000010B ; set to 1 if subtraction
+(1)       0 : =1                 F_CARRY:        equ     00000001B ; set to 1 if carry
+(1)       0 :                    ;;; Interrupt origin
+(1)       0 : =0                 ORG_RESET:      equ     0000H   ; RESET
+(1)       0 : =0                 ORG_RST00:      equ     0000H   ; RST 00H
+(1)       0 : =8                 ORG_RST08:      equ     0008H   ; RST 08H
+(1)       0 : =10                ORG_RST10:      equ     0010H   ; RST 10H
+(1)       0 : =18                ORG_RST18:      equ     0018H   ; RST 18H
+(1)       0 : =20                ORG_RST20:      equ     0020H   ; RST 20H
+(1)       0 : =28                ORG_RST28:      equ     0028H   ; RST 28H
+(1)       0 : =30                ORG_RST30:      equ     0030H   ; RST 30H
+(1)       0 : =38                ORG_RST38:      equ     0038H   ; RST 38H
+(1)       0 : =38                ORG_INT:        equ     0038H   ; Mode 1 INT
+(1)       0 : =66                ORG_NMI:        equ     0066H   ; NMI
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =40                USART:  equ     40H
+(1)       0 : =40                USARTD: equ     USART+0         ; Data register
+(1)       0 : =41                USARTS: equ     USART+1         ; Status register
+(1)       0 : =41                USARTC: equ     USART+1         ; Control register
+(1)       0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+(1)       0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+(1)       0 :                            include "i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(2)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(2)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+       2000 :                            org     2000H
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       ds      rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       ds      tx_queue_size
+       2100 :
+       1000 :                            org     1000H
+       1000 : =1000              stack:          equ     $
+       1000 :
+          0 :                            org     ORG_RESET
+          0 : C3 00 01                   jp      init
+          3 :
+          3 :                            ;; Mode 1 entry for both the USART's Rx and Tx
+         38 :                            org     ORG_INT
+         38 : C3 14 04                   jp      isr_intr
+         3B :
+        100 :                            org     0100H
+        100 :                    init:
+        100 : 31 00 10                   ld      SP, stack
+        103 : 21 00 20                   ld      HL, rx_queue
+        106 : 06 80                      ld      B, rx_queue_size
+        108 : CD A9 03                   call    queue_init
+        10B : 21 80 20                   ld      HL, tx_queue
+        10E : 06 80                      ld      B, tx_queue_size
+        110 : CD A9 03                   call    queue_init
+        113 :                    init_usart:
+        113 :                            ;; IN/OUT (C) put B on A8-A15. Boards decoding 16-bit I/O
+        113 :                            ;; addresses find the USART at 0140H; the others decode A0-A7
+        113 :                            ;; alone and find it at 40H.
+        113 : 01 41 01                   ld      BC, 0100H|USARTC
+        116 : AF                         xor     A               ; clear A
+        117 : ED 79                      out     (C), A
+        119 : ED 79                      out     (C), A
+        11B : ED 79                      out     (C), A          ; safest way to sync mode
+        11D : 3E 40                      ld      A, CMD_IR_bm
+        11F : ED 79                      out     (C), A          ; reset
+        121 : 00                         nop
+        122 : 00                         nop
+        123 : 3E 4E                      ld      A, ASYNC_MODE
+        125 : ED 79                      out     (C), A
+        127 : 00                         nop
+        128 : 00                         nop
+        129 : 3E 36                      ld      A, RX_EN_TX_DIS
+        12B : ED 79                      out     (C), A
+        12D :
+        12D :                            ;; Mode 1 ignores the vectors; non-zero enables each interrupt.
+        12D : 3E 38                      ld      A, ORG_INT
+        12F : 0E 42                      ld      C, USARTRV
+        131 : ED 79                      out     (C), A          ; enable RxRDY interrupt
+        133 : 0E 43                      ld      C, USARTTV
+        135 : ED 79                      out     (C), A          ; enable TxRDY interrupt
+        137 :
+        137 : ED 56                      im      1
+        139 : FB                         ei
+        13A :
+        13A :                    loop:
+        13A : CD 7A 01                   call    mandelbrot
+        13D : CD 4D 01                   call    newline
+        140 : 18 F8                      jr      loop
+        142 :
+        142 :                    ;;; Get character
+        142 :                    ;;; @return A
+        142 :                    ;;; @return F.C 0 if no character
+        142 :                    getchar:
+        142 : E5                         push    HL
+        143 : 21 00 20                   ld      HL, rx_queue
+        146 : F3                         di
+        147 : CD EE 03                   call    queue_remove
+        14A : FB                         ei
+        14B : E1                         pop     HL
+        14C : C9                         ret
+        14D :
+        14D :                    ;;; Put newline
+        14D :                    ;;; @clobber A
+        14D :                    newline:
+        14D : 3E 0D                      ld      A, 0DH
+        14F : CD 54 01                   call    putchar
+        152 : 3E 0A                      ld      A, 0AH
+        154 :
+        154 :                    ;;; Put character
+        154 :                    ;;; @param A
+        154 :                    putchar:
+        154 : F5                         push    AF
+        155 : E5                         push    HL
+        156 : 21 80 20                   ld      HL, tx_queue
+        159 :                    putchar_retry:
+        159 : F3                         di
+        15A : CD BD 03                   call    queue_add
+        15D : FB                         ei
+        15E : 30 F9                      jr      NC, putchar_retry ; branch if queue is full
+        160 : E1                         pop     HL
+        161 : C5                         push    BC
+        162 : 01 41 01                   ld      BC, 0100H|USARTC
+        165 : 3E 37                      ld      a, RX_EN_TX_EN  ; enable Tx
+        167 : ED 79                      out     (C), A
+        169 : C1                         pop     BC
+        16A :                    putchar_exit:
+        16A : F1                         pop     AF
+        16B : C9                         ret
+        16C :
+        16C :                    ;;; Put space
+        16C :                    ;;; @clobber A
+        16C :                    putspace:
+        16C : 3E 20                      ld      A, ' '
+        16E : 18 E4                      jr      putchar
+        170 :
+        170 :                            include "mandelbrot.inc"
+(1)     170 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     170 :
+(1)     170 :                    ;;; Sign extend A into BC
+(1)     170 :                    ;;; @param A 8-bit value
+(1)     170 :                    ;;; @return BC 16-bit value
+(1)     170 :                    sex_BC:
+(1)     170 : 4F                         ld      C, A
+(1)     171 : 87                         add     A, A            ; AF.C=sign(A)
+(1)     172 : 9F                         sbc     A, A            ; A=-C: 00H or FFH
+(1)     173 : 47                         ld      B, A
+(1)     174 : C9                         ret
+(1)     175 :
+(1)     175 :                    ;;; Sign extend A into HL
+(1)     175 :                    ;;; @param A 8-bit value
+(1)     175 :                    ;;; @return HL 16-bit value
+(1)     175 :                    sex_HL:
+(1)     175 : 6F                         ld      L, A
+(1)     176 : 87                         add     A, A            ; AF.C=sign(A)
+(1)     177 : 9F                         sbc     A, A            ; A=-C: 00H or FFH
+(1)     178 : 67                         ld      H, A
+(1)     179 : C9                         ret
+(1)     17A :
+(1)     17A : =32                Fv:     equ     50              ; fixed-point 1.0
+(1)     17A :                    ;;; Print one 79x25 frame of the Mandelbrot set: each point is its
+(1)     17A :                    ;;; escape iteration in hex, or a space if it does not escape in 16.
+(1)     17A :                    ;;; Exits to the debugger when NUL is received.
+(1)     17A :                    mandelbrot:
+(1)     17A : 3E F4                      ld      A, -12
+(1)     17C : 32 D3 02                   ld      (vY), A         ; Y=-12
+(1)     17F :                    loop_y:
+(1)     17F : 3E CF                      ld      A, -49
+(1)     181 : 32 D4 02                   ld      (vX), A         ; X=-49
+(1)     184 :                    loop_x:
+(1)     184 : 3A D4 02                   ld      A, (vX)
+(1)     187 : CD 70 01                   call    sex_BC          ; BC=X
+(1)     18A : 11 E5 00                   ld      DE, 229
+(1)     18D : CD 21 03                   call    mul16           ; X*229
+(1)     190 : 44                         ld      B, H
+(1)     191 : 4D                         ld      C, L
+(1)     192 : 11 64 00                   ld      DE, 100
+(1)     195 : CD 80 03                   call    div16           ; X*229/100
+(1)     198 : 22 C3 02                   ld      (vC), HL        ; C=X*229/100
+(1)     19B : 22 C7 02                   ld      (vA), HL        ; A=C
+(1)     19E : 3A D3 02                   ld      A, (vY)
+(1)     1A1 : CD 70 01                   call    sex_BC          ; BC=Y
+(1)     1A4 : 11 A0 01                   ld      DE, 416
+(1)     1A7 : CD 21 03                   call    mul16           ; Y*416
+(1)     1AA : 44                         ld      B, H
+(1)     1AB : 4D                         ld      C, L
+(1)     1AC : 11 64 00                   ld      DE, 100
+(1)     1AF : CD 80 03                   call    div16           ; Y*416/100
+(1)     1B2 : 22 C5 02                   ld      (vD), HL        ; D=Y*416/100
+(1)     1B5 : 22 C9 02                   ld      (vB), HL        ; B=D
+(1)     1B8 : 3E 00                      ld      A, 0
+(1)     1BA : 32 D5 02                   ld      (vI), A         ; I=0
+(1)     1BD :
+(1)     1BD :                            ;; ld      A, (vY)
+(1)     1BD :                            ;; call    sex_HL
+(1)     1BD :                            ;; ld      A, 'Y'
+(1)     1BD :                            ;; call    print
+(1)     1BD :                            ;; ld      A, (vX)
+(1)     1BD :                            ;; call    sex_HL
+(1)     1BD :                            ;; ld      A, 'X'
+(1)     1BD :                            ;; call    print
+(1)     1BD :                            ;; ld      HL, (vC)
+(1)     1BD :                            ;; ld      A, 'C'
+(1)     1BD :                            ;; call    print
+(1)     1BD :                            ;; ld      HL, (vD)
+(1)     1BD :                            ;; ld      A, 'D'
+(1)     1BD :                            ;; call    print
+(1)     1BD :                            ;; call    newline
+(1)     1BD :
+(1)     1BD :                    loop_i:
+(1)     1BD : ED 4B C9 02                ld      BC, (vB)
+(1)     1C1 : 11 32 00                   ld      DE, Fv
+(1)     1C4 : CD 80 03                   call    div16           ; B/F
+(1)     1C7 : 22 CD 02                   ld      (vQ), HL        ; Q=B/F
+(1)     1CA : EB                         ex      DE, HL          ; DE=Q, the shorter multiplier
+(1)     1CB : 01 CE FF                   ld      BC, -Fv
+(1)     1CE : CD 21 03                   call    mul16           ; -Q*F
+(1)     1D1 : ED 5B C9 02                ld      DE, (vB)
+(1)     1D5 : 19                         add     HL, DE          ; B-Q*F
+(1)     1D6 : 22 CF 02                   ld      (vS), HL        ; S=B-Q*F
+(1)     1D9 : ED 4B C9 02                ld      BC, (vB)
+(1)     1DD : ED 5B C9 02                ld      DE, (vB)
+(1)     1E1 : CD 21 03                   call    mul16           ; B*B
+(1)     1E4 : E5                         push    HL              ; push B*B
+(1)     1E5 : ED 4B C7 02                ld      BC, (vA)
+(1)     1E9 : ED 5B C7 02                ld      DE, (vA)
+(1)     1ED : CD 21 03                   call    mul16           ; A*A
+(1)     1F0 : D1                         pop     DE              ; pop B*B
+(1)     1F1 : 37                         scf
+(1)     1F2 : 3F                         ccf
+(1)     1F3 : ED 52                      sbc     HL, DE          ; A*A-B*B
+(1)     1F5 : 44                         ld      B, H
+(1)     1F6 : 4D                         ld      C, L
+(1)     1F7 : 11 32 00                   ld      DE, Fv
+(1)     1FA : CD 80 03                   call    div16           ; (A*A-B*B)/F
+(1)     1FD : ED 5B C3 02                ld      DE, (vC)
+(1)     201 : 19                         add     HL, DE          ; (A*A-B*B)/F+C
+(1)     202 : E5                         push    HL              ; push (A*A-B*B)/F+C
+(1)     203 : ED 4B C7 02                ld      BC, (vA)
+(1)     207 : ED 5B CF 02                ld      DE, (vS)
+(1)     20B : CD 21 03                   call    mul16           ; A*S
+(1)     20E : 44                         ld      B, H
+(1)     20F : 4D                         ld      C, L
+(1)     210 : 11 32 00                   ld      DE, Fv
+(1)     213 : CD 80 03                   call    div16           ; A*S/F
+(1)     216 : E5                         push    HL              ; push A*S/F
+(1)     217 : ED 4B C7 02                ld      BC, (vA)
+(1)     21B : ED 5B CD 02                ld      DE, (vQ)
+(1)     21F : CD 21 03                   call    mul16           ; A*Q
+(1)     222 : D1                         pop     DE              ; pop A*S/F
+(1)     223 : 19                         add     HL, DE          ; A*Q+A*S/F
+(1)     224 : 29                         add     HL, HL          ; 2*(A*Q+A*S/F)
+(1)     225 : ED 5B C5 02                ld      DE, (vD)
+(1)     229 : 19                         add     HL, DE          ; 2*(A*Q+A*S/F)+D
+(1)     22A : 22 C9 02                   ld      (vB), HL        ; B=2*(A*Q+A*S/F)+D
+(1)     22D : C1                         pop     BC              ; pop (A*A-B*B)/F+C
+(1)     22E : ED 43 C7 02                ld      (vA), BC        ; A=(A*A-B*B)/F+C
+(1)     232 : 11 32 00                   ld      DE, Fv
+(1)     235 : CD 80 03                   call    div16           ; A/F
+(1)     238 : 22 CB 02                   ld      (vP), HL        ; P=A/F
+(1)     23B : 44                         ld      B, H
+(1)     23C : 4D                         ld      C, L
+(1)     23D : 54                         ld      D, H
+(1)     23E : 5D                         ld      E, L
+(1)     23F : CD 21 03                   call    mul16           ; P*P
+(1)     242 : E5                         push    HL              ; push P*P
+(1)     243 : ED 4B C9 02                ld      BC, (vB)
+(1)     247 : 11 32 00                   ld      DE, Fv
+(1)     24A : CD 80 03                   call    div16           ; B/F
+(1)     24D : 22 CD 02                   ld      (vQ), HL        ; Q=B/F
+(1)     250 : 44                         ld      B, H
+(1)     251 : 4D                         ld      C, L
+(1)     252 : 54                         ld      D, H
+(1)     253 : 5D                         ld      E, L
+(1)     254 : CD 21 03                   call    mul16           ; Q*Q
+(1)     257 : D1                         pop     DE              ; pop P*P
+(1)     258 : 19                         add     HL, DE          ; P*P+Q*Q
+(1)     259 : 22 D1 02                   ld      (vT), HL        ; T=P*P+Q*Q
+(1)     25C :
+(1)     25C :                            ;; call    putspace
+(1)     25C :                            ;; ld      A, (vI)
+(1)     25C :                            ;; call    sex_HL
+(1)     25C :                            ;; ld      A, 'I'
+(1)     25C :                            ;; call    print
+(1)     25C :                            ;; ld      HL, (vA)
+(1)     25C :                            ;; ld      A, 'A'
+(1)     25C :                            ;; call    print
+(1)     25C :                            ;; ld      HL, (vB)
+(1)     25C :                            ;; ld      A, 'B'
+(1)     25C :                            ;; call    print
+(1)     25C :                            ;; ld      HL, (vP)
+(1)     25C :                            ;; ld      A, 'P'
+(1)     25C :                            ;; call    print
+(1)     25C :                            ;; ld      HL, (vQ)
+(1)     25C :                            ;; ld      A, 'Q'
+(1)     25C :                            ;; call    print
+(1)     25C :                            ;; ld      HL, (vT)
+(1)     25C :                            ;; ld      A, 'T'
+(1)     25C :                            ;; call    print
+(1)     25C :                            ;; call    newline
+(1)     25C :
+(1)     25C : 3A D2 02                   ld      A, (vT+1)
+(1)     25F : B7                         or      A
+(1)     260 : 20 17                      jr      NZ, print_i     ; if T>=256
+(1)     262 : 3A D1 02                   ld      A, (vT)
+(1)     265 : FE 05                      cp      A, 4+1
+(1)     267 : 30 10                      jr      NC, print_i     ; if 4<T
+(1)     269 : 3A D5 02                   ld      A, (vI)
+(1)     26C : 3C                         inc     A
+(1)     26D : 32 D5 02                   ld      (vI), A
+(1)     270 : FE 10                      cp      A, 16
+(1)     272 : DA BD 01                   jp      C, loop_i       ; if I<16
+(1)     275 : 3E 20                      ld      A, ' '
+(1)     277 : 18 09                      jr      print_char
+(1)     279 :                    print_i:
+(1)     279 : 3A D5 02                   ld      A, (vI)
+(1)     27C : C6 90                      add     A, 90H
+(1)     27E : 27                         daa
+(1)     27F : CE 40                      adc     A, 40H
+(1)     281 : 27                         daa                     ; A='0'-'9','A'-'F'
+(1)     282 :                    print_char:
+(1)     282 : CD 54 01                   call    putchar
+(1)     285 :
+(1)     285 :                            ;; push    AF
+(1)     285 :                            ;; ld      A, '@'
+(1)     285 :                            ;; call    putchar
+(1)     285 :                            ;; ld      A, '='
+(1)     285 :                            ;; call    putchar
+(1)     285 :                            ;; pop     AF
+(1)     285 :                            ;; call    putchar
+(1)     285 :                            ;; call    newline
+(1)     285 :
+(1)     285 : CD 42 01                   call    getchar
+(1)     288 : 30 09                      jr      NC, next_x
+(1)     28A : B7                         or      A
+(1)     28B : 20 06                      jr      NZ, next_x
+(1)     28D :                    halt_to_system:
+(1)     28D : 21 38 00                   ld      HL, ORG_RST38
+(1)     290 : 36 FF                      ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
+(1)     292 : FF                         rst     38H
+(1)     293 :
+(1)     293 :                    next_x:
+(1)     293 : 21 D4 02                   ld      HL, vX
+(1)     296 : 34                         inc     (HL)            ; X+=1
+(1)     297 : 7E                         ld      A, (HL)
+(1)     298 : CB 7F                      bit     7, A
+(1)     29A : C2 84 01                   jp      NZ, loop_x      ; if X<0
+(1)     29D : FE 1E                      cp      A, 30
+(1)     29F : DA 84 01                   jp      C, loop_x       ; if X<30
+(1)     2A2 : CD 4D 01                   call    newline
+(1)     2A5 : 21 D3 02                   ld      HL, vY
+(1)     2A8 : 34                         inc     (HL)            ; Y+=1
+(1)     2A9 : 7E                         ld      A, (HL)
+(1)     2AA : CB 7F                      bit     7, A
+(1)     2AC : C2 7F 01                   jp      NZ, loop_y      ; if Y<0
+(1)     2AF : FE 0D                      cp      A, 13
+(1)     2B1 : DA 7F 01                   jp      C, loop_y       ; if Y<13
+(1)     2B4 : C9                         ret
+(1)     2B5 :
+(1)     2B5 :                    ;;; Print variable
+(1)     2B5 :                    ;;; @param A variable name
+(1)     2B5 :                    ;;; @param HL variable value
+(1)     2B5 :                    print:
+(1)     2B5 : CD 54 01                   call    putchar
+(1)     2B8 : 3E 3D                      ld      A, '='
+(1)     2BA : CD 54 01                   call    putchar
+(1)     2BD : CD D6 02                   call    print_int16
+(1)     2C0 : C3 6C 01                   jp      putspace
+(1)     2C3 :
+(1)     2C3 :                    ;;; workspace
+(1)     2C3 :                    vC:     ds      2
+(1)     2C5 :                    vD:     ds      2
+(1)     2C7 :                    vA:     ds      2
+(1)     2C9 :                    vB:     ds      2
+(1)     2CB :                    vP:     ds      2
+(1)     2CD :                    vQ:     ds      2
+(1)     2CF :                    vS:     ds      2
+(1)     2D1 :                    vT:     ds      2
+(1)     2D3 :                    vY:     ds      1
+(1)     2D4 :                    vX:     ds      1
+(1)     2D5 :                    vI:     ds      1
+        2D6 :                            include "arith.inc"
+(1)     2D6 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     2D6 :                            cpu     z80
+(1)     2D6 :
+(1)     2D6 :                    ;;; Print signed 16-bit integer as decimal
+(1)     2D6 :                    ;;; @param HL value
+(1)     2D6 :                    ;;; @clobber A HL
+(1)     2D6 :                    print_int16:
+(1)     2D6 : 7C                         ld      A, H
+(1)     2D7 : B5                         or      A, L
+(1)     2D8 : 28 2E                      jr      Z, print_uint16_zero
+(1)     2DA : CB 7C                      bit     7, H
+(1)     2DC : 28 0C                      jr      Z, print_uint16
+(1)     2DE : 3E 2D                      ld      A, '-'
+(1)     2E0 : CD 54 01                   call    putchar
+(1)     2E3 : 7D                         ld      A, L
+(1)     2E4 : 2F                         cpl
+(1)     2E5 : 6F                         ld      L, A
+(1)     2E6 : 7C                         ld      A, H
+(1)     2E7 : 2F                         cpl
+(1)     2E8 : 67                         ld      H, A
+(1)     2E9 : 23                         inc     HL              ; HL=-value
+(1)     2EA :                    print_uint16:
+(1)     2EA : C5                         push    BC
+(1)     2EB : D5                         push    DE
+(1)     2EC : CD F2 02                   call    print_uint16_loop
+(1)     2EF : D1                         pop     DE
+(1)     2F0 : C1                         pop     BC
+(1)     2F1 : C9                         ret
+(1)     2F2 :                    print_uint16_loop:
+(1)     2F2 : 7C                         ld      A, H
+(1)     2F3 : B5                         or      A, L
+(1)     2F4 : C8                         ret     Z
+(1)     2F5 : 44                         ld      B, H
+(1)     2F6 : 4D                         ld      C, L
+(1)     2F7 : 11 0A 00                   ld      DE, 10
+(1)     2FA : CD 49 03                   call    udiv16          ; BC/DE = HL...BC
+(1)     2FD : C5                         push    BC              ; push remainder
+(1)     2FE : CD F2 02                   call    print_uint16_loop
+(1)     301 : E1                         pop     HL              ; pop remainder
+(1)     302 : 7D                         ld      A, L
+(1)     303 : C6 30                      add     A, '0'
+(1)     305 : C3 54 01                   jp      putchar
+(1)     308 :                    print_uint16_zero:
+(1)     308 : 3E 30                      ld      A, '0'
+(1)     30A : C3 54 01                   jp      putchar
+(1)     30D :
+(1)     30D :                    ;;; Signed comparison; minuend - subtrahend
+(1)     30D :                    ;;; @param BC minuend
+(1)     30D :                    ;;; @param DE subtrahend
+(1)     30D :                    ;;; @return AF.Z, AF.S
+(1)     30D :                    ;;; @clobber A
+(1)     30D :                    cmp16:
+(1)     30D : E5                         push    HL
+(1)     30E : 60                         ld      H, B
+(1)     30F : 69                         ld      L, C
+(1)     310 : 37                         scf
+(1)     311 : 3F                         ccf
+(1)     312 : ED 52                      sbc     HL, DE
+(1)     314 : 28 09                      jr      Z, cmp16_return ; AF.Z=1
+(1)     316 : 7C                         ld      A, H            ; high(minuend-subtrahend)
+(1)     317 : A8                         xor     B               ; high(minuend-subtrahend)^minuend
+(1)     318 : 6F                         ld      L, A
+(1)     319 : 78                         ld      A, B
+(1)     31A : AA                         xor     D               ; high(minuend^subtrahend)
+(1)     31B : A5                         and     L               ; overflow
+(1)     31C : AC                         xor     H               ; AF.S=overflow^sign
+(1)     31D : F6 01                      or      1               ; clear AF.Z
+(1)     31F :                    cmp16_return:
+(1)     31F : E1                         pop     HL
+(1)     320 : C9                         ret
+(1)     321 :
+(1)     321 :                    ;;; Signed multiplication; result = multiplicand * multiplier
+(1)     321 :                    ;;; @param BC multiplicand
+(1)     321 :                    ;;; @param DE multiplier
+(1)     321 :                    ;;; @return HL result
+(1)     321 :                    ;;; @clobber A BC DE
+(1)     321 :                    ;;; A 16-bit product is the same signed or unsigned; a negative
+(1)     321 :                    ;;; multiplier is negated only to shorten the loop.
+(1)     321 :                    mul16:
+(1)     321 : CB 7A                      bit     7, D
+(1)     323 : 28 0E                      jr      Z, umul16       ; if multiplier >= 0
+(1)     325 : AF                         xor     A               ; AF.C=0
+(1)     326 : 67                         ld      H, A
+(1)     327 : 6F                         ld      L, A
+(1)     328 : ED 52                      sbc     HL, DE
+(1)     32A : 54                         ld      D, H
+(1)     32B : 5D                         ld      E, L            ; multiplier = -multiplier
+(1)     32C : AF                         xor     A               ; AF.C=0
+(1)     32D : 67                         ld      H, A
+(1)     32E : 6F                         ld      L, A
+(1)     32F : ED 42                      sbc     HL, BC
+(1)     331 : 44                         ld      B, H
+(1)     332 : 4D                         ld      C, L            ; multiplicand = -multiplicand
+(1)     333 :                                                    ; fall through to umul16
+(1)     333 :
+(1)     333 :                    ;;; Unsigned multiplication; result = multiplicand * multiplier
+(1)     333 :                    ;;; @param BC multiplicand
+(1)     333 :                    ;;; @param DE multiplier
+(1)     333 :                    ;;; @return HL result
+(1)     333 :                    ;;; @clobber BC DE HL A
+(1)     333 :                    umul16:
+(1)     333 : 21 00 00                   ld      HL, 0           ; result=0
+(1)     336 : 7A                         ld      A, D
+(1)     337 : B3                         or      E
+(1)     338 : C8                         ret     Z               ; if multiplier == 0
+(1)     339 :                    umul16_loop:
+(1)     339 : CB 3A                      srl     D
+(1)     33B : CB 1B                      rr      E               ; multiplier >>= 1
+(1)     33D : 30 01                      jr      NC, umul16_next ; if lsb(multiplier) == 0
+(1)     33F : 09                         add     HL, BC          ; result += multiplicand
+(1)     340 :                    umul16_next:
+(1)     340 : CB 21                      sla     C
+(1)     342 : CB 10                      rl      B               ; multiplicand <<= 1
+(1)     344 : 7A                         ld      A, D
+(1)     345 : B3                         or      E
+(1)     346 : 20 F1                      jr      NZ, umul16_loop ; while multiplier != 0
+(1)     348 : C9                         ret
+(1)     349 :
+(1)     349 :                    ;;; Unsigned division; dividend / divisor = quotient ... remainder
+(1)     349 :                    ;;; @param BC dividend
+(1)     349 :                    ;;; @param DE divisor
+(1)     349 :                    ;;; @return BC remainder
+(1)     349 :                    ;;; @return HL quotient
+(1)     349 :                    ;;; @clobber A DE
+(1)     349 :                    udiv16:
+(1)     349 : 7A                         ld      A, D
+(1)     34A : B3                         or      A, E
+(1)     34B : C8                         ret     Z               ; divide by zero
+(1)     34C : 2E 01                      ld      L, 1            ; L=bits
+(1)     34E : 18 05                      jr      udiv16_prep
+(1)     350 :                    udiv16_prep_loop:
+(1)     350 : CB 23                      sla     E
+(1)     352 : CB 12                      rl      D               ; divisor <<= 1
+(1)     354 : 2C                         inc     L               ; ++bits
+(1)     355 :                    udiv16_prep:
+(1)     355 : 79                         ld      A, C
+(1)     356 : 93                         sub     E
+(1)     357 : 78                         ld      A, B
+(1)     358 : 9A                         sbc     A, D
+(1)     359 : 38 04                      jr      C, udiv16_prep_end ; until divisor > dividend
+(1)     35B : CB 7A                      bit     7, D
+(1)     35D : 28 F1                      jr      Z, udiv16_prep_loop ; while msb(divisor) == 0
+(1)     35F :                    udiv16_prep_end:
+(1)     35F : 7D                         ld      A, L            ; A=bits
+(1)     360 : 60                         ld      H, B
+(1)     361 : 69                         ld      L, C            ; HL=dividend
+(1)     362 : 01 00 00                   ld      BC, 0           ; BC=quotient
+(1)     365 : 18 08                      jr      udiv16_enter_loop
+(1)     367 :                    udiv16_loop:
+(1)     367 : CB 3A                      srl     D
+(1)     369 : CB 1B                      rr      E               ; divisor >>= 1
+(1)     36B : CB 21                      sla     C
+(1)     36D : CB 10                      rl      B               ; quotient <<= 1
+(1)     36F :                    udiv16_enter_loop:
+(1)     36F : B7                         or      A, A            ; clear AF.C
+(1)     370 : ED 52                      sbc     HL, DE          ; dividend -= divisor
+(1)     372 : 38 03                      jr      C, udiv16_readd ; if dividend < 0
+(1)     374 : 0C                         inc     C               ; quotient |= 1
+(1)     375 : 18 01                      jr      udiv16_next
+(1)     377 :                    udiv16_readd:
+(1)     377 : 19                         add     HL, DE          ; dividend += divisor
+(1)     378 :                    udiv16_next:
+(1)     378 : 3D                         dec     A               ; --bits
+(1)     379 : 20 EC                      jr      NZ, udiv16_loop ; while bits != 0
+(1)     37B : E5                         push    HL              ; remainder
+(1)     37C : C5                         push    BC              ; quotient
+(1)     37D : E1                         pop     HL
+(1)     37E : C1                         pop     BC
+(1)     37F : C9                         ret
+(1)     380 :
+(1)     380 :                    ;;; Signed division; dividend / divisor = quotient ... remainder
+(1)     380 :                    ;;; @param BC dividend
+(1)     380 :                    ;;; @param DE divisor
+(1)     380 :                    ;;; @return BC remainder
+(1)     380 :                    ;;; @return HL quotient
+(1)     380 :                    ;;; @clobber A DE
+(1)     380 :                    div16:
+(1)     380 : 78                         ld      A, B
+(1)     381 : AA                         xor     A, D
+(1)     382 : F5                         push    AF              ; save high(dividend^divisor)
+(1)     383 : CB 78                      bit     7, B
+(1)     385 : 28 07                      jr      Z, div16_abs_dividend
+(1)     387 : AF                         xor     A               ; AF.C=0
+(1)     388 : 67                         ld      H, A
+(1)     389 : 6F                         ld      L, A
+(1)     38A : ED 42                      sbc     HL, BC
+(1)     38C : 44                         ld      B, H
+(1)     38D : 4D                         ld      C, L            ; dividend = -dividend
+(1)     38E :                    div16_abs_dividend:
+(1)     38E : CB 7A                      bit     7, D
+(1)     390 : 28 07                      jr      Z, div16_divide
+(1)     392 : AF                         xor     A               ; AF.C=0
+(1)     393 : 67                         ld      H, A
+(1)     394 : 6F                         ld      L, A
+(1)     395 : ED 52                      sbc     HL, DE
+(1)     397 : 54                         ld      D, H
+(1)     398 : 5D                         ld      E, L            ; divisor = -divisor
+(1)     399 :                    div16_divide:
+(1)     399 : CD 49 03                   call    udiv16          ; HL=quotient, BC=remainder
+(1)     39C : F1                         pop     AF              ; A=high(dividend^divisor)
+(1)     39D : CB 7F                      bit     7, A
+(1)     39F : 28 07                      jr      Z, div16_return
+(1)     3A1 : 7C                         ld      A, H
+(1)     3A2 : 2F                         cpl
+(1)     3A3 : 67                         ld      H, A
+(1)     3A4 : 7D                         ld      A, L
+(1)     3A5 : 2F                         cpl
+(1)     3A6 : 6F                         ld      L, A
+(1)     3A7 : 23                         inc     HL              ; quotient=-quotient
+(1)     3A8 :                    div16_return:
+(1)     3A8 : C9                         ret
+        3A9 :                            include "queue.inc"
+(1)     3A9 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     3A9 :                    ;;; [queue] queue structure
+(1)     3A9 : =0                 queue_len:      equ     0       ; queue length
+(1)     3A9 : =1                 queue_size:     equ     1       ; buffer size
+(1)     3A9 : =2                 queue_put:      equ     2       ; queue put index
+(1)     3A9 : =3                 queue_get:      equ     3       ; queue get index
+(1)     3A9 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     3A9 :
+(1)     3A9 :                    ;;; [queue] Initialize queue
+(1)     3A9 :                    ;;; @param HL queue work space pointer
+(1)     3A9 :                    ;;; @param B queue work space size
+(1)     3A9 :                    queue_init:
+(1)     3A9 : F5                         push    AF
+(1)     3AA : E5                         push    HL
+(1)     3AB : 36 00                      ld      (HL), 0         ; queue_len
+(1)     3AD : 78                         ld      A, B
+(1)     3AE : D6 04                      sub     queue_buf
+(1)     3B0 : 23                         inc     HL
+(1)     3B1 : 77                         ld      (HL), A         ; queue_size
+(1)     3B2 : C6 02                      add     A, 2            ; for queue_put and queue_get
+(1)     3B4 :                    queue_init_loop:
+(1)     3B4 : 23                         inc     HL
+(1)     3B5 : 36 00                      ld      (HL), 0
+(1)     3B7 : 3D                         dec     A
+(1)     3B8 : 20 FA                      jr      NZ, queue_init_loop
+(1)     3BA : E1                         pop     HL
+(1)     3BB : F1                         pop     AF
+(1)     3BC : C9                         ret
+(1)     3BD :
+(1)     3BD :                    ;;; [queue] Add an element to queue
+(1)     3BD :                    ;;; @param HL queue work space pointer
+(1)     3BD :                    ;;; @param A an element
+(1)     3BD :                    ;;; @return F.C 0 if queue is full
+(1)     3BD :                    queue_add:
+(1)     3BD : D5                         push    DE
+(1)     3BE : E5                         push    HL
+(1)     3BF : DD E3                      ex      (SP), IX        ; IX points queue structure
+(1)     3C1 : 57                         ld      D, A            ; save an element
+(1)     3C2 : DD 7E 00                   ld      A, (IX+queue_len)
+(1)     3C5 : DD BE 01                   cp      (IX+queue_size)
+(1)     3C8 : 7A                         ld      A, D               ; restore an element
+(1)     3C9 : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
+(1)     3CB : DD E3                      ex      (SP), IX           ; F.C=0
+(1)     3CD : E1                         pop     HL
+(1)     3CE : D1                         pop     DE
+(1)     3CF : C9                         ret
+(1)     3D0 :                    queue_add_store:
+(1)     3D0 : DD 34 00                   inc     (IX+queue_len)
+(1)     3D3 : 11 04 00                   ld      DE, queue_buf
+(1)     3D6 : 19                         add     HL, DE
+(1)     3D7 : DD 5E 02                   ld      E, (IX+queue_put)
+(1)     3DA : 19                         add     HL, DE          ; HL=&queue_buf[queue_put]
+(1)     3DB : 77                         ld      (HL), A         ; store an element
+(1)     3DC : 7B                         ld      A, E
+(1)     3DD : 3C                         inc     A               ; queue_put++
+(1)     3DE : DD BE 01                   cp      (IX+queue_size)
+(1)     3E1 : 38 01                      jr      C, queue_add_update ; queue_put < queue_size
+(1)     3E3 : AF                         xor     A                   ; wrap around
+(1)     3E4 :                    queue_add_update:
+(1)     3E4 : DD 77 02                   ld      (IX+queue_put), A
+(1)     3E7 : 7E                         ld      A, (HL)         ; restore an element
+(1)     3E8 : DD E3                      ex      (SP), IX
+(1)     3EA : E1                         pop     HL
+(1)     3EB : D1                         pop     DE
+(1)     3EC : 37                         scf                     ; set carry
+(1)     3ED : C9                         ret
+(1)     3EE :
+(1)     3EE :                    ;;; [queue] Remove an element from queue
+(1)     3EE :                    ;;; @param HL queue work space pointer
+(1)     3EE :                    ;;; @return A an element
+(1)     3EE :                    ;;; @return F.C 0 if queue is empty
+(1)     3EE :                    queue_remove:
+(1)     3EE : 7E                         ld      A, (HL)               ; queue_len
+(1)     3EF : B7                         or      A                     ; clear carry
+(1)     3F0 : 20 01                      jr      NZ, queue_remove_elem ; queue_len > 0
+(1)     3F2 : C9                         ret
+(1)     3F3 :                    queue_remove_elem:
+(1)     3F3 : D5                         push    DE
+(1)     3F4 : E5                         push    HL
+(1)     3F5 : DD E3                      ex      (SP), IX        ; IX points queue structure
+(1)     3F7 : DD 35 00                   dec     (IX+queue_len)
+(1)     3FA : 11 04 00                   ld      DE, queue_buf
+(1)     3FD : 19                         add     HL, DE
+(1)     3FE : DD 5E 03                   ld      E, (IX+queue_get)
+(1)     401 : 19                         add     HL, DE          ; HL=&queue_buf[queue_get]
+(1)     402 : 7B                         ld      A, E
+(1)     403 : 3C                         inc     A               ; queue_get++
+(1)     404 : DD BE 01                   cp      (IX+queue_size)
+(1)     407 : 38 01                      jr      C, queue_remove_update ; queue_get < queue_size
+(1)     409 : AF                         xor     A                      ; wrap around
+(1)     40A :                    queue_remove_update:
+(1)     40A : DD 77 03                   ld      (IX+queue_get), A
+(1)     40D : 7E                         ld      A, (HL)         ; read an element
+(1)     40E : DD E3                      ex      (SP), IX
+(1)     410 : E1                         pop     HL
+(1)     411 : D1                         pop     DE
+(1)     412 : 37                         scf                     ; set carry
+(1)     413 : C9                         ret
+        414 :
+        414 :                    ;;; Rx and Tx share the entry: receive if RxRDY, then send if TxRDY
+        414 :                            include "usart_mode2.inc"
+(1)     414 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     414 :                    ;;; Mode 2 RxRDY and TxRDY interrupt of the i8251, sharing one vector:
+(1)     414 :                    ;;; queue the received character, then send the next queued one, or
+(1)     414 :                    ;;; disable Tx when the queue is empty. IN/OUT (C) put B on A8-A15, so
+(1)     414 :                    ;;; boards decoding 16-bit I/O addresses find the USART at 0140H.
+(1)     414 :                            cpu     z80
+(1)     414 :                    isr_intr:
+(1)     414 : F5                         push    AF
+(1)     415 : C5                         push    BC
+(1)     416 : 01 41 01                   ld      BC, 0100H|USARTS
+(1)     419 : ED 78                      in      A, (C)
+(1)     41B : CB 4F                      bit     ST_RxRDY_bp, A
+(1)     41D : 28 10                      jr      Z, isr_intr_tx
+(1)     41F :                    isr_intr_rx:
+(1)     41F : 0E 40                      ld      C, USARTD
+(1)     421 : ED 78                      in      A, (C)          ; receive character
+(1)     423 : E5                         push    HL
+(1)     424 : 21 00 20                   ld      HL, rx_queue
+(1)     427 : CD BD 03                   call    queue_add
+(1)     42A : E1                         pop     HL
+(1)     42B : 0E 41                      ld      C, USARTS
+(1)     42D : ED 78                      in      A, (C)
+(1)     42F :                    isr_intr_tx:
+(1)     42F : CB 47                      bit     ST_TxRDY_bp, A
+(1)     431 : 28 0E                      jr      Z, isr_intr_exit
+(1)     433 : E5                         push    HL
+(1)     434 : 21 80 20                   ld      HL, tx_queue
+(1)     437 : CD EE 03                   call    queue_remove
+(1)     43A : E1                         pop     HL
+(1)     43B : 30 09                      jr      NC, isr_intr_send_empty
+(1)     43D : 0E 40                      ld      C, USARTD
+(1)     43F : ED 79                      out     (C), A          ; send character
+(1)     441 :                    isr_intr_exit:
+(1)     441 : C1                         pop     BC
+(1)     442 : F1                         pop     AF
+(1)     443 : FB                         ei
+(1)     444 : ED 4D                      reti
+(1)     446 :                    isr_intr_send_empty:
+(1)     446 : 3E 36                      ld      A, RX_EN_TX_DIS
+(1)     448 : 0E 41                      ld      C, USARTC
+(1)     44A : ED 79                      out     (C), A          ; disable Tx
+(1)     44C : 18 F3                      jr      isr_intr_exit
+(1)     44E :
+        44E :                            end
