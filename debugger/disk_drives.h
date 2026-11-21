@@ -35,8 +35,8 @@ protected:
     virtual const char *unitName(uint8_t unit) const = 0;
     // Up to the first format's size takes the first, else the format of
     // exactly that size; false when none fits.
-    virtual bool place(uint32_t bytes, const DiskGeometry *&format,
-            uint32_t &offset) const;
+    virtual bool place(uint8_t unit, uint32_t bytes,
+            const DiskGeometry *&format, uint32_t &offset) const;
     // Mounts |path| on |unit| under |label|, placed by its size.
     Mounted mountUnit(uint8_t unit, const char *label, const char *path);
 

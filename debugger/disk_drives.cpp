@@ -15,8 +15,8 @@ uint8_t DiskDrives::formatIndex(uint8_t unit) const {
     return 0;
 }
 
-bool DiskDrives::place(
-        uint32_t bytes, const DiskGeometry *&format, uint32_t &offset) const {
+bool DiskDrives::place(uint8_t, uint32_t bytes, const DiskGeometry *&format,
+        uint32_t &offset) const {
     offset = 0;
     for (auto i = 0; i < _formatCount; ++i) {
         if (i == 0 ? bytes <= _formats[0].bytes() : bytes == _formats[i].bytes()) {
@@ -41,7 +41,7 @@ Disk::Mounted DiskDrives::mountUnit(
     }
     const DiskGeometry *format;
     uint32_t offset;
-    if (!place(bytes, format, offset))
+    if (!place(unit, bytes, format, offset))
         return MOUNT_BAD_SIZE;
     if (!_units[unit].mount(path, offset, format))
         return MOUNT_NOT_FOUND;
@@ -83,7 +83,7 @@ void DiskDrives::printDrives() const {
         if (!unit.mounted())
             continue;
         cli.print("  ");
-        cli.printStr(_labels[u], -LABEL_MAX);
+        cli.printStr(_labels[u], -int8_t(LABEL_MAX));
         cli.print(' ');
         cli.printStr(unitName(u), -4);
         cli.print(' ');
