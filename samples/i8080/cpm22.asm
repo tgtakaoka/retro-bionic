@@ -1,46 +1,17 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-;;; CP/M 2.2 cold boot: L cpm22.hex loads this and mounts cpm22.dsk as A:
-;;; (and cpm22b.dsk etc. as B:-D:). It reads CCP, BDOS and the BIOS from
-;;; the system tracks and enters the BIOS's cold boot.
+;;; CP/M 2.2 cold boot on 8-bit ports: L i8080/cpm22.hex loads this and
+;;; mounts cpm22.dsk as A: (and cpm22b.dsk etc. as B:-D:). It reads CCP,
+;;; BDOS and the BIOS from the system tracks and enters the BIOS's cold
+;;; boot. For the 8080, 8085, Z80, NSC800 and KL5C80.
         include "i8080.inc"
         include "cpm22.inc"
 
-DISK:   equ     50H
-        include "sector_disk.inc"
-
         org     ORG_RESET
         lxi     sp, 0100H
-        xra     a
-        out     DISK_DRIVE
-        mvi     a, 0
-        out     DISK_TRACK
-        mvi     b, 2                    ; sector 2: past the boot sector
         lxi     h, CCP
         mvi     c, CCP_SECTORS+BIOS_SECTORS
-load:
-        mov     a, b
-        out     DISK_SECTOR
-        mov     a, l
-        out     DISK_DMAL
-        mov     a, h
-        out     DISK_DMAH
-        mvi     a, CMD_READ
-        out     DISK_COMMAND
-        in      DISK_COMMAND
-        ora     a
-        jnz     error
-        lxi     d, 128
-        dad     d
-        inr     b
-        mov     a, b
-        cpi     SPT+1
-        jc      next
-        mvi     b, 1                    ; on to track 1
-        mvi     a, 1
-        out     DISK_TRACK
-next:
-        dcr     c
-        jnz     load
-        jmp     BIOS                    ; cold boot
-error:
+        call    load_system
+        jz      BIOS                    ; cold boot
         hlt
+        include "cpm22load.inc"
+        include "cpm22io.inc"

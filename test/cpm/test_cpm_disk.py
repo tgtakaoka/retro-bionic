@@ -31,7 +31,8 @@ def labels(lst):
     with open(lst) as f:
         lines = f.readlines()
     for line in lines:
-        m = re.match(r'\s*([0-9A-F]{4}) :\s+(?:[0-9A-F]{2} )*\s*(\w+):', line)
+        m = re.match(r'(?:\(\d+\))?\s*([0-9A-F]{4}) :\s+(?:[0-9A-F]{2} )*\s*(\w+):',
+                     line)
         if m:
             found[m.group(2)] = int(m.group(1), 16)
     return found
@@ -45,27 +46,39 @@ def memory(*hexes):
 
 
 class BiosTables(unittest.TestCase):
-    def setUp(self):
-        self.mem = memory(os.path.join(SAMPLES, 'cpm22bios.hex'))
-        self.at = labels(os.path.join(SAMPLES, 'cpm22bios.lst'))
+    # The BIOS on 8-bit ports and the one on the Z180's 16-bit ports.
+    BUILDS = [SAMPLES, os.path.join(PROJ, 'samples', 'z180')]
+
+    def builds(self):
+        for d in self.BUILDS:
+            with self.subTest(build=os.path.relpath(d, PROJ)):
+                yield (memory(os.path.join(d, 'cpm22bios.hex')),
+                       labels(os.path.join(d, 'cpm22bios.lst')), d)
 
     def test_skew(self):
-        xlt = self.at['xlt']
-        self.assertEqual(list(self.mem[xlt:xlt + 26]), DRI_TRANS)
+        for mem, at, _ in self.builds():
+            self.assertEqual(list(mem[at['xlt']:at['xlt'] + 26]), DRI_TRANS)
         self.assertEqual(cpm_disk.SKEW, DRI_TRANS)
 
     def test_dpb(self):
-        dpb = self.at['dpb']
-        self.assertEqual(bytes(self.mem[dpb:dpb + 15]), DRI_DPB)
+        for mem, at, _ in self.builds():
+            self.assertEqual(bytes(mem[at['dpb']:at['dpb'] + 15]), DRI_DPB)
         self.assertEqual((cpm_disk.SPT, cpm_disk.DSM, cpm_disk.DRM,
                           cpm_disk.OFF, cpm_disk.BLOCK),
                          (26, 242, 63, 2, 1024))
 
     def test_bios_fits_its_sectors(self):
         # cpm22.inc: the BIOS ends track 1, after the boot sector and the
-        # 44 sectors of CCP and BDOS.
-        self.assertLessEqual(self.at['dph0'] + 4 * 16, 0xFA00 + 7 * 128)
-        self.assertEqual(self.at['dirbuf'], 0xFA00 + 7 * 128)
+        # 44 sectors of CCP and BDOS; its scratch areas follow.
+        for _, at, d in self.builds():
+            self.assertEqual(at['dirbuf'], 0xFA00 + 7 * 128)
+            top = 0
+            with open(os.path.join(d, 'cpm22bios.hex')) as f:
+                for line in f:
+                    rec = bytes.fromhex(line.strip()[1:])
+                    if rec[3] == 0:
+                        top = max(top, ((rec[1] << 8) | rec[2]) + rec[0])
+            self.assertLessEqual(top, at['dirbuf'])
 
 
 class ImageLayout(unittest.TestCase):
@@ -102,6 +115,20 @@ class ImageLayout(unittest.TestCase):
         self.assertEqual(image[cpm_disk.offset(1, 20)], 0x22)
         self.assertEqual(image[cpm_disk.offset(1, 26) + 127], 0x33)
         self.assertEqual(image[cpm_disk.offset(0, 1)], 0xE5)
+
+    def test_sys_keeps_uncovered_bytes(self):
+        image = bytearray(b'\xe5' * cpm_disk.SIZE)
+        with tempfile.TemporaryDirectory() as tmp:
+            first, second = (os.path.join(tmp, n) for n in ('1.hex', '2.hex'))
+            for path, addr, byte in ((first, 0xE400, 0x11), (first, 0xFA00, 0x22),
+                                     (second, 0xFA00, 0x33)):
+                rec = [1, addr >> 8, addr & 0xFF, 0, byte]
+                with open(path, 'a') as f:
+                    f.write(':' + bytes(rec + [-sum(rec) & 0xFF]).hex() + '\n')
+            cpm_disk.put_system(image, [first])
+            cpm_disk.put_system(image, [second], cpm_disk.get_system(image))
+        self.assertEqual(image[cpm_disk.offset(0, 2)], 0x11)  # CCP kept
+        self.assertEqual(image[cpm_disk.offset(1, 20)], 0x33)  # BIOS new
 
     def test_files_round_trip(self):
         with tempfile.TemporaryDirectory() as tmp:

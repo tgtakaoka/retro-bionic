@@ -1,0 +1,410 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; CP/M 2.2 BIOS on 16-bit ports, for the Z180, Z280 and Z380.
+          0 :                            cpu     8080
+          0 :                            include "../i8080/cpm22.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; CP/M 2.2 in 64K on 8" single-sided single-density disks: 77 tracks of
+(1)       0 :                    ;;; 26 sectors of 128 bytes. The system tracks 0 and 1 hold the boot
+(1)       0 :                    ;;; sector, then CCP and BDOS, then the BIOS.
+(1)       0 : =40                MSIZE:  equ     64
+(1)       0 : =E400              CCP:    equ     (MSIZE-7)*1024  ; E400
+(1)       0 : =EC00              BDOS:   equ     CCP+0800H       ; EC00
+(1)       0 : =FA00              BIOS:   equ     CCP+1600H       ; FA00
+(1)       0 : =3                 IOBYTE: equ     0003H
+(1)       0 : =4                 TDRIVE: equ     0004H           ; current drive and user
+(1)       0 : =1A                SPT:    equ     26              ; sectors a track
+(1)       0 : =2C                CCP_SECTORS:    equ     (BIOS-CCP)/128          ; 44
+(1)       0 : =7                 BIOS_SECTORS:   equ     2*SPT-1-CCP_SECTORS     ; 7, to the end of track 1
+(1)       0 : =4                 NDISKS: equ     4
+(1)       0 :
+(1)       0 :                    ;;; The BIOS's scratch areas, past it on the system tracks.
+(1)    FD80 :                            org     BIOS+BIOS_SECTORS*128
+(1)    FD80 :                    dirbuf: ds      128
+(1)    FE00 :                    csv:    ds      16*NDISKS
+(1)    FE40 :                    alv:    ds      31*NDISKS
+       FEBC :
+       FA00 :                            org     BIOS
+       FA00 :                            include "../i8080/cpm22bios.inc"
+(1)    FA00 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    FA00 :                    ;;; CP/M 2.2 BIOS: the console on the i8251 USART and four drives on the
+(1)    FA00 :                    ;;; debugger's sector disk. 8080 instructions only. The harness puts it at
+(1)    FA00 :                    ;;; BIOS and supplies the port routines con_* and disk_*, which keep every
+(1)    FA00 :                    ;;; register but A and the flags; the image builder puts it on the system
+(1)    FA00 :                    ;;; tracks after CCP and BDOS.
+(1)    FA00 :                            cpu     8080
+(1)    FA00 :
+(1)    FA00 : C3 44 FA                   jmp     boot
+(1)    FA03 : C3 5A FA           wboote: jmp     wboot
+(1)    FA06 : C3 AD FA                   jmp     const
+(1)    FA09 : C3 B6 FA                   jmp     conin
+(1)    FA0C : C3 C2 FA                   jmp     conout
+(1)    FA0F : C3 CE FA                   jmp     list
+(1)    FA12 : C3 CE FA                   jmp     punch
+(1)    FA15 : C3 D1 FA                   jmp     reader
+(1)    FA18 : C3 D4 FA                   jmp     home
+(1)    FA1B : C3 E6 FA                   jmp     seldsk
+(1)    FA1E : C3 D6 FA                   jmp     settrk
+(1)    FA21 : C3 DA FA                   jmp     setsec
+(1)    FA24 : C3 DE FA                   jmp     setdma
+(1)    FA27 : C3 06 FB                   jmp     read
+(1)    FA2A : C3 0E FB                   jmp     write
+(1)    FA2D : C3 CF FA                   jmp     listst
+(1)    FA30 : C3 16 FB                   jmp     sectran
+(1)    FA33 :
+(1)    FA33 :                    signon:
+(1)    FA33 : 0D 0A 36 34 4B 20          db      0DH, 0AH, '64K CP/M 2.2', 0DH, 0AH, 0
+       FA39 : 43 50 2F 4D 20 32
+       FA3F : 2E 32 0D 0A 00
+(1)    FA44 :
+(1)    FA44 :                    boot:
+(1)    FA44 : 31 80 00                   lxi     sp, 0080H
+(1)    FA47 : CD 89 FA                   call    init_usart
+(1)    FA4A : 21 33 FA                   lxi     h, signon
+(1)    FA4D : CD A2 FA                   call    puts
+(1)    FA50 : AF                         xra     a
+(1)    FA51 : 32 03 00                   sta     IOBYTE
+(1)    FA54 : 32 04 00                   sta     TDRIVE
+(1)    FA57 : C3 68 FA                   jmp     gocpm
+(1)    FA5A :
+(1)    FA5A :                    ;;; Reloads CCP and BDOS from drive A's system tracks.
+(1)    FA5A :                    wboot:
+(1)    FA5A : 31 80 00                   lxi     sp, 0080H
+(1)    FA5D : 21 00 E4                   lxi     h, CCP
+(1)    FA60 : 0E 2C                      mvi     c, CCP_SECTORS
+(1)    FA62 : CD 85 FB                   call    load_system
+(1)    FA65 : C2 5A FA                   jnz     wboot                   ; retry
+(1)    FA68 :
+(1)    FA68 :                    gocpm:
+(1)    FA68 : 3E C3                      mvi     a, 0C3H                 ; JMP
+(1)    FA6A : 32 00 00                   sta     0000H
+(1)    FA6D : 21 03 FA                   lxi     h, wboote
+(1)    FA70 : 22 01 00                   shld    0001H
+(1)    FA73 : 32 05 00                   sta     0005H
+(1)    FA76 : 21 06 EC                   lxi     h, BDOS+6
+(1)    FA79 : 22 06 00                   shld    0006H
+(1)    FA7C : 01 80 00                   lxi     b, 0080H
+(1)    FA7F : CD DE FA                   call    setdma
+(1)    FA82 : 3A 04 00                   lda     TDRIVE
+(1)    FA85 : 4F                         mov     c, a
+(1)    FA86 : C3 00 E4                   jmp     CCP
+(1)    FA89 :
+(1)    FA89 :                    init_usart:
+(1)    FA89 : AF                         xra     a
+(1)    FA8A : CD CD FB                   call    con_control
+(1)    FA8D : CD CD FB                   call    con_control
+(1)    FA90 : CD CD FB                   call    con_control             ; safest way to sync mode
+(1)    FA93 : 3E 40                      mvi     a, CMD_IR_bm
+(1)    FA95 : CD CD FB                   call    con_control             ; reset
+(1)    FA98 : 3E 4E                      mvi     a, ASYNC_MODE
+(1)    FA9A : CD CD FB                   call    con_control
+(1)    FA9D : 3E 37                      mvi     a, RX_EN_TX_EN
+(1)    FA9F : C3 CD FB                   jmp     con_control
+(1)    FAA2 :
+(1)    FAA2 :                    puts:
+(1)    FAA2 : 7E                         mov     a, m
+(1)    FAA3 : B7                         ora     a
+(1)    FAA4 : C8                         rz
+(1)    FAA5 : 4F                         mov     c, a
+(1)    FAA6 : CD C2 FA                   call    conout
+(1)    FAA9 : 23                         inx     h
+(1)    FAAA : C3 A2 FA                   jmp     puts
+(1)    FAAD :
+(1)    FAAD :                    ;;; Console status: A=FFH when a character is waiting, else 0.
+(1)    FAAD :                    const:
+(1)    FAAD : CD BB FB                   call    con_status
+(1)    FAB0 : E6 02                      ani     ST_RxRDY_bm
+(1)    FAB2 : C8                         rz
+(1)    FAB3 : 3E FF                      mvi     a, 0FFH
+(1)    FAB5 : C9                         ret
+(1)    FAB6 :
+(1)    FAB6 :                    conin:
+(1)    FAB6 : CD AD FA                   call    const
+(1)    FAB9 : CA B6 FA                   jz      conin
+(1)    FABC : CD C1 FB                   call    con_in
+(1)    FABF : E6 7F                      ani     7FH
+(1)    FAC1 : C9                         ret
+(1)    FAC2 :
+(1)    FAC2 :                    conout:
+(1)    FAC2 : CD BB FB                   call    con_status
+(1)    FAC5 : E6 01                      ani     ST_TxRDY_bm
+(1)    FAC7 : CA C2 FA                   jz      conout
+(1)    FACA : 79                         mov     a, c
+(1)    FACB : C3 C7 FB                   jmp     con_out
+(1)    FACE :
+(1)    FACE :                    ;;; No list, punch or reader device.
+(1)    FACE :                    list:
+(1)    FACE :                    punch:
+(1)    FACE : C9                         ret
+(1)    FACF :                    listst:
+(1)    FACF : AF                         xra     a
+(1)    FAD0 : C9                         ret
+(1)    FAD1 :                    reader:
+(1)    FAD1 : 3E 1A                      mvi     a, 1AH                  ; end of file
+(1)    FAD3 : C9                         ret
+(1)    FAD4 :
+(1)    FAD4 :                    home:
+(1)    FAD4 : 0E 00                      mvi     c, 0
+(1)    FAD6 :                    settrk:
+(1)    FAD6 : 79                         mov     a, c
+(1)    FAD7 : C3 D9 FB                   jmp     disk_track
+(1)    FADA :
+(1)    FADA :                    setsec:
+(1)    FADA : 79                         mov     a, c
+(1)    FADB : C3 DF FB                   jmp     disk_sector
+(1)    FADE :
+(1)    FADE :                    setdma:
+(1)    FADE : 79                         mov     a, c
+(1)    FADF : CD E5 FB                   call    disk_dmal
+(1)    FAE2 : 78                         mov     a, b
+(1)    FAE3 : C3 EB FB                   jmp     disk_dmah
+(1)    FAE6 :
+(1)    FAE6 :                    ;;; HL=the drive's DPH, or 0 when it has no image.
+(1)    FAE6 :                    seldsk:
+(1)    FAE6 : 21 00 00                   lxi     h, 0
+(1)    FAE9 : 79                         mov     a, c
+(1)    FAEA : FE 04                      cpi     NDISKS
+(1)    FAEC : D0                         rnc
+(1)    FAED : 47                         mov     b, a
+(1)    FAEE : 04                         inr     b
+(1)    FAEF : CD FD FB                   call    disk_mounted
+(1)    FAF2 :                    seldsk_bit:
+(1)    FAF2 : 0F                         rrc
+(1)    FAF3 : 05                         dcr     b
+(1)    FAF4 : C2 F2 FA                   jnz     seldsk_bit
+(1)    FAF7 : D0                         rnc
+(1)    FAF8 : 79                         mov     a, c
+(1)    FAF9 : CD D3 FB                   call    disk_drive
+(1)    FAFC : 69                         mov     l, c                    ; HL=C*16
+(1)    FAFD : 29                         dad     h
+(1)    FAFE : 29                         dad     h
+(1)    FAFF : 29                         dad     h
+(1)    FB00 : 29                         dad     h
+(1)    FB01 : 11 45 FB                   lxi     d, dph0
+(1)    FB04 : 19                         dad     d
+(1)    FB05 : C9                         ret
+(1)    FB06 :
+(1)    FB06 :                    ;;; A=0 when the sector moved, else 1.
+(1)    FB06 :                    read:
+(1)    FB06 : 3E 01                      mvi     a, CMD_READ
+(1)    FB08 : CD F1 FB                   call    disk_command
+(1)    FB0B : C3 F7 FB                   jmp     disk_status
+(1)    FB0E :
+(1)    FB0E :                    write:
+(1)    FB0E : 3E 02                      mvi     a, CMD_WRITE
+(1)    FB10 : CD F1 FB                   call    disk_command
+(1)    FB13 : C3 F7 FB                   jmp     disk_status
+(1)    FB16 :
+(1)    FB16 :                    ;;; HL=the physical sector of logical sector BC through the table at DE.
+(1)    FB16 :                    sectran:
+(1)    FB16 : EB                         xchg
+(1)    FB17 : 09                         dad     b
+(1)    FB18 : 6E                         mov     l, m
+(1)    FB19 : 26 00                      mvi     h, 0
+(1)    FB1B : C9                         ret
+(1)    FB1C :
+(1)    FB1C :                    ;;; Skew 6, the 8" standard of DRI's skeletal CBIOS.ASM.
+(1)    FB1C :                    xlt:
+(1)    FB1C : 01 07 0D 13 19 05          db      1, 7, 13, 19, 25, 5, 11, 17, 23, 3, 9, 15, 21
+       FB22 : 0B 11 17 03 09 0F
+       FB28 : 15
+(1)    FB29 : 02 08 0E 14 1A 06          db      2, 8, 14, 20, 26, 6, 12, 18, 24, 4, 10, 16, 22
+       FB2F : 0C 12 18 04 0A 10
+       FB35 : 16
+(1)    FB36 :
+(1)    FB36 :                    ;;; 8" single-density disk parameters: 1K blocks, 243 of them, 64
+(1)    FB36 :                    ;;; directory entries, 2 system tracks.
+(1)    FB36 :                    dpb:
+(1)    FB36 : 1A 00                      dw      SPT             ; SPT, sectors a track
+(1)    FB38 : 03                         db      3               ; BSH, block shift
+(1)    FB39 : 07                         db      7               ; BLM, block mask
+(1)    FB3A : 00                         db      0               ; EXM, extent mask
+(1)    FB3B : F2 00                      dw      242             ; DSM, last block
+(1)    FB3D : 3F 00                      dw      63              ; DRM, last directory entry
+(1)    FB3F : C0                         db      0C0H            ; AL0, the directory's blocks
+(1)    FB40 : 00                         db      0               ; AL1
+(1)    FB41 : 10 00                      dw      16              ; CKS, directory check size
+(1)    FB43 : 02 00                      dw      2               ; OFF, system tracks
+(1)    FB45 :
+(1)    FB45 : 1C FB 00 00 00 00  dph0:   dw      xlt, 0, 0, 0, dirbuf, dpb, csv+16*0, alv+31*0
+       FB4B : 00 00 80 FD 36 FB
+       FB51 : 00 FE 40 FE
+(1)    FB55 : 1C FB 00 00 00 00          dw      xlt, 0, 0, 0, dirbuf, dpb, csv+16*1, alv+31*1
+       FB5B : 00 00 80 FD 36 FB
+       FB61 : 10 FE 5F FE
+(1)    FB65 : 1C FB 00 00 00 00          dw      xlt, 0, 0, 0, dirbuf, dpb, csv+16*2, alv+31*2
+       FB6B : 00 00 80 FD 36 FB
+       FB71 : 20 FE 7E FE
+(1)    FB75 : 1C FB 00 00 00 00          dw      xlt, 0, 0, 0, dirbuf, dpb, csv+16*3, alv+31*3
+       FB7B : 00 00 80 FD 36 FB
+       FB81 : 30 FE 9D FE
+       FB85 :                            include "../i8080/cpm22load.inc"
+(1)    FB85 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    FB85 :                    ;;; Reads C sectors of drive A's system tracks into HL, from track 0
+(1)    FB85 :                    ;;; sector 2, past the boot sector. Z when all were read, NZ on an error.
+(1)    FB85 :                    ;;; 8080 instructions only.
+(1)    FB85 :                    load_system:
+(1)    FB85 : AF                         xra     a
+(1)    FB86 : CD D3 FB                   call    disk_drive
+(1)    FB89 : CD D9 FB                   call    disk_track
+(1)    FB8C : 06 02                      mvi     b, 2
+(1)    FB8E :                    load_sector:
+(1)    FB8E : 78                         mov     a, b
+(1)    FB8F : CD DF FB                   call    disk_sector
+(1)    FB92 : 7D                         mov     a, l
+(1)    FB93 : CD E5 FB                   call    disk_dmal
+(1)    FB96 : 7C                         mov     a, h
+(1)    FB97 : CD EB FB                   call    disk_dmah
+(1)    FB9A : 3E 01                      mvi     a, CMD_READ
+(1)    FB9C : CD F1 FB                   call    disk_command
+(1)    FB9F : CD F7 FB                   call    disk_status
+(1)    FBA2 : B7                         ora     a
+(1)    FBA3 : C0                         rnz
+(1)    FBA4 : 11 80 00                   lxi     d, 128
+(1)    FBA7 : 19                         dad     d
+(1)    FBA8 : 04                         inr     b
+(1)    FBA9 : 78                         mov     a, b
+(1)    FBAA : FE 1B                      cpi     SPT+1
+(1)    FBAC : DA B6 FB                   jc      load_count
+(1)    FBAF : 06 01                      mvi     b, 1                    ; on to track 1
+(1)    FBB1 : 3E 01                      mvi     a, 1
+(1)    FBB3 : CD D9 FB                   call    disk_track
+(1)    FBB6 :                    load_count:
+(1)    FBB6 : 0D                         dcr     c
+(1)    FBB7 : C2 8E FB                   jnz     load_sector
+(1)    FBBA : C9                         ret
+       FBBB :                            include "cpm22io.inc"
+(1)    FBBB :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    FBBB :                    ;;; CP/M's port routines on 16-bit I/O addresses: the i8251 at 0140H and
+(1)    FBBB :                    ;;; the sector disk at 0150H, clear of the on-chip I/O. Each keeps every
+(1)    FBBB :                    ;;; register but A and the flags. Z180, Z280 and Z380.
+(1)    FBBB :                            include "usart.inc"
+(2)    FBBB :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    FBBB :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(2)    FBBB : =140               USART:  equ     0140H           ; A8-A15 nonzero: clear of on-chip I/O
+(2)    FBBB : =140               USARTD: equ     USART+0         ; Data register
+(2)    FBBB : =141               USARTS: equ     USART+1         ; Status register
+(2)    FBBB : =141               USARTC: equ     USART+1         ; Control register
+(2)    FBBB : =142               USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+(2)    FBBB : =143               USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+(2)    FBBB :                            include "../z80/i8251.inc"
+(3)    FBBB :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(3)    FBBB :
+(3)    FBBB :                    ;;; i8251 USART device emulator.
+(3)    FBBB :                    ;;; Bit definition of mode register
+(3)    FBBB : =6                 MODE_STOP_gp:   equ     6
+(3)    FBBB : =C0                MODE_STOP_gm:   equ     11000000B
+(3)    FBBB : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(3)    FBBB : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(3)    FBBB : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(3)    FBBB : =20                MODE_EVEN_bm:   equ     00100000B
+(3)    FBBB : =10                MODE_PARITY_bm: equ     00010000B
+(3)    FBBB : =2                 MODE_LEN_gp:    equ     2
+(3)    FBBB : =C                 MODE_LEN_gm:    equ     00001100B
+(3)    FBBB : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(3)    FBBB : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(3)    FBBB : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(3)    FBBB : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(3)    FBBB : =0                 MODE_BAUD_gp:   equ     0
+(3)    FBBB : =3                 MODE_BAUD_gm:   equ     00000011B
+(3)    FBBB : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(3)    FBBB : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(3)    FBBB : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(3)    FBBB :                    ;;; Bit Definition of command register
+(3)    FBBB : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(3)    FBBB : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(3)    FBBB : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(3)    FBBB : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(3)    FBBB : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(3)    FBBB : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(3)    FBBB : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(3)    FBBB : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(3)    FBBB :
+(3)    FBBB :                    ;;; Bit definition of status register
+(3)    FBBB : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(3)    FBBB : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(3)    FBBB : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(3)    FBBB : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(3)    FBBB : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(3)    FBBB : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(3)    FBBB : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(3)    FBBB : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+(2)    FBBB :                    ;;; Async 1stop 8data x16
+(2)    FBBB : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(2)    FBBB :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(2)    FBBB : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(2)    FBBB : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+(1)    FBBB : =2                 ST_RxRDY_bm:    equ     1 << ST_RxRDY_bp
+(1)    FBBB : =1                 ST_TxRDY_bm:    equ     1 << ST_TxRDY_bp
+(1)    FBBB : =150               DISK:   equ     0150H
+(1)    FBBB :                            include "../i8080/sector_disk.inc"
+(2)    FBBB :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    FBBB :
+(2)    FBBB :                    ;;; The debugger's paravirtual sector disk (debugger/sector_disk.h).
+(2)    FBBB :                    ;;; DISK is its base port.
+(2)    FBBB : =150               DISK_DRIVE:     equ     DISK+0  ; 0-3
+(2)    FBBB : =151               DISK_TRACK:     equ     DISK+1  ; 0-76
+(2)    FBBB : =152               DISK_SECTOR:    equ     DISK+2  ; 1-26, physical
+(2)    FBBB : =153               DISK_DMAL:      equ     DISK+3  ; DMA address, low byte
+(2)    FBBB : =154               DISK_DMAH:      equ     DISK+4  ; high byte
+(2)    FBBB : =155               DISK_COMMAND:   equ     DISK+5  ; write a command, read its status
+(2)    FBBB : =156               DISK_MOUNTED:   equ     DISK+6  ; bit n: drive n has its image
+(2)    FBBB : =1                 CMD_READ:       equ     1
+(2)    FBBB : =2                 CMD_WRITE:      equ     2
+(1)    FBBB :
+(1)    FBBB :                            cpu     z80
+(1)    FBBB :                    con_status:
+(1)    FBBB : C5                         push    BC
+(1)    FBBC : 01 41 01                   ld      BC, USARTS
+(1)    FBBF : 18 40                      jr      port_in
+(1)    FBC1 :                    con_in:
+(1)    FBC1 : C5                         push    BC
+(1)    FBC2 : 01 40 01                   ld      BC, USARTD
+(1)    FBC5 : 18 3A                      jr      port_in
+(1)    FBC7 :                    con_out:
+(1)    FBC7 : C5                         push    BC
+(1)    FBC8 : 01 40 01                   ld      BC, USARTD
+(1)    FBCB : 18 38                      jr      port_out
+(1)    FBCD :                    con_control:
+(1)    FBCD : C5                         push    BC
+(1)    FBCE : 01 41 01                   ld      BC, USARTC
+(1)    FBD1 : 18 32                      jr      port_out
+(1)    FBD3 :                    disk_drive:
+(1)    FBD3 : C5                         push    BC
+(1)    FBD4 : 01 50 01                   ld      BC, DISK_DRIVE
+(1)    FBD7 : 18 2C                      jr      port_out
+(1)    FBD9 :                    disk_track:
+(1)    FBD9 : C5                         push    BC
+(1)    FBDA : 01 51 01                   ld      BC, DISK_TRACK
+(1)    FBDD : 18 26                      jr      port_out
+(1)    FBDF :                    disk_sector:
+(1)    FBDF : C5                         push    BC
+(1)    FBE0 : 01 52 01                   ld      BC, DISK_SECTOR
+(1)    FBE3 : 18 20                      jr      port_out
+(1)    FBE5 :                    disk_dmal:
+(1)    FBE5 : C5                         push    BC
+(1)    FBE6 : 01 53 01                   ld      BC, DISK_DMAL
+(1)    FBE9 : 18 1A                      jr      port_out
+(1)    FBEB :                    disk_dmah:
+(1)    FBEB : C5                         push    BC
+(1)    FBEC : 01 54 01                   ld      BC, DISK_DMAH
+(1)    FBEF : 18 14                      jr      port_out
+(1)    FBF1 :                    disk_command:
+(1)    FBF1 : C5                         push    BC
+(1)    FBF2 : 01 55 01                   ld      BC, DISK_COMMAND
+(1)    FBF5 : 18 0E                      jr      port_out
+(1)    FBF7 :                    disk_status:
+(1)    FBF7 : C5                         push    BC
+(1)    FBF8 : 01 55 01                   ld      BC, DISK_COMMAND
+(1)    FBFB : 18 04                      jr      port_in
+(1)    FBFD :                    disk_mounted:
+(1)    FBFD : C5                         push    BC
+(1)    FBFE : 01 56 01                   ld      BC, DISK_MOUNTED
+(1)    FC01 :                    port_in:
+(1)    FC01 : ED 78                      in      A, (C)
+(1)    FC03 : C1                         pop     BC
+(1)    FC04 : C9                         ret
+(1)    FC05 :                    port_out:
+(1)    FC05 : ED 79                      out     (C), A
+(1)    FC07 : C1                         pop     BC
+(1)    FC08 : C9                         ret

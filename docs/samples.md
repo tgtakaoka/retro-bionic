@@ -30,13 +30,21 @@ A few directories carry real vintage software as well:
 [`samples/mc6809/ASSIST09.S19`](../samples/mc6809/ASSIST09.S19) and
 [`samples/mc6809/BASIC9.S19`](../samples/mc6809/BASIC9.S19).
 
-## CP/M 2.2 on the 8080 and 8085
+## CP/M 2.2 on the 8080 and Z80 families
 
-[`samples/i8080/cpm22bios.asm`](../samples/i8080/cpm22bios.asm) is a CP/M 2.2 BIOS
-in 8080 instructions, for the 8080 and 8085 boards: the console on the i8251 USART and four drives on the
-debugger's sector disk. [`cpm22.asm`](../samples/i8080/cpm22.asm) is the cold boot
-that `L` loads from the SD card; it reads CCP, BDOS and the BIOS from drive A's
-system tracks. The disks are the 8" IBM 3740 format, `ibm-3740` in cpmtools, and
+[`samples/i8080/cpm22bios.inc`](../samples/i8080/cpm22bios.inc) is a CP/M 2.2 BIOS
+in 8080 instructions: the console on the i8251 USART and four drives on the
+debugger's sector disk. It reaches them through port routines its harness
+supplies, so one BIOS serves two port layouts:
+
+| Harness | Ports | CPUs |
+|---|---|---|
+| `samples/i8080/cpm22.asm`, `cpm22bios.asm` | 40H, 50H | 8080, 8085, Z80, NSC800, KL5C80 |
+| `samples/z180/cpm22.asm`, `cpm22bios.asm` | 0140H, 0150H, with `OUT (C)` | Z180, Z280, Z380 |
+
+`cpm22.asm` is the cold boot that `L` loads from the SD card; it reads CCP, BDOS
+and the BIOS from drive A's system tracks (`cpm22load.inc`, shared with the
+BIOS's warm boot). The disks are the 8" IBM 3740 format, `ibm-3740` in cpmtools, and
 [`scripts/cpm-disk.py`](../scripts/cpm-disk.py) builds and reads them.
 
 The CP/M binaries stay out of the repository. To build the system disk, unpack
@@ -57,6 +65,9 @@ card, with `cpm22b.dsk`-`cpm22d.dsk` for B:-D:; `make cpm22c.dsk cpm22d.dsk` mak
 blank ones, in each directory below too. `L i8080/cpm22.hex`,
 `R`, then `G` boots to `A>`. `scripts/cpm-disk.py put` and `era` add and erase
 files in an image.
+
+For the Z180, Z280 and Z380, `make cpm22.dsk` in `samples/z180` puts its BIOS on a
+copy of that disk, and `L z180/cpm22.hex` boots it.
 
 `make cpm22b.dsk` makes a B: of `fmandel.bas`, the `fmandel` program for
 Microsoft's MBASIC 5.21, and the files in `samples/i8080/cpm22/b/`. MBASIC is not

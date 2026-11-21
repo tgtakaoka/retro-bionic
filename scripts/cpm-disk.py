@@ -4,6 +4,7 @@
     scripts/cpm-disk.py make OUT.dsk [--system HEX...] [FILE...]
     scripts/cpm-disk.py put IMAGE.dsk FILE...
     scripts/cpm-disk.py era IMAGE.dsk NAME.TYP...
+    scripts/cpm-disk.py sys IMAGE.dsk HEX...
     scripts/cpm-disk.py list IMAGE.dsk
     scripts/cpm-disk.py get IMAGE.dsk NAME.TYP [OUT]
 
@@ -21,6 +22,9 @@ leave out are E5.
 
 `put` copies FILE... into an image as user 0, replacing files of the
 same name; `era` erases files of user 0 from it, as CP/M's ERA does.
+`sys` writes the HEX files' bytes over the system tracks as --system
+does, keeping the bytes they leave out: a new BIOS over an image's
+CCP and BDOS.
 """
 import os
 import sys
@@ -66,8 +70,19 @@ def read_hex(path, memory):
                 break
 
 
-def put_system(image, hexes):
+def get_system(image):
+    """The system tracks from track 0 sector 2 as 64K memory from CCP."""
     memory = bytearray(b'\xe5' * 0x10000)
+    for i in range(OFF * SPT - 1):
+        track, sector = divmod(i + 1, SPT)
+        at = offset(track, sector + 1)
+        memory[CCP + i * SECTOR:CCP + (i + 1) * SECTOR] = image[at:at + SECTOR]
+    return memory
+
+
+def put_system(image, hexes, memory=None):
+    if memory is None:
+        memory = bytearray(b'\xe5' * 0x10000)
     for path in hexes:
         read_hex(path, memory)
     sectors = OFF * SPT - 1
@@ -224,6 +239,10 @@ def main(argv):
         put(argv[1], argv[2:])
     elif len(argv) >= 3 and argv[0] == 'era':
         era(argv[1], argv[2:])
+    elif len(argv) >= 3 and argv[0] == 'sys':
+        image = load(argv[1])
+        put_system(image, argv[2:], get_system(image))
+        save(argv[1], image)
     elif len(argv) == 2 and argv[0] == 'list':
         image = load(argv[1])
         for (user, name), es in sorted(files(image).items()):

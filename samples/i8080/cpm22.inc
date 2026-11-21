@@ -12,3 +12,10 @@ TDRIVE: equ     0004H           ; current drive and user
 SPT:    equ     26              ; sectors a track
 CCP_SECTORS:    equ     (BIOS-CCP)/128          ; 44
 BIOS_SECTORS:   equ     2*SPT-1-CCP_SECTORS     ; 7, to the end of track 1
+NDISKS: equ     4
+
+;;; The BIOS's scratch areas, past it on the system tracks.
+        org     BIOS+BIOS_SECTORS*128
+dirbuf: ds      128
+csv:    ds      16*NDISKS
+alv:    ds      31*NDISKS
