@@ -35,8 +35,8 @@ def pair(value):
 
 
 def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, standoff, thick,
-        lines=(), logo=None, pin1=None, marks=(), dots=(), rects=(), circled=(), font=None, index=None,
-        bumpers=None, mark_rot=-90, bevel=None):
+        lines=(), logo=None, pin1=None, marks=(), dots=(), rects=(), polys=(), circled=(), font=None,
+        index=None, bumpers=None, mark_rot=-90, bevel=None):
     """body, span (lead tip to tip) and per_side (leads on each side) are one value for a square
     package, or (x, y) in the footprint's frame for a rectangular one: per_side[0] leads on each
     X side, the side pin 1 starts.
@@ -47,7 +47,8 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
     ('motorola', u, v, ring radius) for its batwing
     pin1: (u, v, radius) the pin 1 dimple, PIN1_DEPTH deep; marks: [(u, v, radius, depth)] other round
     dimples, e.g. ejector pin marks; dots: [(u, v, radius)] printed dots; rects: [(u, v, width,
-    height)] printed rectangles, centred; circled: [(letter, u, v, ring radius)], e.g. (M) and (C)
+    height)] printed rectangles, centred; polys: [[(u, v), ...]] printed polygons; circled: [(letter,
+    u, v, ring radius)], e.g. (M) and (C)
     font: a font file for the text, else build123d's own
     index: the pin 1 corner's 45 degree cut, its legs this long, through the body's full height
     bumpers: (width, outer, cut) or (width, outer, cut, floor) corner bumpers of a bumpered PQFP:
@@ -155,6 +156,10 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
         ink_parts += ringed(ch, u, v, r)
     ink_parts += [ink(Circle(r), u, v) for u, v, r in dots]
     ink_parts += [ink(Rectangle(w, h), u, v) for u, v, w, h in rects]
+    for pts in polys:
+        # counter-clockwise, or the ink extrudes down into the body
+        area = sum(p[0] * q[1] - q[0] * p[1] for p, q in zip(pts, pts[1:] + pts[:1]))
+        ink_parts.append(ink(Polygon(*(pts if area > 0 else pts[::-1]), align=None), 0, 0))
     b.label, b.color = 'body', Color(0.17, 0.16, 0.15)
     leads.label, leads.color = 'lead', Color(0.85, 0.85, 0.83)
     children = [b, leads]
