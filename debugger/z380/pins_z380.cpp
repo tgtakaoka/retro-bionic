@@ -193,7 +193,7 @@ inline void Signals::getBen() {
 PinsZ380::PinsZ380() {
     // Memory first: RegsZ380 stages its AF restore word there.
     _mems = new MemsZ380();
-    _devs = new DevsZ80(USART_BASE, _mems);
+    _devs = new DevsZ380(mems<MemsZ380>());
     _regs = new RegsZ380(this, mems<MemsZ380>());
 }
 
@@ -367,8 +367,9 @@ Signals *PinsZ380::completeCycle(Signals *s) {
         return s;
     }
 
-    // Only A0-A23 are decoded: the 16MB mirrors across the 4GB space.
-    const auto maddr = s->addr & MemsZ380::ADDR_MASK;
+    // Only A0-A23 are decoded, or fewer as the address mask register
+    // says: the memory mirrors across the 4GB space.
+    const auto maddr = s->addr & mems<MemsZ380>()->addrMask();
     // I/O ports are decoded from all 32 bits: IN A,(n) puts A on A8-A15,
     // so the samples use INA/OUTA and the (C) forms.
     const auto ioaddr = s->addr;
@@ -525,35 +526,68 @@ uint32_t PinsZ380::captureWrites(const uint8_t *inst, uint_fast8_t len,
 }
 
 namespace {
-// The PC an RST or NMI pushed shortly before |s|: one word, two in
-// Extended mode. Returns the earliest of those writes, nullptr if none.
-// The program may have entered Extended mode since the SR was last read,
-// so callers take both readings and RegsZ380::save() picks.
+// The PC pushed in the writes from |s|->prev(|i|) back as far as |last|:
+// two bytes, four in Extended mode, in word writes or, where the SP is
+// odd, in byte ones. |i| is left past the earliest of them, which is
+// returned; nullptr if they are not all there.
+const Signals *readPush(const Signals *s, int &i, int last, bool extended,
+        RegsZ380::Frame &frame) {
+    const uint_fast8_t size = extended ? 4 : 2;
+    uint32_t at[4];
+    uint8_t byte[4];
+    uint_fast8_t n = 0;
+    const Signals *first = nullptr;
+    frame.valid = false;
+    // A prefetch can land between the writes.
+    for (; i <= last && n < size; ++i) {
+        const auto t = s->prev(i);
+        if (!memWrite(t))
+            continue;
+        if (t->wordAccess()) {
+            if (n + 2 > size)
+                return nullptr;
+            at[n] = t->addr & ~UINT32_C(1);
+            byte[n++] = t->data >> 8;
+            at[n] = t->addr | 1;
+            byte[n++] = t->data;
+        } else {
+            at[n] = t->addr;
+            byte[n++] = (t->addr & 1) ? t->data : t->data >> 8;
+        }
+        first = t;
+    }
+    if (n < size)
+        return nullptr;
+    auto low = at[0];
+    for (uint_fast8_t k = 1; k < size; ++k) {
+        if (at[k] < low)
+            low = at[k];
+    }
+    uint32_t pc = 0;
+    uint_fast8_t seen = 0;
+    for (uint_fast8_t k = 0; k < size; ++k) {
+        const auto off = at[k] - low;
+        if (off >= size)
+            return nullptr;
+        seen |= 1 << off;
+        pc |= static_cast<uint32_t>(byte[k]) << (off * 8);
+    }
+    if (seen != (1 << size) - 1)
+        return nullptr;
+    frame.valid = true;
+    frame.pc = pc;
+    frame.addr = low;
+    return first;
+}
+
+// The PC an RST or NMI pushed shortly before |s|. Returns the earliest of
+// its writes, nullptr if none. The program may have entered Extended mode
+// since the SR was last read, so callers take both readings and
+// RegsZ380::save() picks.
 const Signals *findPush(
         const Signals *s, bool extended, RegsZ380::Frame &frame) {
-    // A prefetch can land between the push and the vector fetch.
-    const Signals *w[2] = {nullptr, nullptr};
-    auto n = 0;
-    const auto words = extended ? 2 : 1;
-    for (auto i = 1; i <= 4 && n < words; ++i) {
-        const auto t = s->prev(i);
-        if (memWrite(t))
-            w[n++] = t;
-    }
-    frame.valid = n == words;
-    if (!frame.valid)
-        return nullptr;
-    if (!extended) {
-        frame.pc = swapBytes(w[0]->data);
-        frame.addr = w[0]->addr;
-        return w[0];
-    }
-    const auto low = w[0]->addr < w[1]->addr ? w[0] : w[1];
-    const auto high = low == w[0] ? w[1] : w[0];
-    frame.pc = static_cast<uint32_t>(swapBytes(high->data)) << 16 |
-               swapBytes(low->data);
-    frame.addr = low->addr;
-    return w[1];
+    auto i = 1;
+    return readPush(s, i, extended ? 8 : 6, extended, frame);
 }
 
 // The push of an RST that fetched 0038H before it pushed, ahead of the
@@ -561,31 +595,15 @@ const Signals *findPush(
 // that first vector fetch.
 void findLatePush(const Signals *s, bool extended, RegsZ380::Frame &frame,
         Signals *&from) {
-    const auto words = extended ? 2 : 1;
-    const Signals *w[2] = {nullptr, nullptr};
-    auto writes = 0;
-    for (auto i = 1; i <= 10; ++i) {
+    constexpr auto LAST = 14;
+    RegsZ380::Frame second, late;
+    auto i = 1;
+    if (!readPush(s, i, LAST, extended, second) ||
+            !readPush(s, i, LAST, extended, late))
+        return;
+    for (; i <= LAST; ++i) {
         const auto t = s->prev(i);
-        if (memWrite(t)) {
-            // the first |words| are the second RST's
-            if (++writes > words && writes <= 2 * words)
-                w[writes - words - 1] = t;
-            continue;
-        }
-        if (writes == 2 * words && memRead(t) &&
-                t->addr == InstZ380::ORG_RST38) {
-            RegsZ380::Frame late;
-            if (extended) {
-                const auto low = w[0]->addr < w[1]->addr ? w[0] : w[1];
-                const auto high = low == w[0] ? w[1] : w[0];
-                late.pc = static_cast<uint32_t>(swapBytes(high->data)) << 16 |
-                          swapBytes(low->data);
-                late.addr = low->addr;
-            } else {
-                late.pc = swapBytes(w[0]->data);
-                late.addr = w[0]->addr;
-            }
-            late.valid = true;
+        if (memRead(t) && t->addr == InstZ380::ORG_RST38) {
             frame = late;
             from = const_cast<Signals *>(t);
             return;
@@ -641,8 +659,7 @@ bool PinsZ380::step(bool show) {
     // Stop before a HALT: once halted there is no boundary for #NMI. And
     // before restore(), which leaves the CPU at the program's PC, where
     // no sequence can be injected if it is odd.
-    if (_mems->read_byte(_regs->nextIp() & MemsZ380::ADDR_MASK) ==
-            InstZ380::HALT)
+    if (_mems->read_byte(_regs->nextIp()) == InstZ380::HALT)
         return false;
     // An instruction whose bytes are not all fetched when #NMI is asserted
     // may not start at all: BIT 7,H (CB 7C) at an odd address was taken
@@ -686,10 +703,10 @@ bool PinsZ380::isRst38Break(Signals *s, Signals *&from) {
         // RST 38H is one byte; take whichever of the two holds the opcode.
         const auto resume = f.pc;
         f.pc = resume - 1;
-        if (_mems->read_byte(f.pc & MemsZ380::ADDR_MASK) != InstZ380::RST38)
+        if (_mems->read_byte(f.pc) != InstZ380::RST38)
             f.pc = resume;
         // A mode 1 interrupt vectors here too, so require the opcode.
-        if (_mems->read_byte(f.pc & MemsZ380::ADDR_MASK) != InstZ380::RST38)
+        if (_mems->read_byte(f.pc) != InstZ380::RST38)
             f.valid = false;
         else if (!isBreakPoint(f.pc) &&
                  _mems->read_byte(InstZ380::ORG_RST38) != InstZ380::RST38)
@@ -777,14 +794,15 @@ void PinsZ380::printCycles() {
 // the program may have written over its code since (the exit's RST 38H
 // over a mode 1 vector), then a breakpoint as RST 38H.
 struct PinsZ380::CodeMemory final : InstZ380::Memory {
-    explicit CodeMemory(const PinsZ380 *pins) : _pins(pins), _bytes(0) {
+    explicit CodeMemory(const PinsZ380 *pins)
+        : _pins(pins), _mask(pins->mems<MemsZ380>()->addrMask()), _bytes(0) {
         const auto g = Signals::get();
         const auto cycles = g->diff(Signals::put());
         for (auto i = 0u; i < cycles; ++i) {
             const auto s = g->next(i);
             if (!memRead(s))
                 continue;
-            const auto addr = s->addr & MemsZ380::ADDR_MASK;
+            const auto addr = s->addr & _mask;
             if (s->wordAccess()) {
                 remember(addr & ~UINT32_C(1), s->data >> 8);
                 remember(addr | 1, s->data);
@@ -795,7 +813,7 @@ struct PinsZ380::CodeMemory final : InstZ380::Memory {
     }
 
     uint16_t read_byte(uint32_t addr) const override {
-        addr &= MemsZ380::ADDR_MASK;
+        addr &= _mask;
         const auto i = find(addr);
         if (i < _bytes && _addr[i] == addr)
             return _byte[i];
@@ -805,6 +823,7 @@ struct PinsZ380::CodeMemory final : InstZ380::Memory {
 
 private:
     const PinsZ380 *const _pins;
+    const uint32_t _mask;
     // Sorted by address; a later read replaces an earlier one.
     uint32_t _addr[2 * Cycles::MAX_CYCLES];
     uint8_t _byte[2 * Cycles::MAX_CYCLES];
@@ -845,12 +864,16 @@ bool PinsZ380::walkRing(const CodeMemory &memory) {
             regs->extended(), regs->longWord());
 }
 
+// The whole walk: cut shorter it may not walk again, so printBacktrace()
+// keeps to the last |_lineLimit| instructions itself. With no walk, that
+// many cycles.
 const SignalsImpl *PinsZ380::findBacktraceStart() {
     const auto g = Signals::get();
     const CodeMemory memory(this);
-    return backtraceStartFrom<Signals>(
-            walkRing(memory) ? g->next(MatchWalker::shared().start()) : g,
-            _lineLimit);
+    if (walkRing(memory))
+        return g->next(MatchWalker::shared().start());
+    const auto cycles = g->diff(Signals::put());
+    return cycles > _lineLimit ? g->next(cycles - _lineLimit) : g;
 }
 
 // One line per instruction, then its data transfers; fetches only when
@@ -862,16 +885,21 @@ void PinsZ380::printBacktrace() {
     const auto walked = walkRing(memory);
     const auto &walker = MatchWalker::shared();
     const auto lead = walked ? walker.start() : cycles;
-    for (auto i = 0u; i < lead; ++i) {
+    // Counted as the walk found them: a word fetch can hold two.
+    const auto skip = walked && walker.steps() > _lineLimit
+                              ? walker.steps() - _lineLimit
+                              : 0;
+    for (auto i = 0u; i < lead && skip == 0; ++i) {
         g->next(i)->print();
         idle();
     }
     if (!walked)
         return;
     mems<MemsZ380>()->setCode(&memory);
-    for (auto n = 0u; n < walker.steps(); ++n) {
+    for (auto n = skip; n < walker.steps(); ++n) {
         if (!walker.interrupt(n))
-            _mems->disassemble(walker.addr(n) & MemsZ380::ADDR_MASK, 1);
+            _mems->disassemble(
+                    walker.addr(n) & mems<MemsZ380>()->addrMask(), 1);
         const auto first = walker.first(n);
         for (auto i = first; i < first + walker.cycles(n); ++i) {
             const auto s = g->next(i);
@@ -881,7 +909,7 @@ void PinsZ380::printBacktrace() {
         idle();
     }
     mems<MemsZ380>()->setCode(nullptr);
-    for (auto i = lead; i < cycles; ++i) {
+    for (auto i = skip ? walker.first(skip) : lead; i < cycles; ++i) {
         if (walker.owner(i) == MatchWalker::NOBODY) {
             g->next(i)->print();
             idle();

@@ -333,7 +333,7 @@ void RegsZ380::restoreBank(uint_fast8_t bank, uint32_t &org) const {
     const uint32_t scratch = spPlus(_sp, -4);
     const uint8_t staged[] = {r.f[a], r.a[a], r.f[a ^ 1], r.a[a ^ 1]};
     for (uint_fast8_t i = 0; i < sizeof(staged); ++i)
-        _mems->write_byte(spPlus(scratch, i) & MemsZ380::ADDR_MASK, staged[i]);
+        _mems->write_byte(spPlus(scratch, i), staged[i]);
     const uint8_t dsr = bank << 1;
     // clang-format off
     const uint8_t RESTORE_BANK[] = {
@@ -398,8 +398,7 @@ void RegsZ380::restore() {
     if (_vector == NMI) {
         sp = spPlus(sp, -static_cast<int32_t>(pcSize()));
         for (uint_fast8_t i = 0; i < pcSize(); ++i)
-            _mems->write_byte(
-                    spPlus(sp, i) & MemsZ380::ADDR_MASK, _pc >> (i * 8));
+            _mems->write_byte(spPlus(sp, i), _pc >> (i * 8));
         ret[retLen++] = InstZ380::RETN_PREFIX;
         ret[retLen++] = InstZ380::RETN;
     } else {

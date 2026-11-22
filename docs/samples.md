@@ -64,7 +64,8 @@ KL5C80 boot the same files.
 
 The Z180, Z280 and Z380 decode 16-bit ports, so `samples/z180` has their port
 routines (0140H, 0150H, `OUT (C)`); `make cpm80.dsk` there puts that BIOS on a copy of
-the 8080's A:, and `L z180/cpm80.hex` boots it.
+the 8080's A:, and `L z180/cpm80.hex` boots it. That boot also writes 16 to the
+Z380's address mask register, so its memory wraps at 64K as CP/M's programs expect.
 
 On a V20 or V30, `L i8086/cpm80.hex` loads a native harness that enters 8080
 emulation at 1000:0000 with the 8080's cold boot, and mounts `i8086/cpm80.dsk`, a copy
@@ -77,9 +78,8 @@ Z80 (`LBREXT`, `UNCRUNCH`). `imandel.c` on B: is the integer mandelbrot:
 `A>SUBMIT BDSC IMANDEL` (`bdsc.sub` on A:: `CC`, then `CLINK`), then `A>B:IMANDEL`.
 
 **HI-TECH C 3.09** (free, copyright HI-TECH Software,
-[agn453/HI-TECH-Z80-C](https://github.com/agn453/HI-TECH-Z80-C)) needs a Z80; it fails
-on the Z380. A: has the files of `htc-bin.lbr`, unpacked with
-`debugger/i8080/tools/lbr.py`. `fmandel.c` on B: is the floating-point mandelbrot:
+[agn453/HI-TECH-Z80-C](https://github.com/agn453/HI-TECH-Z80-C)) needs a Z80. A: has
+the files of `htc-bin.lbr`, unpacked with `debugger/i8080/tools/lbr.py`. `fmandel.c` on B: is the floating-point mandelbrot:
 `A>SUBMIT HITECHC FMANDEL` (`hitechc.sub`: `C309 -LF`), then `A>FMANDEL`; `imandel.c`
 builds too. Its assembler and linker take `mandel.asm` on B:, the integer mandelbrot in
 Z80 assembly: `A>ZAS -OB:MANDEL.OBJ B:MANDEL.ASM`, `A>LINQ -C100H -OMANDEL.COM
@@ -89,6 +89,8 @@ B:MANDEL.OBJ`, then `A>MANDEL`.
 on the KL5C80: `U` uploads `cpm80.hex`, `O` mounts A: and B:, and CP/M boots; ZAS and
 LINQ build `mandel.asm`, BDS C builds `imandel.c`, and each draws the set. It's also on
 [asciinema.org](https://asciinema.org/a/9sj5kQMvBMyLDVnO).
+[The same on the Z380](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z180/cpm80_z380.cast),
+from `z180/`, and on [asciinema.org](https://asciinema.org/a/bZJg8ghJDnk8ugUM).
 
 ## The reference implementation
 
