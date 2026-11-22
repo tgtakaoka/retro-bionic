@@ -1,0 +1,167 @@
+; fmandel on the 8087 for CP/M-86, in DRI's ASM86 with its 8087.LIB:
+; samples/i8087/fmandel.inc with the console through the BDOS.
+; ASM86 FMANDEL, then GENCMD FMANDEL: the small model, code in CSEG
+; and data in DSEG, past the base page at DS:0.
+;
+; 8087.LIB picks the format from a variable's type: a byte variable is
+; a short real or a 32-bit integer, a word variable a long real or a
+; 16-bit integer. Its codemacros put no WAIT before an 8087
+; instruction, so each has one.
+	include	8087.lib
+
+	cseg
+
+; Conditional jumps reach 127 bytes, so the loops close with JMP.
+; The 8087 rounds every result to single precision, as float does in
+; samples/arith/fmandel.cpp; CA and CB are worked out in double, as
+; there, then stored as single. Exceptions masked.
+	mov	ax,ds		; a stack of its own
+	cli
+	mov	ss,ax
+	mov	sp,offset stktop
+	sti
+	wait
+	finit
+	mov	vy,-12
+fmandel_y:
+	mov	vx,-49
+fmandel_x:
+	wait
+	fldcw	cwdbl
+	wait
+	fild	vx
+	wait
+	fmul	kca
+	wait
+	fst	vca		; CA=X*0.0458
+	wait
+	fstp	va		; A=CA
+	wait
+	fild	vy
+	wait
+	fmul	kcb
+	wait
+	fst	vcb		; CB=Y*0.08333
+	wait
+	fstp	vb		; B=CB
+	wait
+	fldcw	cwsgl
+	mov	vi,0		; I=0
+fmandel_i:
+	wait
+	fld	vb
+	wait
+	fmul	vb
+	wait
+	fstp	vt		; T=B*B
+	wait
+	fld	va
+	wait
+	fmul	va		; A*A
+	wait
+	fsub	vt		; A*A-B*B
+	wait
+	fadd	vca
+	wait
+	fstp	vt		; T=A*A-B*B+CA
+	wait
+	fld	va
+	wait
+	fadd	va		; 2*A
+	wait
+	fmul	vb		; 2*A*B
+	wait
+	fadd	vcb
+	wait
+	fstp	vb		; B=2*A*B+CB
+	wait
+	fld	vt
+	wait
+	fstp	va		; A=T
+	wait
+	fld	vb
+	wait
+	fmul	vb
+	wait
+	fstp	vt		; T=B*B
+	wait
+	fld	va
+	wait
+	fmul	va		; A*A
+	wait
+	fadd	vt		; A*A+B*B
+	wait
+	fcomp	kfour
+	wait
+	fstsw	vsw
+	wait
+	mov	ah,byte ptr vsw+1	; C3 C2 C0 to ZF PF CF
+	sahf
+	ja	fmandel_digit	; if 4<A*A+B*B
+	inc	vi		; I+=1
+	cmp	vi,16
+	jae	fmandel_space
+	jmp	fmandel_i		; if I<16
+fmandel_space:
+	mov	dl,' '
+	jmps	fmandel_put
+fmandel_digit:
+	mov	bx,vi
+	mov	dl,digits[bx]
+fmandel_put:
+	call	putc
+	inc	vx		; X+=1
+	cmp	vx,30
+	jge	fmandel_nl
+	jmp	fmandel_x		; if X<30
+fmandel_nl:
+	mov	dl,0dh
+	call	putc
+	mov	dl,0ah
+	call	putc
+	inc	vy		; Y+=1
+	cmp	vy,13
+	jge	fmandel_end
+	jmp	fmandel_y		; if Y<13
+fmandel_end:
+	mov	cl,0		; system reset
+	mov	dl,0
+	int	224
+
+; The character in DL to the console.
+putc:
+	mov	cl,2
+	int	224
+	ret
+
+	dseg
+	org	100h
+
+digits	db	'0123456789ABCDEF'
+
+cwsgl	dw	00ffh		; single precision, exceptions masked
+cwdbl	dw	02ffh		; double precision
+kca	dw	4817h,0fc50h,7318h,3fa7h	; 0.0458, long real
+kcb	dw	92f7h,68c6h,551dh,3fb5h	; 0.08333, long real
+kfour	db	0,0,80h,40h	; 4.0, short real
+
+; The variables and stack are initialized, so GENCMD's data group
+; holds them: CP/M-86 allocates no more.
+; Short reals.
+vca	db	0,0,0,0
+vcb	db	0,0,0,0
+va	db	0,0,0,0
+vb	db	0,0,0,0
+vt	db	0,0,0,0
+; 16-bit integers.
+vx	dw	0
+vy	dw	0
+vi	dw	0
+vsw	dw	0
+	dw	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	dw	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	dw	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	dw	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+stktop	equ	$
+
+	end

@@ -27,6 +27,8 @@ SOURCES = [
     (CPM + 'CPM-86.zip',
      'be13110cc8706e15a6061a07b866383113c67874474937802bf90f01d5bf3017',
      {'V1-1R/D2/CPM.SYS': '',
+      # ASM86 reads an INCLUDE from its source's drive.
+      'V1-1R/D2/8087.LIB': 'b',
       **{'V1-1R/D2/' + n: 'a' for n in (
           'ASM86.CMD', 'DDT86.CMD', 'ED.CMD', 'GENCMD.CMD', 'HELP.CMD',
           'HELP.HLP', 'PIP.CMD', 'STAT.CMD', 'SUBMIT.CMD')}}),

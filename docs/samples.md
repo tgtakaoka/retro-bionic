@@ -137,6 +137,15 @@ which adds the `stdio.h` DRI's `putchar` needs to `samples/arith/imandel.c`, on 
 `imandel.inc`; `cc.sub` compiles and links from A: too: `A>SUBMIT CC FMANDEL`. DRC 1.32, the one with 8087 code,
 needs a CP/M-86 whose loader applies its programs' fixups, which 1.1's does not.
 
+For the 8087 on the D8087 board, B: has [`fmandel.a86`](../samples/i8086/fmandel.a86),
+the `fmandel` of `samples/i8087` in DRI's ASM86 with its `8087.LIB` from `CPM-86.zip`,
+which ASM86 reads from the source's drive: `A>ASM86 B:FMANDEL`, `A>GENCMD B:FMANDEL`, then
+`A>B:FMANDEL` draws the set in seconds.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86_8087.cast)
+on the P80C86A-2 and D8087: `U` uploads `cpm86.hex`, `O` mounts A: and B:, and CP/M-86
+boots; ASM86 builds `fmandel.a86` and DRI's C builds `imandel.c`, and each draws the set.
+It's also on [asciinema.org](https://asciinema.org/a/26nhB7uRNsBEngo9).
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather
