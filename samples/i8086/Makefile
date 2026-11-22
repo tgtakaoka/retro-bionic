@@ -70,7 +70,7 @@ cpm86.dsk: $(CPM86A) $(CPM86)/.fetched $(wildcard $(CPM86)/a/*)
 # fmandel.c and imandel.c for DRI's C compiler, which goes on A: with
 # cc.sub; imandel.c includes ../arith/imandel.c as imandel.inc, adding
 # the stdio.h DRI's putchar needs.
-CPM86B = fmandel.bas fmandel.pb fmandel.c imandel.c imandel.inc
+CPM86B = fmandel.bas fmandel.pb fmandel.c imandel.c imandel.inc fmandel.a86
 cpm86b.dsk: $(CPM86B) $(CPM86)/.fetched $(wildcard $(CPM86)/b/*)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM86B) $(CPM86)/b/*
 
