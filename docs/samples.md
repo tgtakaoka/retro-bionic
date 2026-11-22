@@ -73,14 +73,14 @@ of the 8080's (`make cpm80.dsk cpm80b.dsk` in `samples/i8086`).
 **BDS C** (public domain, [bdsoft.com](https://www.bdsoft.com/resources/bdsc.html))
 compiles on the 8080; A: has `bdsc160/`'s files from `bdsc-all.zip` and
 `extra/BCD.LBR`. Its `.LBR` libraries are crunched and unpack only on a
-Z80 (`LBREXT`, `UNCRUNCH`). `mandel.c` on B: is the integer mandelbrot:
-`A>SUBMIT BDSC MANDEL` (`bdsc.sub` on A:: `CC`, then `CLINK`), then `A>B:MANDEL`.
+Z80 (`LBREXT`, `UNCRUNCH`). `imandel.c` on B: is the integer mandelbrot:
+`A>SUBMIT BDSC IMANDEL` (`bdsc.sub` on A:: `CC`, then `CLINK`), then `A>B:IMANDEL`.
 
 **HI-TECH C 3.09** (free, copyright HI-TECH Software,
 [agn453/HI-TECH-Z80-C](https://github.com/agn453/HI-TECH-Z80-C)) needs a Z80; it fails
 on the Z380. A: has the files of `htc-bin.lbr`, unpacked with
 `debugger/i8080/tools/lbr.py`. `fmandel.c` on B: is the floating-point mandelbrot:
-`A>SUBMIT HITECHC FMANDEL` (`hitechc.sub`: `C309 -LF`), then `A>FMANDEL`; `mandel.c`
+`A>SUBMIT HITECHC FMANDEL` (`hitechc.sub`: `C309 -LF`), then `A>FMANDEL`; `imandel.c`
 builds too.
 
 ## The reference implementation
@@ -89,8 +89,8 @@ builds too.
 than on a target. It holds C++ implementations of each operation (`add.cpp`, `div.cpp`,
 `mul.cpp`, `neg.cpp`, `shift.cpp`, `sub.cpp`, with `flags.hpp`), the original BASIC
 listings the Mandelbrot ports derive from (`mandelbrot.bas`, `fmandel.bas`), and a C version
-(`mandelbrot.c`). When a port misbehaves on real silicon, this is what its output is
-compared against.
+(`mandelbrot.c`), with `imandel.c`, the same in K&R C with 16-bit `int`s. When a port
+misbehaves on real silicon, this is what its output is compared against.
 
 ## Building a sample
 
