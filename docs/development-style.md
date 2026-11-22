@@ -1296,6 +1296,12 @@ register bank; backtraces walk the fetch queue (below). **[hw]**
   **[doc]**
 - **A push is one word in Native mode, two in Extended**, and the program
   may have run `SETC XM`: decide after reading the SR. **[code]**
+- **At an odd SP a pushed word is two byte writes**: `readPush()` builds
+  the PC from byte or word writes. Read as one word, a halt saved a wrong
+  PC and dumped the whole ring. **[hw]**
+- **A backtrace's lines are counted by instruction, not by fetch**: a word
+  fetch can hold two, and a ring cut to the last few may not walk again,
+  so the ring stays whole and `printBacktrace()` skips. **[code]**
 - **Fetches are taken to be aligned words**: a sequence that runs off its
   end starts at an even address and has an even length. **[code]**
 - **Reset does not clear SP, I or the bank 0 extensions**, despite Table 7;
@@ -1466,6 +1472,14 @@ Z180, Z280 and Z380, which decode 16 bits and need a BIOS using
 `OUT (C),A`. Their MMUs map one to one at reset, so DMA is physical. The
 Z280 runs uncached (reset leaves Cache Control at 60H), so sectors the
 disk writes behind the CPU are never stale. **[code]**
+
+**Z380 address mask.** In Native mode the memory access right after an
+`ADD HL,rr` that carries, fetched in the same word as it (`ADD` at an even
+address), goes out with A16 high: `LD HL,211AH`, `LD DE,0FFF6H`,
+`ADD HL,DE`, `LD A,(HL)` reads 00012110H. HL reads back 00002110H. The
+debugger's memory decodes A0-A23, so the read misses; BDS C's CLINK and
+HI-TECH C failed on it. `AMASK` at 0148H holds the number of address lines
+memory decodes, and the CP/M cold boot writes 16. **[hw]**
 
 The Z80, NSC800 and KL5C80 `completeCycle()` treat an I/O address as 8-bit and
 ignore the high byte; the Z180's decodes all 16 bits, its USART being at

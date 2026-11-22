@@ -8,11 +8,32 @@ namespace debugger {
 namespace z380 {
 
 // The 16MB of EXTMEM is all the main memory there is: the bus decodes
-// A0-A23 and the rest of the 4GB space mirrors it.
+// A0-A23 at most and the rest of the 4GB space mirrors it. The address
+// mask register narrows the decoding, as on a board with less memory.
 struct MemsZ380 : ExtMemory {
     MemsZ380();
 
-    static constexpr uint32_t ADDR_MASK = MEM_SIZE - 1;
+    // The address lines memory decodes, as the address mask register
+    // counts them; of those, EXTMEM has A0-A23.
+    uint32_t busMask() const { return _busMask; }
+    void setBusMask(uint32_t mask) {
+        _busMask = mask;
+        _addrMask = mask & (MEM_SIZE - 1);
+    }
+    uint32_t addrMask() const { return _addrMask; }
+
+    uint16_t read_byte(uint32_t addr) const override {
+        return ExtMemory::read_byte(addr & _addrMask);
+    }
+    void write_byte(uint32_t addr, uint16_t data) const override {
+        ExtMemory::write_byte(addr & _addrMask, data);
+    }
+    uint16_t read_word(uint32_t addr) const override {
+        return ExtMemory::read_word(addr & (_addrMask >> 1));
+    }
+    void write_word(uint32_t addr, uint16_t data) const override {
+        ExtMemory::write_word(addr & (_addrMask >> 1), data);
+    }
 
     // A plain little-endian byte memory, as the CPU sees it. A word
     // transfer to 16-bit memory (#MSIZE high) moves the aligned pair: the
@@ -36,6 +57,8 @@ struct MemsZ380 : ExtMemory {
 
 private:
     const InstZ380::Memory *_code = nullptr;
+    uint32_t _busMask = ~UINT32_C(0);
+    uint32_t _addrMask = MEM_SIZE - 1;
 };
 
 }  // namespace z380
