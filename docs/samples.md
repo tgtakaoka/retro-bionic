@@ -85,6 +85,11 @@ builds too. Its assembler and linker take `mandel.asm` on B:, the integer mandel
 Z80 assembly: `A>ZAS -OB:MANDEL.OBJ B:MANDEL.ASM`, `A>LINQ -C100H -OMANDEL.COM
 B:MANDEL.OBJ`, then `A>MANDEL`.
 
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/cpm80_kl5c80.cast)
+on the KL5C80: `U` uploads `cpm80.hex`, `O` mounts A: and B:, and CP/M boots; ZAS and
+LINQ build `mandel.asm`, BDS C builds `imandel.c`, and each draws the set. It's also on
+[asciinema.org](https://asciinema.org/a/9sj5kQMvBMyLDVnO).
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather
