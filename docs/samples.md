@@ -81,7 +81,9 @@ Z80 (`LBREXT`, `UNCRUNCH`). `imandel.c` on B: is the integer mandelbrot:
 on the Z380. A: has the files of `htc-bin.lbr`, unpacked with
 `debugger/i8080/tools/lbr.py`. `fmandel.c` on B: is the floating-point mandelbrot:
 `A>SUBMIT HITECHC FMANDEL` (`hitechc.sub`: `C309 -LF`), then `A>FMANDEL`; `imandel.c`
-builds too.
+builds too. Its assembler and linker take `mandel.asm` on B:, the integer mandelbrot in
+Z80 assembly: `A>ZAS -OB:MANDEL.OBJ B:MANDEL.ASM`, `A>LINQ -C100H -OMANDEL.COM
+B:MANDEL.OBJ`, then `A>MANDEL`.
 
 ## The reference implementation
 
