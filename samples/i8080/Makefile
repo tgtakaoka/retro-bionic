@@ -33,9 +33,9 @@ cpm80.dsk: cpm80bios.hex $(CPM80)/.fetched bdsc.sub ../z80/hitechc.sub \
 	    --system $(CPM80)/cpm80sys.hex cpm80bios.hex bdsc.sub ../z80/hitechc.sub \
 	    $(CPM80)/a/*
 
-# B:, the user disk: an 8 MB hd8 with fmandel.bas, imandel.c, fmandel.c and
-# the files in $(CPM80)/b/.
-cpm80b.dsk: fmandel.bas ../arith/imandel.c ../z80/fmandel.c $(wildcard $(CPM80)/b/*)
+# B:, the user disk: an 8 MB hd8 with fmandel.bas, imandel.c, mandel.asm,
+# fmandel.c and the files in $(CPM80)/b/.
+cpm80b.dsk: fmandel.bas ../arith/imandel.c ../z80/mandel.asm ../z80/fmandel.c $(wildcard $(CPM80)/b/*)
 	../../scripts/cpm-disk.py make $@ --format hd8 $^
 
 # Blank floppies for C: and D:, which an empty file is; made only when
