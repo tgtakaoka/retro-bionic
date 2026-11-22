@@ -1,5 +1,5 @@
-/* ASCII art Mandelbrot set: samples/arith/mandelbrot.c in K&R C, 16-bit
-   int arithmetic as the 8080 assembly does. For BDS C and HI-TECH C. */
+/* ASCII art Mandelbrot set: mandelbrot.c in K&R C with 16-bit int
+   arithmetic. */
 
 main()
 {
