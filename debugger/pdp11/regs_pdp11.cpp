@@ -53,15 +53,16 @@ void RegsPdp11::print() const {
 }
 
 void RegsPdp11::save() {
-    // A trap's frame holds the PS; otherwise MFPS reads it.
+    // A trap's frame holds the PS; otherwise MFPS reads it, ahead of the
+    // MOVs that set the condition codes.
     uint16_t seq[2 * 9];
     auto n = 0u;
-    for (uint8_t i = 0; i <= InstPdp11::SP; ++i) {
-        seq[n++] = InstPdp11::movAbs(i);
-        seq[n++] = STORE;
-    }
     if (!_frame) {
         seq[n++] = InstPdp11::MFPS_ABS;
+        seq[n++] = STORE;
+    }
+    for (uint8_t i = 0; i <= InstPdp11::SP; ++i) {
+        seq[n++] = InstPdp11::movAbs(i);
         seq[n++] = STORE;
     }
     seq[n++] = InstPdp11::JMP_ABS;
@@ -70,15 +71,16 @@ void RegsPdp11::save() {
     const uint_fast8_t max = _frame ? 7 : 8;
     auto org = _parkedAt;
     _pins->captureWrites(seq, n, buf, max, org);
+    const auto regs = _frame ? buf : buf + 1;
     for (auto i = 0; i < 6; ++i)
-        _r[i] = buf[i];
-    _sp = buf[6];
+        _r[i] = regs[i];
+    _sp = regs[6];
     if (_frame) {
         // The program's SP is above the frame the debugger's trap pushed.
         _sp += 4;
         _frame = false;
     } else {
-        _ps = buf[7] & 0377;  // MFPS writes a byte
+        _ps = buf[0] & 0377;  // MFPS writes a byte
     }
     _parkedAt = org;
     if (_fpu)
