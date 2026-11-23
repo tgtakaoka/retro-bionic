@@ -63,6 +63,33 @@ private:
     bool grow(uint32_t size);
 };
 
+/**
+ * A card file for the debugger to read and write at the prompt. A mounted
+ * image is reached through the handle its drives hold, so no second copy
+ * of it goes out of step; a RAM cache would sit behind read() and write().
+ */
+struct CardFile {
+    // |create| makes the file, and the directories on its way, when it is
+    // not there. False for a path with a ".." or longer than a handle holds.
+    bool open(const char *path, bool create = false);
+    void close();
+    uint32_t size() const;
+    // The number of bytes read at |at|: fewer than |len| at the file's end.
+    uint16_t read(uint32_t at, uint8_t *data, uint16_t len);
+    // False past the file's end, which leaves no gap to fill.
+    bool write(uint32_t at, const uint8_t *data, uint16_t len);
+    // Cuts a longer file to |size|.
+    bool truncate(uint32_t size);
+    void flush();
+
+    enum Removed : uint8_t { REMOVED, NOT_FOUND, IN_USE };
+    // Deletes the file at |path|, unless a drive or a transfer holds it.
+    static Removed remove(const char *path);
+
+private:
+    struct DiskFile *_file = nullptr;
+};
+
 }  // namespace debugger
 #endif /* __DEBUGGER_DISK_IMAGE_H__ */
 
