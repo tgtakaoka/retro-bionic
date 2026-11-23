@@ -18,56 +18,60 @@ using pdp11::RegsPdp11;
 
 // clang-format off
 /**
- * DCJ11 bus cycles (DCJ11 User's Guide, Chapter 3). A cycle is four CLK
- * periods, T0-T3; a stretched one adds T4 pairs until #CONT, sampled at
- * T4's falling edges, ends it. The board holds #MISS low, so memory
- * reads stretch too; NIO cycles never do.
+ * DCJ11 bus cycles (DCJ11 User's Guide, Chapter 3 and Appendix B). The
+ * board drives CLK1 with #TEST2 grounded, every edge of it from the
+ * debugger: the DCJ11 is static and waits at any of them. An edge is
+ * counted from e0, the fall #ALE falls after; the User's Guide's T0 is
+ * the rise before it, where #STRB rises, and T1-T7 the rises e1-e13.
  *
- * The board drives CLK1 with #TEST2 grounded. A cycle is counted from
- * the period #ALE falls in; the board stops the clock high there to park
- * the CPU.
- *          ________                ______________
- * DAL     X__addr__X--------------<__read data___>------  the board drives
- *          ________  ____________________________
- * DAL     X__addr__><________write data__________>------  the CPU drives
- *         ____    ______________________________________
- * #ALE        |__|
- *         ________________                      ________
- * #SCTL                   |____________________|
- *         ________                                 _____
- * #BUFCTL         |_______________________________|        a read
- *         ________________________          ____________
- * #CONT                           |________|
+ *          e0  e1  e2  e3  e4  e5  e6  e7  e8  e9  e10 e11 e12 e13 e14 e15
+ * CLK1  __/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__
+ *       ______       ____________________________________________________
+ * #ALE        \_____/              the address, AIO and BS until e2
+ *       __                                                     __________
+ * #STRB   \_____/  \_______________________________________ ... /
+ *       ______________          ________________________________________
+ * #BUFCTL               \______/        \______ ...   a read; DAL is the
+ *                                                     CPU's while high
+ *       ___________________________________________
+ * #SCTL                                            \____ ...  to 3 edges
+ *                                                             after #CONT
+ * A NIO ends at e8, the next e0. So does a memory read with #MISS high:
+ * its data is latched at e5, T3's rise, off DAL between e3 and e5. Every
+ * other cycle stretches: the CPU drives DAL again from e5 to e7, a
+ * read's data goes out after that and DV latches it, a write's is valid
+ * while #SCTL is low. #CONT is sampled at e8 and every fourth edge after;
+ * from the sample S, #SCTL rises at S+3 and the next e0 is S+8.
  *
- * The address, AIO3-AIO0 and BS1-BS0 are valid while #ALE is low. Read
- * data is latched at T3's rise and with DV; write data is valid while
- * #SCTL is low.
+ * The CPU's own #ABORT, an MMU or address error, falls two edges before
+ * e0 and tells the cycle to be ignored; an abort from outside has to
+ * come in the stretch.
  */
 // clang-format on
 
 namespace {
 
-// A half period with no work gets these: the work between edges keeps
-// the period above 100ns and each half above 35ns, inside the 20MHz part.
-constexpr auto clock_lo_ns = 20;
-constexpr auto clock_hi_ns = 25;
-constexpr auto lo_ns = clock_lo_ns;
-constexpr auto hi_ns = clock_hi_ns;
-// A run's PWM: the address is read from #STRB's rise; 11.5MHz fails.
-// The data chip's maximum is 20MHz (J-11 Data Chip Specification).
-constexpr uint32_t pwm_hz = 10000000;
-constexpr uint32_t pwm_min_hz = 100000;
-constexpr uint32_t pwm_half_min_ns = 25;
-// A run's wait for a cycle other than NIO before it looks at the halt
-// switch, as in a WAIT; long enough for any FP11 instruction's NIO run.
-constexpr uint32_t wait_cycles = F_CPU / 1000;
-// How long #SCTL may take to come or go under the PWM.
-constexpr uint32_t sctl_cycles = F_CPU / 1000000;
-// Periods without a cycle other than NIO before a run counts the CPU as
-// in WAIT.
-constexpr auto no_ale_periods = 1024;
-// Periods a strobe may take to come within a cycle.
-constexpr auto strobe_periods = 32;
+// The clock's halves are 28ns at least and its period 67ns (DCJ11 User's
+// Guide, Table B-1): coded 24, the code between two edges makes them
+// 32ns and up on the pin, a period of 72ns and up; coded 28 measured 40
+// and 96 in this build, 32 and 80 in another.
+constexpr auto lo_ns = 24;
+constexpr auto hi_ns = 24;
+// Read data's setup to T3's rise or DV, 35ns, and through the TXS0108E.
+constexpr auto data_ns = 50;
+// Read data's hold from T3's rise, 20ns in the table: coded 20 broke one
+// V6 compile in three, 60 passes.
+constexpr auto hold_ns = 60;
+// #CONT's setup is 30ns.
+constexpr auto cont_ns = 40;
+// A stretched read's data out and latched by DV at e7, for the first
+// #CONT sample at e8: a cycle of eight periods rather than ten.
+constexpr auto early_dv = true;
+// Pairs of edges #SCTL may take to rise after #CONT.
+constexpr auto cont_pairs = 16;
+// NIO cycles or periods without any other cycle before a run counts the
+// CPU as in WAIT.
+constexpr auto idle_cycles = 1024;
 // #INIT is held at least 25 periods.
 constexpr auto init_periods = 64;
 // Cycles of the power-up microroutine before the first fetch.
@@ -106,14 +110,14 @@ const uint8_t PINS_HIGH[] = {
         PIN_INIT,
         PIN_CONT,
         PIN_LSTRB,
-        PIN_ASEL0,
+        PIN_ASEL1,
         PIN_DV,
 };
 
 const uint8_t PINS_LOW[] = {
         PIN_LDATA,
         PIN_SEL2,
-        PIN_ASEL1,
+        PIN_ASEL0,
 };
 
 const uint8_t PINS_INPUT[] = {
@@ -145,23 +149,22 @@ const uint8_t PINS_INPUT[] = {
         PIN_DAL15,
 };
 
-// One period from the falling edge, ending high.
-void clock_cycle() {
+inline void clk_lo() {
     digitalWriteFast(PIN_CLK, LOW);
-    delayNanoseconds(lo_ns);
-    digitalWriteFast(PIN_CLK, HIGH);
-    delayNanoseconds(hi_ns);
 }
 
-// One period with |act| at its rising edge, half a period from the
-// falling edges either side. T4's falling edges sample #ABORT, and a DV
-// that latched 177777 next to one was taken for an abort.
-template <typename ACT>
-void clock_after_rise(ACT act) {
-    digitalWriteFast(PIN_CLK, LOW);
-    delayNanoseconds(lo_ns);
+inline void clk_hi() {
     digitalWriteFast(PIN_CLK, HIGH);
-    act();
+}
+
+// An edge and the half after it.
+inline void fall() {
+    clk_lo();
+    delayNanoseconds(lo_ns);
+}
+
+inline void rise() {
+    clk_hi();
     delayNanoseconds(hi_ns);
 }
 
@@ -204,6 +207,13 @@ inline bool bufctl_asserted() {
     return digitalReadFast(PIN_BUFCTL) == LOW;
 }
 
+// A cycle whose data the debugger drives: a read, IACK or GP read. GP
+// and IACK cycles are known by AIO alone; their BS is undefined.
+inline bool served_read(const Signals *s) {
+    return !s->write() && !s->gpWrite() &&
+           (s->iack() || s->gpRead() || !s->internal());
+}
+
 inline bool strb_asserted() {
     return digitalReadFast(PIN_STRB) == LOW;
 }
@@ -212,28 +222,25 @@ inline bool abort_asserted() {
     return digitalReadFast(PIN_ABORT) == LOW;
 }
 
-// #ABORT's falling edges latch in the port's edge status with no
-// interrupt taken, so a pulse between two looks at the pin shows.
-constexpr uint32_t ABORT_bm = CORE_PIN5_BITMASK;
-
-void watch_abort() {
-    GPIO9_IMR &= ~ABORT_bm;
-    GPIO9_ICR1 |= 3U << (2 * CORE_PIN5_BIT);  // falling edge
-    GPIO9_ISR = ABORT_bm;
+// The debugger's own #ABORT, open-collector as the DCJ11's is: a bus
+// timeout, which traps through 4.
+void assert_abort() {
+    digitalWriteFast(PIN_ABORT, LOW);
+    pinMode(PIN_ABORT, OUTPUT);
 }
 
-inline void clear_abort() {
-    GPIO9_ISR = ABORT_bm;
+void negate_abort() {
+    digitalWriteFast(PIN_ABORT, HIGH);
+    pinMode(PIN_ABORT, INPUT_PULLUP);
 }
 
-// Low now, or with verbose on, a fall since clear_abort(): for the
-// bit-banged cycles, as the port access would slow a run's.
-inline bool abort_seen() {
-    return abort_asserted() ||
-           (Debugger.verbose() && (GPIO9_ISR & ABORT_bm) != 0);
+// Whether |s| reads where no device answers: Unix sizes its memory by
+// the bus timeout at the I/O page's first words, 760000-760077.
+inline bool bus_timeout(const Signals *s) {
+    return s->read() && !s->fetch() && s->ioPage() && (s->addr & 017700) == 0;
 }
 
-// Sets output |q| of the 259 to |level|, and leaves the 153s at select 1.
+// Sets output |q| of the 259 to |level|, and leaves the 153s at select 2.
 void write_latch(uint8_t q, bool level) {
     digitalWriteFast(PIN_ASEL0, (q & 1) ? HIGH : LOW);
     digitalWriteFast(PIN_ASEL1, (q & 2) ? HIGH : LOW);
@@ -243,8 +250,8 @@ void write_latch(uint8_t q, bool level) {
     digitalWriteFast(PIN_LSTRB, LOW);
     delayNanoseconds(latch_ns);
     digitalWriteFast(PIN_LSTRB, HIGH);
-    digitalWriteFast(PIN_ASEL1, LOW);
-    digitalWriteFast(PIN_ASEL0, HIGH);
+    digitalWriteFast(PIN_ASEL0, LOW);
+    digitalWriteFast(PIN_ASEL1, HIGH);
 }
 
 void assert_pwrf() {
@@ -255,49 +262,21 @@ void negate_pwrf() {
     write_latch(Q_PWRF, HIGH);
 }
 
-// Clocks until |cond| holds, maybe not at all; false if it doesn't
-// come. A period too many may pass the next #ALE.
-template <typename COND>
-bool clockUntil(COND cond) {
-    for (auto guard = strobe_periods; guard > 0; --guard) {
-        if (cond())
-            return true;
-        clock_cycle();
-    }
-    return cond();
-}
-
 }  // namespace
 
-PinsDcj11::PinsDcj11() : _clock(pwm_half_min_ns, pwm_min_hz), _clockHz(pwm_hz) {
+PinsDcj11::PinsDcj11() {
     _devs = new DevsPdp11();
     _mems = new MemsDcj11(MAX_ADDR);
     _regs = new RegsPdp11(this, mems<MemsDcj11>(), true);
 }
 
-#ifdef TUNE_CLOCK
-uint32_t PinsDcj11::clockInput() const {
-    return _clockHz;
-}
-
-// A run's PWM rate.
-bool PinsDcj11::setClockInput(uint32_t hz) {
-    const auto rate = _clock.setRate(hz);
-    if (rate == 0)
-        return false;
-    _clockHz = rate;
-    return true;
-}
-#endif
 
 void PinsDcj11::resetPins() {
-    _clock.begin(_clockHz);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
     // The DCJ11's pull-up alone lets #ABORT glitch through the TXS0108E.
     pinMode(PIN_ABORT, INPUT_PULLUP);
-    watch_abort();
 
     // The 259 powers up random: set every output while #INIT is low.
     assert_init();
@@ -306,9 +285,12 @@ void PinsDcj11::resetPins() {
     write_latch(Q_HALT, LOW);  // HALT is active high
     for (auto q = Q_IRQ0; q <= Q_IRQ3; ++q)
         write_latch(q, LOW);
-    write_latch(Q_MISS, LOW);
-    for (auto i = 0; i < init_periods; i++)
-        clock_cycle();
+    write_latch(Q_MISS, HIGH);  // a memory read is not stretched
+    for (auto i = 0; i < init_periods; i++) {
+        fall();
+        rise();
+    }
+    fall();
     negate_init();
     Cycles::reset();
     _devPending = false;
@@ -336,38 +318,32 @@ void PinsDcj11::resetPins() {
     _regs->save();
 }
 
-// Clocks to the next cycle that isn't NIO, parking at the end of the
-// period #ALE falls in; the address stays valid through T1. #ALE may be
-// shorter than a period, so both halves look for it. Null when none
-// comes, as in a WAIT.
+// From a fall, e0 of the next cycle at the earliest, to e1 of the next
+// cycle that isn't NIO, parked there with CLK1 high: the address stays
+// until e2. Only at e1 is #ALE low with #STRB high. A NIO's other edges
+// need no look. Null when none comes, as in a WAIT.
 Signals *PinsDcj11::prepareCycle() {
-    // completeCycle() returns after #ALE rose, so a low one is new.
-    bool armed = true;
-    bool seen = ale_asserted();
-    for (auto guard = no_ale_periods; guard > 0; --guard) {
-        if (seen && armed) {
+    for (auto guard = idle_cycles; guard > 0; --guard) {
+        rise();  // e1
+        if (ale_asserted() && !strb_asserted()) {
             auto s = Signals::put();
             s->clearMark();  // Cycles::next() keeps the slot's old mark
-            s->getAddr();
+            s->getAddr(abort_asserted());
             if (!s->nio()) {
                 _parked = *s;
                 return s;
             }
-            armed = false;
-        } else if (!seen) {
-            armed = true;
+            for (auto e = 2; e < 8; e += 2) {
+                fall();
+                rise();
+            }
         }
-        digitalWriteFast(PIN_CLK, LOW);
-        delayNanoseconds(lo_ns);
-        seen = ale_asserted();
-        digitalWriteFast(PIN_CLK, HIGH);
-        delayNanoseconds(hi_ns);
-        seen = seen || ale_asserted();
+        fall();  // e0
     }
     return nullptr;
 }
 
-// Takes the parked cycle up again, at #ALE or in its stretch.
+// Takes the parked cycle up again, at e1.
 Signals *PinsDcj11::resumeCycle() {
     auto s = Signals::put();
     *s = _parked;
@@ -375,17 +351,12 @@ Signals *PinsDcj11::resumeCycle() {
     return s;
 }
 
+// From e1 to the next cycle's e0, a fall.
 Signals *PinsDcj11::completeCycle(Signals *s) {
-    clear_abort();
     settleDevRead(s);
-    // GP and IACK cycles are known by AIO alone; their BS is undefined.
-    const auto external = s->iack() || s->gpRead() || !s->internal();
-    if (s->write() || s->gpWrite()) {
-        if (!clockUntil(sctl_asserted))
-            cli.println("?#SCTL write");
-        s->getData();
-        storeData(s);
-    } else if (external) {
+    const auto write = s->write() || s->gpWrite();
+    const auto read = served_read(s);
+    if (read) {
         if (s->iack()) {
             s->data = _devs->vector();
         } else if (s->gpRead()) {
@@ -394,27 +365,93 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
         } else {
             retrieveData(s);
         }
-        // The CPU lets DAL go with #BUFCTL, and has by the stretch; read
-        // data is latched at T3's rise, and again as DV falls, held low
-        // until the stretch ends.
-        if (!clockUntil([] { return bufctl_asserted() || sctl_asserted(); }))
-            cli.println("?#BUFCTL");
-        s->outData();
-        if (!clockUntil(sctl_asserted))
-            cli.println("?#SCTL read");
-        clock_after_rise(assert_dv);
-    } else if (!clockUntil(sctl_asserted)) {
-        cli.println("?#SCTL internal");
     }
-    // #BUFCTL rises only with the next cycle's address, about when its
-    // #ALE comes: let DAL go once #SCTL rises, without waiting for it.
-    clock_after_rise(assert_cont);
-    if (!clockUntil([] { return !sctl_asserted(); }))
-        cli.println("?#CONT");
+    const auto fast = s->read() && s->memory();
+    fall();  // e2: the address leaves
+    rise();  // e3
+    if (fast) {
+        clk_lo();  // e4
+        s->outData();
+        delayNanoseconds(data_ns);
+        // The CPU drives DAL again 20ns after T3's rise.
+        noInterrupts();
+        clk_hi();  // e5: latched
+        delayNanoseconds(hold_ns);
+        s->inputMode();
+        interrupts();
+    } else {
+        fall();  // e4
+        rise();  // e5
+    }
+    fall();  // e6
+    rise();  // e7: #BUFCTL falls again in a stretch
+    const auto timeout = bus_timeout(s);
+    // Whether #CONT's first sample, at e8, takes it.
+    auto first = !read;
+    if (read && !fast && early_dv && !timeout) {
+        s->outData();
+        delayNanoseconds(data_ns);
+        assert_dv();
+        first = true;
+    } else if (read) {
+        fall();  // e8
+        if (fast && !bufctl_asserted()) {
+            // Done at e7: this is the next cycle's e0.
+            Cycles::next();
+            return s;
+        }
+        s->outData();
+        delayNanoseconds(data_ns);
+        rise();    // e9: #SCTL falls
+        clk_lo();  // e10
+        if (timeout)
+            assert_abort();
+        assert_dv();
+        delayNanoseconds(lo_ns);
+        clk_hi();  // e11
+        if (timeout) {
+            // The abort is sampled where #CONT is: a sample of its own.
+            delayNanoseconds(hi_ns);
+            fall();
+            rise();
+            fall();
+            clk_hi();
+        }
+    }
+    // #CONT is held until #SCTL rises, three edges after the sample that
+    // took it; a write's data is read in the first low half, #SCTL low.
+    assert_cont();
+    delayNanoseconds(cont_ns);
+    if (first) {
+        fall();  // e8: sampled
+        rise();  // e9: #SCTL falls
+    }
+    auto pairs = cont_pairs;
+    do {
+        clk_lo();
+        if (write && pairs == cont_pairs)
+            s->getData();
+        delayNanoseconds(lo_ns);
+        rise();
+    } while (sctl_asserted() && --pairs);
+    if (pairs == 0) {
+        cli.print("?#SCTL ");
+        s->print();
+    }
+    // S+3
     negate_cont();
     negate_dv();
     s->inputMode();
-    if (abort_seen()) {
+    if (timeout)
+        negate_abort();
+    fall();
+    rise();  // S+5: #BUFCTL rises
+    fall();
+    rise();  // S+7: #STRB rises
+    fall();  // S+8: the next cycle's e0
+    if (write && !s->aborted())
+        storeData(s);
+    if (s->aborted() && Debugger.verbose()) {
         cli.print("?#ABORT ");
         s->print();
     }
@@ -672,171 +709,25 @@ bool PinsDcj11::step(bool show) {
     return false;
 }
 
-// The PWM takes CLK1 with the CPU held in a stretch, and gives it back
-// held again; the masked output is low.
-void PinsDcj11::startClock() {
-    _clock.start();
-}
-
-void PinsDcj11::stopClock() {
-    digitalWriteFast(PIN_CLK, LOW);  // the GPIO takes the pad back low
-    _clock.stop(_clockHz);
-}
-
-// Under the PWM: the next cycle that isn't NIO within |cycles|, its
-// address taken as #STRB rises and AIO at #ALE, with interrupts masked.
-// Null when none comes.
-Signals *PinsDcj11::catchCycle(uint32_t cycles) {
-    const auto start = ARM_DWT_CYCCNT;
-    const auto expired = [start, cycles] {
-        return ARM_DWT_CYCCNT - start >= cycles;
-    };
-    for (;;) {
-        // Twice high: a coupled spike lasts a few ns. The counter only
-        // every few polls.
-        for (auto n = 0;; ++n) {
-            if (!strb_asserted() && !strb_asserted())
-                break;
-            if ((n & 7) == 7 && expired())
-                return nullptr;
-        }
-        auto s = Signals::put();
-        s->clearMark();
-        s->getRunAddr();
-        while (!(ale_asserted() && ale_asserted())) {
-            if (expired()) {
-                s->getAio();  // the 153s back at rest
-                return nullptr;
-            }
-        }
-        s->getAio();
-        if (!s->nio())
-            return s;
-        // A NIO's #STRB falls a period after #ALE.
-        while (!strb_asserted()) {
-            if (expired())
-                return nullptr;
-        }
-    }
-}
-
-// The next cycle, interrupts masked from the last release until its
-// address is in; the CPU then runs on to its stretch, which holds it,
-// while the debugger gets its data ready. Null, with interrupts still
-// masked, when none comes for a while, as in a WAIT.
-Signals *PinsDcj11::waitCycle() {
-    noInterrupts();
-    auto s = catchCycle(wait_cycles);
-    if (s == nullptr)
-        return nullptr;
-    interrupts();
-    return s;
-}
-
-// Stops the PWM with interrupts masked, catching a cycle that begins
-// before the mask takes hold; once the clock is stopped none can, and
-// interrupts may come. A caught cycle is bit-banged into its stretch.
-Signals *PinsDcj11::stopWatching() {
-    Clock::mask(true);
-    // The mask holds from the next period start.
-    auto s = catchCycle(2 * F_CPU / _clockHz);
-    stopClock();
-    if (s)
-        clockUntil(sctl_asserted);
-    return s;
-}
-
-// A cycle's data, as completeCycle() moves it. A read's goes on DAL once
-// #BUFCTL lets it, before T3's rise, which latches it (DCJ11 User's
-// Guide, 3.2); DV latches it again in the stretch.
-void PinsDcj11::serve(Signals *s) {
-    settleDevRead(s);
-    const auto read = !s->write() && !s->gpWrite() &&
-                      (s->iack() || s->gpRead() || !s->internal());
-    const auto start = ARM_DWT_CYCCNT;
-    if (read) {
-        if (s->iack()) {
-            s->data = _devs->vector();
-        } else if (s->gpRead()) {
-            const auto code = s->addr & 0377;
-            s->data = (code == 0 || code == 2) ? POWER_UP_CONFIG : 0;
-        } else {
-            retrieveData(s);
-        }
-        while (!bufctl_asserted() && !sctl_asserted() &&
-                ARM_DWT_CYCCNT - start < sctl_cycles)
-            ;
-        s->outData();
-    }
-    while (!sctl_asserted() && ARM_DWT_CYCCNT - start < sctl_cycles)
-        ;
-    if (s->write() || s->gpWrite()) {
-        s->getData();
-        storeData(s);
-    } else if (read) {
-        assert_dv();
-    }
-}
-
-// Ends a held cycle with #CONT; interrupts stay masked until the next
-// address is in.
-void PinsDcj11::release(Signals *s) {
-    if (abort_asserted()) {
-        cli.print("?#ABORT ");
-        s->print();
-    }
-    noInterrupts();
-    assert_cont();
-    const auto start = ARM_DWT_CYCCNT;
-    while (sctl_asserted() && ARM_DWT_CYCCNT - start < sctl_cycles)
-        ;
-    negate_cont();
-    negate_dv();
-    s->inputMode();
-    Cycles::next();
-}
-
-// Runs under the PWM until a BPT or the halt switch, every cycle held in
-// its stretch while it is served. Returns whether the registers can be
-// saved.
+// Runs until a BPT or the halt switch. Interrupts stay on: one only
+// lengthens a half. Returns whether the registers can be saved.
 bool PinsDcj11::loop() {
     Signals *s = resumeCycle();
-    clockUntil(sctl_asserted);
-    startClock();
     for (uint_fast8_t n = 0;; ++n) {
-        // Quiet, as in a WAIT: interrupts come only on a stopped clock.
+        // Quiet, as in a WAIT.
         const auto quiet = s == nullptr;
-        if (quiet) {
-            s = stopWatching();
-            interrupts();
-            // A WAIT ticks the watchdog only once per quiet stretch.
+        if (quiet)
             Watchdog::feed();
-        }
-        if (s && parkAfterFrame(s, false, false)) {
-            if (!quiet)
-                stopClock();
-            _parked = *s;  // where the next run resumes
+        if (s && parkAfterFrame(s, false, false))
             return true;
-        }
         // The devices' slow service comes round on its own clock; its
         // check costs a cycle a hundred ns, so not every one.
         const auto serviced = ((n & 15) == 0 || quiet) && _devs->loop();
-        if ((serviced || quiet) && haltSwitch()) {
-            if (!quiet)
-                stopClock();
-            if (s)
-                _parked = *s;  // suspend() may park in it
+        if ((serviced || quiet) && haltSwitch())
             return suspend(s);
-        }
-        if (quiet) {
-            noInterrupts();
-            startClock();
-        }
-        if (s) {
-            serve(s);
-            release(s);
-        }
-        s = waitCycle();
+        if (s)
+            completeCycle(s);
+        s = prepareCycle();
     }
 }
 

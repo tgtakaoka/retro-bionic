@@ -6,14 +6,12 @@
 namespace debugger {
 namespace dcj11 {
 
-// One bus cycle of the DCJ11, read at the #ALE fall (DCJ11 User's
-// Guide, Chapter 3). |addr| is the 22-bit physical address.
+// One bus cycle of the DCJ11, read with the clock stopped after #ALE
+// falls (DCJ11 User's Guide, Chapter 3). |addr| is the 22-bit physical
+// address.
 struct Signals final : SignalsBase<Signals> {
-    void getAddr();
-    // A run's getAddr() in two parts: the address at #STRB's rise, AIO at
-    // #ALE.
-    void getRunAddr();
-    void getAio();
+    // AIO alone for a NIO; |abort| is the CPU's own #ABORT.
+    void getAddr(bool abort);
     void getData();
     void outData() const;
     void inputMode() const;
@@ -50,6 +48,8 @@ struct Signals final : SignalsBase<Signals> {
     void mark() { _signals[2] = 1; }
     void clearMark() { _signals[2] = 0; }
     bool marked() const { return _signals[2] != 0; }
+    // The CPU aborted the cycle: its address and data mean nothing.
+    bool aborted() const { return _signals[3] != 0; }
 
 private:
     // AIO3-AIO0 (DCJ11 User's Guide, Table 3-1).

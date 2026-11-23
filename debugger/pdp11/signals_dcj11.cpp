@@ -19,44 +19,24 @@ void oct8(CharBuffer &buffer, uint_fast8_t pos, uint8_t val) {
 }
 }  // namespace
 
-// The 153s rest at select 1 and step 1, 0, 2, one select per step; each
-// sample is put away while the next settles. Back at 1 afterwards.
-void Signals::getAddr() {
-    const uint32_t sel1 = PIN(MUX);
-    digitalWriteFast(PIN_ASEL0, LOW);  // 0
-    addr = busRead(DAL);
-    uint32_t v = (sel1 & MUX_gm) << 4;
-    delayNanoseconds(mux_ns);
-    const uint32_t sel0 = PIN(MUX);
-    digitalWriteFast(PIN_ASEL1, HIGH);  // 2
-    v |= sel0 & MUX_gm;
-    delayNanoseconds(mux_ns);
+// The 153s rest at select 2, AIO, and a NIO is known by that alone. For
+// any other they step 0, then 1, one select per step, and back.
+void Signals::getAddr(bool abort) {
     _signals[0] = PIN(MUX) & MUX_gm;
-    digitalWriteFast(PIN_ASEL1, LOW);
-    digitalWriteFast(PIN_ASEL0, HIGH);  // 1
-    _signals[1] = (v >> 6) & 3;
-    addr |= (v & 077) << 16;
-}
-
-// At #STRB's rise, before #ALE: the address and BS are valid from then
-// until a period after #ALE falls (J-11 Data Chip Specification, 1.5).
-// The 153s step 1, 0, then 2, left to settle for getAio().
-void Signals::getRunAddr() {
-    const uint32_t sel1 = PIN(MUX) & MUX_gm;
-    digitalWriteFast(PIN_ASEL0, LOW);  // 0
+    if (nio())
+        return;
+    digitalWriteFast(PIN_ASEL1, LOW);  // 0
+    _signals[3] = abort;
     addr = busRead(DAL);
     delayNanoseconds(mux_ns);
     const uint32_t sel0 = PIN(MUX) & MUX_gm;
+    digitalWriteFast(PIN_ASEL0, HIGH);  // 1
+    delayNanoseconds(mux_ns);
+    const uint32_t sel1 = PIN(MUX) & MUX_gm;
+    digitalWriteFast(PIN_ASEL0, LOW);  // 0
     digitalWriteFast(PIN_ASEL1, HIGH);  // 2
     _signals[1] = sel1 >> 2;
     addr |= (((sel1 & 3) << 4) | sel0) << 16;
-}
-
-// AIO3-AIO0 once #ALE is low; back at 1 afterwards.
-void Signals::getAio() {
-    _signals[0] = PIN(MUX) & MUX_gm;
-    digitalWriteFast(PIN_ASEL1, LOW);
-    digitalWriteFast(PIN_ASEL0, HIGH);  // 1
 }
 
 void Signals::getData() {
