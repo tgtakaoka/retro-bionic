@@ -749,6 +749,35 @@ sector disk and USART:
   name with any type; `BASIC FMANDEL` starts it without loading one.
   CB86 opens its overlays on the current drive.
 
+### Unix V6 installs itself over the console **[hw]**
+
+`debugger/pdp11/tools/v6-install.py` types V6's setup at the DCJ11's
+console, from the tape's disks `v6-fetch.py` cut, and checks each step's
+output. What the console taught it:
+
+- V6 drops keys typed faster than 50 ms apart, and its `kl` driver sends
+  every character with a parity bit, with DEL as the fill after a
+  newline, so the script strips bit 7 and DEL before matching. Until
+  `stty -lcase` the shell echoes in upper case; `#` erases and `@` kills,
+  so a file typed in with `cat` may hold neither.
+- A typed line resets what the script has seen, so the `^D` that ends a
+  `cat` goes in the same typing as the text, or the prompt it provokes
+  is lost. `mkconf` reads device names up to `done`.
+- After power-up SP may sit in the I/O page, where `G`'s restore cannot
+  stack the PC and PS, and the CPU ends in a HALT loop at 1730xx:
+  `= SP 1000` before the first `G`.
+- `?#ABORT W` lines during `cc` are the MMU's stack-growth aborts, which
+  the debugger reports and V6 handles; the script drops them.
+- At 10 MHz from the PWM, `cc mkconf.c` failed about half the runs with
+  compiler errors that moved from boot to boot (`No code table for op 0`,
+  `s redeclared`), while the raw disk compared equal to itself and
+  `icheck` was clean: the CPU's bus catch, not the disk, which the
+  bit-banged clock fixed.
+- The disk goes to and from the card with `Y`: `sd sync` before the boot
+  sends only the chunks that differ from the tape cut, so every run starts
+  from the same image, and `--save` reads the installed disk back,
+  checked chunk by chunk against `Y crc`.
+
 ### Reset keeps the board's wiring **[code]**
 
 A device's base address and interrupt vectors are the board's wiring, not
