@@ -138,7 +138,8 @@ alone; a reset clears only the device's own registers and pending interrupts.
   mounts the slots of `unix_v6.dsk` beside it as rk0 up: 1024 blocks of 512 bytes for
   a drum, then 6144 blocks a drive, the layout of TangConsoleDCJ11MEM's disk images.
   `O rk1 pack.dsk` mounts a single RK05 pack's file, up to 2494464 bytes, on a drive
-  and `O rk1` unmounts it.
+  and `O rk1` unmounts it. [Unix V6](samples.md#unix-v6-on-the-dcj11) installs
+  itself on that disk.
 - **SWR** (DCJ11) — `debugger/pdp11/swr.h`: `SWR`, the console switch register at
   177570. `I SWR 173030` sets what it reads; that value, the default, starts Unix
   single-user.

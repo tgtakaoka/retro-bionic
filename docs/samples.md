@@ -146,13 +146,60 @@ on the P80C86A-2 and D8087: `U` uploads `cpm86.hex`, `O` mounts A: and B:, and C
 boots; ASM86 builds `fmandel.a86` and DRI's C builds `imandel.c`, and each draws the set.
 It's also on [asciinema.org](https://asciinema.org/a/26nhB7uRNsBEngo9).
 
+## Unix V6 on the DCJ11
+
+[`samples/dcj11/unix_v6.asm`](../samples/dcj11/unix_v6.asm) is the RK05 bootstrap: it
+reads drive 0's first block into memory and runs it. `L dcj11/unix_v6.hex` loads it and
+mounts `dcj11/unix_v6.dsk` beside it on the debugger's RK11 as rk0, rk1 and rk2 (see
+[I/O devices](debugger.md#io-devices)). V6 also wants the KW11-L line clock and the
+switch register, which the board emulates, and the bit-banged clock: at 10 MHz its
+compiler misread the bus now and then.
+
+The system is not in the repository. `debugger/pdp11/tools/v6-fetch.py` downloads
+Ken Wellsch's V6 distribution tape from [TUHS](https://www.tuhs.org/Archive/Distributions/Research/Ken_Wellsch_v6/)
+into `samples/dcj11/unix_v6.fetch/`, checks its sha256, and cuts the three RK05 disks
+it carries, the root, `/usr/source` and `/usr/doc`, as V6's setup would; the tape
+is distributed under [Caldera's license](https://www.tuhs.org/Archive/Caldera-license.pdf)
+for ancient UNIX. Then:
+
+```sh
+cd samples/dcj11
+make unix_v6.dsk
+```
+
+puts them in the disk image's slots, and the installer does the rest over the console,
+with the board at its prompt and `unix_v6.hex` in `dcj11/` on the SD card
+(`scripts/bionic-control.py sd put unix_v6.hex dcj11/unix_v6.hex` puts it there):
+
+```sh
+../../debugger/pdp11/tools/v6-install.py --save unix_v6.installed.dsk unix_v6.dsk \
+    v6/fmandel.s v6/mandelbrot.s ../arith/fmandel.c ../arith/dmandel.c
+```
+
+It syncs the image onto the card with `Y`, boots the tape's `rkunix` single-user,
+builds `/unix` for the 11/40 with the `rk`, `rp` and `tm` drivers, makes `/dev`'s
+nodes, boots that kernel, adds the mounts of rk1 and rk2 to `/etc/rc`, types the
+files named into `/usr/mandel`, checks the root with `icheck` and `dcheck`, and
+reads the installed disk back to `--save`'s file. About seven minutes, as V6's
+console takes a keystroke every 50 ms. A run that stops starts over from the image.
+
+`L dcj11/unix_v6.hex`, `R`, `= SP 1000` (the power-up SP may point into the I/O
+page), `G`, Enter, then `unix` at the bootstrap's `@` boots single-user to `#`; `stty
+-lcase` makes the console lower-case. `/usr/mandel` holds
+[`fmandel.s`](../samples/dcj11/v6/fmandel.s) and
+[`mandelbrot.s`](../samples/dcj11/v6/mandelbrot.s), the DCJ11 samples in V6's
+assembler (`as fmandel.s; a.out`), and `samples/arith`'s `fmandel.c` and `dmandel.c`
+for its C compiler (`cc -f fmandel.c; a.out` draws the set in about 24 s). The
+console sends each character with a parity bit, as V6's DL11 driver does.
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather
 than on a target. It holds C++ implementations of each operation (`add.cpp`, `div.cpp`,
 `mul.cpp`, `neg.cpp`, `shift.cpp`, `sub.cpp`, with `flags.hpp`), the original BASIC
 listings the Mandelbrot ports derive from (`mandelbrot.bas`, `fmandel.bas`), and a C version
-(`mandelbrot.c`), with `imandel.c`, the same in K&R C with 16-bit `int`s. When a port
+(`mandelbrot.c`), with `imandel.c`, the same in K&R C with 16-bit `int`s, and `fmandel.c`
+and `dmandel.c`, `fmandel` in K&R C with `float` and `double`. When a port
 misbehaves on real silicon, this is what its output is compared against.
 
 ## Building a sample
