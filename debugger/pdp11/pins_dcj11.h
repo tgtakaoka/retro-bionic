@@ -52,7 +52,6 @@
 #define PIN_ASEL1 30  /* P8.23 P55 */
 
 #include "pins_pdp11.h"
-#include "pwm_clock.h"
 #include "signals_dcj11.h"
 
 namespace debugger {
@@ -62,10 +61,6 @@ struct PinsDcj11 final : pdp11::PinsPdp11 {
     PinsDcj11();
 
     void idle() override {}
-#ifdef TUNE_CLOCK
-    uint32_t clockInput() const override;
-    bool setClockInput(uint32_t hz) override;
-#endif
     bool step(bool show) override;
     void run() override;
 
@@ -81,10 +76,6 @@ struct PinsDcj11 final : pdp11::PinsPdp11 {
             uint16_t *buf, uint_fast8_t max, uint16_t &org) override;
 
 private:
-    // A run's clock; reset, steps and injected sequences are bit-banged.
-    using Clock = PwmClock<PIN_CLK>;
-    Clock _clock;
-    uint32_t _clockHz;
     // The cycle the CPU is parked in: past #ALE, DAL no longer has it.
     Signals _parked;
     // A device read whose side effects wait for the next transaction:
@@ -114,13 +105,6 @@ private:
     bool suspend(Signals *s);
     bool rawStep();
     bool loop();
-    Signals *catchCycle(uint32_t cycles);
-    Signals *waitCycle();
-    Signals *stopWatching();
-    void serve(Signals *s);
-    void release(Signals *s);
-    void startClock();
-    void stopClock();
 };
 
 }  // namespace dcj11

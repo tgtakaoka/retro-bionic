@@ -2941,38 +2941,52 @@ lookup rides the period that brings #CAS. **[bench]**
 
 ### DCJ11
 
-**Bus.** A cycle is four CLK1 periods, T0-T3; the board holds #MISS low,
-so every memory read stretches in T4 pairs until #CONT, sampled at T4's
-falling edges, ends it, and NIO cycles never do. A stretched cycle lasts
-at least eight periods. **[doc]** The address, AIO3-AIO0 and BS1-BS0 are
-valid while #ALE is low: DAL21-DAL16, BS and AIO reach the Teensy through
-two 74HCS153s on P30-P33, selected one select bit at a time. The address
-and BS are driven from #STRB's rise until a period after #ALE falls, when
-DAL21-DAL16 turn to ALU status (J-11 Data Chip Specification, 1.5 and
-3.20); AIO is valid at #ALE. **[doc][bench]**
+**Bus.** A cycle is four CLK1 periods, T0-T3; a stretched one adds T4
+pairs until #CONT, sampled at T4's falling edges, ends it, and #SCTL
+rises three edges after the sample. The address, AIO3-AIO0 and BS1-BS0
+are valid while #ALE is low: DAL21-DAL16, BS and AIO reach the Teensy
+through two 74HCS153s on P30-P33, selected one select bit at a time,
+and resting at AIO, so a NIO costs one port read. **[doc][bench]**
 
-**Clock.** CLK1 comes from the PWM at 10MHz, every cycle other than NIO
-held in its stretch while it is served. A run reads the address as #STRB
-rises and AIO once #ALE falls: read from #ALE alone, the firmware got to
-DAL19-DAL16 after they had left, even at 7.5MHz. 10.7MHz passes, 11.5MHz
-fails. **[bench]**
+**Clock.** The DCJ11 is static, and CLK1 is bit-banged: the debugger
+makes every edge, reset, step and run alike, from one script per cycle,
+counting from the fall #ALE falls after. The address is read with the
+clock parked after the next rise, where #ALE is low with #STRB high, and
+interrupts stay on, as one only lengthens a half. A NIO ends at the
+eighth edge. #MISS is held high, so a memory read, fetches among them,
+is not stretched either: its data goes out in the fourth period's low
+half and T3's rise latches it, held 60ns after; the table's 20ns broke
+one V6 compile in three, and the data is let go before the CPU drives
+the next address. Every other cycle stretches to eight periods, #CONT
+at the first sample point: a stretched read's data goes out as #BUFCTL
+falls the second time, with #ALE high, and DV latches it before the
+sample; a write's is read with #SCTL low; #CONT and DV are held until
+#SCTL rises. A read the bus times out takes ten. The halves are coded
+24ns and measure 32ns and up on the pin, a period of 72ns and up, in
+captures sampled every 8ns, against the table's 28 and 67; coded 28, the
+table's minimum, measured 40ns and 96ns in this build, and 32ns and 80ns
+in another with the same edge code. **[doc][bench]**
 
-**Reads.** Read data is latched at T3's rise and again with DV in the
-stretch (User's Guide, 3.2), and the CPU lets DAL go with #BUFCTL, about
-a period after #ALE: the firmware looks the data up before #SCTL falls,
-drives it at #BUFCTL, and only asserts DV and releases #CONT at #SCTL.
-Interrupts are on from the address on, the stretch holding the CPU.
-**[doc][bench]**
+**#ABORT.** The CPU's own, an MMU or address error, falls two edges
+before the cycle's #ALE and holds through its first part: it is read
+with the address, and a write it covers is not stored. An abort from
+outside is taken in the stretch, sampled at T4's falling edges (User's
+Guide, 2.6.3). #BUFCTL is low twice in a read: from #STRB's fall to
+#ALE's rise, with the address still out, then high again, then low for
+the data. Read data driven on the first met the CPU's own on DAL until
+the second, and with 177777 against an address of zeros the CPU aborted
+the cycle and trapped through 4: most often in the first register
+restore after power-up, when the FP11's accumulators hold 000000 177777
+000000 177777. Only a stretched read's data waits for the second;
+a memory read's goes out after the first, where the address has left
+(User's Guide, Figure 3-3). **[doc][bench]**
 
-**#ABORT and DV.** An external #ABORT is taken in the stretch, sampled
-at T4's falling edges (User's Guide, 2.6.3). #ABORT dips as DV latches
-177777: a bit-banged read that asserted DV and #CONT just ahead of a
-falling edge took it for an abort and trapped through 4, most often in
-the first register restore after power-up, when the FP11's accumulators
-hold 000000 177777 000000 177777. The bit-banged cycle gives DV and
-#CONT a period each and changes them at its rising edge. With verbose
-on, a cycle reports any fall of #ABORT, not only a low one at its end.
-**[doc][bench]**
+**Bus timeout.** A read of 760000-760077, the I/O page's first words,
+is aborted: the debugger pulls #ABORT low in the cycle's stretch, as an
+abort from outside has to come (DCJ11 User's Guide, 2.6.3), and lets it
+go as #SCTL rises. The CPU traps through 4 with the timeout bit in its
+error register; Unix sizes its memory by that trap. The rest of the I/O
+page outside its devices still reads 0. **[doc][code]**
 
 **Entries and power-up.** The power-up configuration read is answered
 with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
