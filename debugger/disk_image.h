@@ -27,9 +27,10 @@ struct DiskGeometry {
  * One drive's medium: |geometry| at |offset| in an SD card image file,
  * whose handle units on the same file share. Mounts happen at the prompt
  * and never make a file. read()/write()/flush() run inside a held bus
- * cycle. Past the file's end a read returns fill and a write first fills
- * the gap. The caller pads or trims partial sectors in buffer(). A RAM
- * cache would sit behind read(), write() and flush().
+ * cycle, and fail on a card error, which the controller reports. Past
+ * the file's end a read returns fill and a write first fills the gap.
+ * The caller pads or trims partial sectors in buffer(). A RAM cache
+ * would sit behind read(), write() and flush().
  */
 struct DiskUnit {
     static constexpr uint16_t BUFFER_BYTES = 512;

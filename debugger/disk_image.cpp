@@ -102,15 +102,18 @@ bool DiskUnit::grow(uint32_t size) {
     return true;
 }
 
+// Only the part of the sector past the file's end may come up short.
 bool DiskUnit::read(uint32_t lsn) {
     if (!mounted() || lsn >= lsns())
         return false;
     auto &file = _file->file;
     const auto bytes = _geometry->sectorBytes;
     const auto at = _offset + lsn * bytes;
-    const auto got = file.seek(at) ? int(file.read(sector_buffer, bytes)) : 0;
-    for (auto i = got < 0 ? 0 : got; i < int(bytes); ++i)
-        sector_buffer[i] = _geometry->fill;
+    const auto size = file.size();
+    const auto want = size <= at ? 0 : (size - at < bytes ? size - at : bytes);
+    if (want && (!file.seek(at) || file.read(sector_buffer, want) != int(want)))
+        return false;
+    memset(sector_buffer + want, _geometry->fill, bytes - want);
     Watchdog::feed();
     return true;
 }
