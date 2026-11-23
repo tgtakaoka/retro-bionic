@@ -220,9 +220,9 @@ instruction as the jump.
 With `yield()` on every halt poll, a halt rarely reaches the register save with
 an interrupt pending, so a passing `haltgo` proves little. The
 `teensy41-stress` build (`BIONIC_ENV=teensy41-stress` for
-`bionic-control.py flash`) adds `Y n`: `yield()` on one in `n` halt polls.
-`Y 1024` makes the pending interrupt common; a power cycle puts it back to
-`Y 1`. The test is the regress plus five runs of `haltgo=30` at `Y 1024`.
+`bionic-control.py flash`) adds `y n`: `yield()` on one in `n` halt polls.
+`y 1024` makes the pending interrupt common; a power cycle puts it back to
+`y 1`. The test is the regress plus five runs of `haltgo=30` at `y 1024`.
 
 Every family in "Halt through an entry the CPU takes itself" passes it, by
 the entry or the masked save named there, with the remedies in its own section
@@ -803,6 +803,31 @@ record's length and checksum are checked now; a bad one prints `?bad record`
 and loads nothing, as does a line that lost its `S` or `:`. A record lost
 whole shows only in the byte count, so `upload_file()` also checks the
 reported `bytes uploaded` against the file, and uploads again on either.
+
+### YMODEM over the console lives with lrzsz's habits **[hw]**
+
+`Y` moves files with YMODEM (`debugger/ymodem.cpp`, host-tested against
+lrzsz's `sb` and `rb` in `test/test_ymodem`), CRC mode and 1K blocks, as
+minicom drives it. lrzsz's habits shape the code. Its receiver flushes its
+input right after every `C` and every ACK it sends, so the sender lets the
+line settle before answering one (`SETTLE_MS` after a `C`, `GAP_MS` after
+an ACK, `RETRY_MS` after a NAK, since lrzsz then takes a second of quiet
+to clear the line; the host tests on a pseudo terminal hit the flush every
+time, USB would now and then), and the gap must not follow the header's
+ACK, whose `C` comes at once and would be eaten. It doubts the first EOT and now and
+then the second, so EOT repeats until acknowledged. It flushes its output
+as it exits, which can take the ACK of the closing empty header with it, so
+a silence there counts as success (the file was acknowledged before), and
+the board waits half a second of quiet (`ConsoleLink::drain()`) before
+printing its report, which a flush would otherwise eat too; nothing lrzsz
+sends after the session reaches the prompt as a command. And it stamps a
+file without a modification time with garbage, so the header carries a `0`.
+The block number wraps past 255: a file over 256 KB is where a `seq == 0`
+shortcut breaks. The script waits for the whole ready line before starting
+lrzsz, since its tail would reach `rb` as line noise and cost a retry round.
+A block that lost a byte on the way would otherwise be answered byte by
+byte, each a NAK and a retry spent: the receiver lets the line go quiet
+before its one NAK.
 
 ### Some CPUs report the PC one byte early **[hw]**
 

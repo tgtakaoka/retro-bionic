@@ -36,6 +36,7 @@ From the header of `debugger/debugger.cpp`:
 | `L` | Load Intel HEX or S-record file from SD card |
 | `F` | List files on SD card |
 | `O` | Mount a disk image — `drive file` mounts it on that drive, `drive` unmounts, Enter lists |
+| `Y` | YMODEM a file onto or off the SD card — `put [file [offset [size]]]`, `get file [offset [len]]`; `crc file [chunk]` lists its CRC-32s, `rm file` deletes |
 | `I` | Show/select I/O device — `dev [addr [vec]]` also sets its base and interrupt vector |
 | `W` | Write identity EEPROM |
 | `V` | Toggle verbose mode |
@@ -162,6 +163,35 @@ alone; a reset clears only the device's own registers and pending interrupts.
 For microcontroller targets with a serial port on the die, that port is bridged to your
 terminal instead of an emulated chip. Handlers exist for CDP1802, INS8060, INS8070, i8051,
 i8085 SIO, MC6801, MC68HC11, MC68HC05C0, TLCS-90, TMS7002, Z86 and Z88.
+
+## Files on the SD card
+
+`F` lists the card, `L` loads a HEX/S-record file from it and `O` mounts disk
+images (see [I/O devices](#io-devices)). `Y` moves whole files between the card
+and the host by YMODEM over the same console, while the CPU is halted:
+
+- `Y put` then start a YMODEM upload in the terminal (minicom: `Ctrl-A S`,
+  `ymodem`, the file); the card file takes the sender's name, in the card's
+  root. `Y put path` names it instead, directories made on the way. The file
+  is replaced: it ends where the received data does.
+- `Y get path` then start a YMODEM download (`Ctrl-A R`, `ymodem`); the file
+  arrives under its own name.
+- `Y crc path` prints the file's size and the CRC-32 of each 4 KB chunk
+  (zlib's), eight to a line after the offset of the first.
+- `Y rm path` deletes a file; one a drive has mounted stays, and so do
+  directories.
+
+The board waits a minute for the transfer to start, and `^C` at the prompt
+cancels it. A mounted disk image goes through the handle its drive holds, so
+`Y put` refreshes an image in place with nothing out of step. The optional
+numbers are hexadecimal: `Y put path offset` writes the received data at
+`offset` and leaves the rest of the file alone, `offset size` also cuts the
+file to `size`, `Y get path offset len` sends that slice, and `crc`'s `chunk`
+is the chunk size (at least 200). Those serve `scripts/bionic-control.py`:
+`sd put LOCAL REMOTE` and `sd get REMOTE LOCAL` move a file, checked by its
+CRCs, `sd rm REMOTE` deletes one, and `sd sync LOCAL REMOTE` sends only the chunks whose CRC differs,
+the cheap way to refresh a disk image of several MB with a few blocks
+changed. The host side is lrzsz's `sb` and `rb`, which minicom uses too.
 
 ## Bus-cycle capture
 

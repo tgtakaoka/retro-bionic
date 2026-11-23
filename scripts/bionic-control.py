@@ -26,6 +26,15 @@ Subcommands
                    between them -- and reports the time each one took, which
                    is the honest way to compare a slow target with a fast
                    one
+  sd put LOCAL REMOTE
+                   write a file to the SD card through the Y command (YMODEM,
+                   with lrzsz's sb), then check it by its CRCs
+  sd sync LOCAL REMOTE
+                   likewise, but send only the 4 KB chunks whose CRC differs
+                   from the card's: the cheap way to refresh a disk image
+  sd get REMOTE LOCAL
+                   read a file back from the SD card (rb)
+  sd rm REMOTE     delete a file on the SD card
   abort            abort a running CPU (any byte on the halt port)
   probe            report whether the board is at its prompt, and as what
   recover          bring a stuck board back to its prompt
@@ -54,10 +63,12 @@ import fcntl
 import os
 import re
 import select
+import shutil
 import socket
 import subprocess
 import sys
 import time
+import zlib
 
 from importlib.machinery import SourceFileLoader
 bench = SourceFileLoader('bench', os.path.join(os.path.dirname(
@@ -340,6 +351,41 @@ def upload_size(path):
 # What the debugger prints for a record whose length or checksum is wrong.
 BAD_RECORD = '?bad record'
 UPLOAD_TRIES = 3
+
+# Y's CRCs cover SD_CHUNK bytes each. A sync sends at most SD_RUN bytes in
+# one YMODEM session, and bridges a gap of up to SD_GAP unchanged chunks
+# rather than start another: a session costs about a second of lrzsz's
+# and the board's waits, a chunk a hundredth of that.
+SD_CHUNK = 0x1000
+SD_RUN = 0x100000
+SD_GAP = 32
+# What Y prints before a session, and lrzsz's own timeout on a dead line.
+SD_READY = 'the file now'
+SD_IDLE = 120.0
+
+
+def chunk_crcs(data):
+    return [zlib.crc32(data[at:at + SD_CHUNK])
+            for at in range(0, len(data), SD_CHUNK)]
+
+
+def differing(crcs, want):
+    """The chunks of `want` that `crcs` lacks or has differently."""
+    return [i for i, crc in enumerate(want)
+            if i >= len(crcs) or crcs[i] != crc]
+
+
+def runs(chunks):
+    """`chunks`, sorted, as (first, count) runs, each of at most SD_RUN
+    bytes, a gap of up to SD_GAP chunks bridged."""
+    out = []
+    for i in chunks:
+        if out and i - (out[-1][0] + out[-1][1]) <= SD_GAP and \
+                (i + 1 - out[-1][0]) * SD_CHUNK <= SD_RUN:
+            out[-1][1] = i + 1 - out[-1][0]
+        else:
+            out.append([i, 1])
+    return out
 
 
 class Board:
@@ -662,6 +708,165 @@ class Board:
         echoed += self._drain(5.0, 0.5)
         return sent, echoed.decode('ascii', 'replace').replace('\r', '')
 
+    # ---------------------------------------------------------------- SD card
+    def _reply(self, cmd, stall=20.0):
+        """Send `cmd` and return its reply up to the prompt, however long;
+        None when the console falls silent for `stall` seconds first."""
+        note(cmd)
+        self._write(cmd)
+        parts, tail, last = [], b'', time.time()
+        while time.time() - last < stall:
+            r, _, _ = select.select([self.fd], [], [], 0.2)
+            if not r:
+                continue
+            try:
+                d = self._read()
+            except BlockingIOError:
+                continue
+            if d:
+                parts.append(d)
+                tail = (tail + d)[-16:]
+                last = time.time()
+                if at_prompt(tail) and not select.select([self.fd], [], [], 0.05)[0]:
+                    return b''.join(parts).decode('ascii', 'replace').replace('\r', '')
+        return None
+
+    def sd_crcs(self, remote):
+        """(size, [CRC-32 of each SD_CHUNK]) of a card file, None when it is
+        not there."""
+        for _ in range(UPLOAD_TRIES):
+            text = self._reply(b'Ycrc %s %X\r' % (remote.encode(), SD_CHUNK))
+            if text is None:
+                break
+            if '%s not found' % remote in text:
+                return None
+            size = re.search(r'^(\d+) bytes$', text, re.M)
+            crcs, at = [], 0
+            for m in re.finditer(r'^([0-9A-Fa-f]{8}):((?: [0-9A-Fa-f]{8}){1,8})$', text, re.M):
+                if int(m.group(1), 16) != at:
+                    break
+                row = [int(c, 16) for c in m.group(2).split()]
+                crcs += row
+                at += len(row) * SD_CHUNK
+            if size and len(crcs) == -(-int(size.group(1)) // SD_CHUNK):
+                return int(size.group(1)), crcs
+        raise RuntimeError('Y crc %s: no usable reply' % remote)
+
+    def _ymodem(self, cmd, argv, cwd=None):
+        """`cmd`, a Y put or get line, then lrzsz `argv` on the console
+        once the board says it is ready; returns Y's closing report."""
+        note(cmd)
+        self._write(cmd)
+        # The whole ready line, so none of it reaches lrzsz as line noise.
+        text = b''
+        end = time.time() + 20.0
+        while not re.search(SD_READY.encode() + b'[^\n]*\n', text):
+            if time.time() > end or at_prompt(text):
+                # Y's complaint is the line before the prompt.
+                said = [l for l in text.decode('ascii', 'replace').replace(
+                        '\r', '').split('\n') if l.strip() and l.strip() != '>']
+                raise RuntimeError('%s: %s' % (cmd.decode().strip(),
+                                               said[-1].strip() if said else 'no reply'))
+            r, _, _ = select.select([self.fd], [], [], 0.2)
+            if r:
+                try:
+                    text += self._read()
+                except BlockingIOError:
+                    pass
+        # lrzsz reads the line itself and expects a blocking descriptor.
+        flags = fcntl.fcntl(self.fd, fcntl.F_GETFL)
+        fcntl.fcntl(self.fd, fcntl.F_SETFL, flags & ~os.O_NONBLOCK)
+        try:
+            p = subprocess.run(argv, stdin=self.fd, stdout=self.fd, stderr=subprocess.PIPE,
+                               cwd=cwd, timeout=SD_IDLE + 600.0)
+        finally:
+            fcntl.fcntl(self.fd, fcntl.F_SETFL, flags)
+        # Y's report is the line before the prompt.
+        lines = (self._reply(b'', stall=SD_IDLE) or '').strip().split('\n')
+        reply = lines[-2].strip() if len(lines) > 1 else lines[-1].strip()
+        if p.returncode != 0 or 'YMODEM done' not in reply:
+            raise RuntimeError('%s: %s exit %d %s; %s' % (
+                    cmd.decode().strip(), argv[0], p.returncode,
+                    p.stderr.decode('ascii', 'replace').strip().replace('\r', ' ')[-900:], reply))
+        return reply
+
+    def _sd_write(self, remote, data, first, count, size=None):
+        """Chunks `first` on, `count` of them, of `data` to the card file,
+        cut to `size` bytes when given."""
+        at = first * SD_CHUNK
+        slice_ = data[at:at + count * SD_CHUNK]
+        path = os.path.join(RUN_DIR, 'sd-put-%d.bin' % os.getpid())
+        open(path, 'wb').write(slice_)
+        try:
+            cmd = b'Yput %s %X%s\r' % (remote.encode(), at,
+                                        b' %X' % size if size is not None else b'')
+            reply = self._ymodem(cmd, ['sb', '-q', '-k', path])
+        finally:
+            os.unlink(path)
+        if '%d bytes written' % len(slice_) not in reply:
+            raise RuntimeError('Y put %s: %s' % (remote, reply))
+        return len(slice_)
+
+    def sd_put(self, local, remote, sync=False):
+        """Make card file `remote` the same as `local`; with `sync`, by
+        sending only the chunks whose CRC differs. Returns the bytes sent."""
+        data = open(local, 'rb').read()
+        want = chunk_crcs(data)
+
+        def state():
+            """The chunks still to send, and whether the card file is the same."""
+            size, crcs = self.sd_crcs(remote) or (-1, [])
+            todo = differing(crcs, want)
+            if not todo and size != len(data) and want:
+                todo = [len(want) - 1]      # a resend that also cuts the file
+            return todo, not todo and size == len(data)
+
+        sent = 0
+        if not sync:
+            reply = self._ymodem(b'Yput %s\r' % remote.encode(), ['sb', '-q', '-k', local])
+            if '%d bytes written' % len(data) not in reply:
+                raise RuntimeError('Y put %s: %s' % (remote, reply))
+            sent = len(data)
+        for _ in range(UPLOAD_TRIES):
+            todo, same = state()
+            if same:
+                return sent
+            for first, count in runs(todo):
+                last = first + count == len(want)
+                sent += self._sd_write(remote, data, first, count,
+                                       len(data) if last else None)
+            if not todo:        # an empty local file: nothing to send
+                self._sd_write(remote, data, 0, 0, 0)
+        raise RuntimeError('sd put %s: the card still differs after %d tries'
+                           % (remote, UPLOAD_TRIES))
+
+    def sd_rm(self, remote):
+        """Delete card file `remote`; the board's one-line answer."""
+        text = (self._reply(b'Yrm %s\r' % remote.encode()) or '').strip().split('\n')
+        said = [l.strip() for l in text if l.strip() and l.strip() != '>']
+        reply = said[-1] if said else 'no reply'
+        if not reply.endswith(' removed'):
+            raise RuntimeError('Y rm %s: %s' % (remote, reply))
+        return reply
+
+    def sd_get(self, remote, local):
+        """Read card file `remote` into `local`. Returns its size."""
+        where = os.path.join(RUN_DIR, 'sd-get-%d' % os.getpid())
+        os.makedirs(where, exist_ok=True)
+        name = os.path.basename(remote)
+        try:
+            reply = self._ymodem(b'Yget %s\r' % remote.encode(), ['rb', '-q', '-y'], cwd=where)
+            got = os.path.join(where, name)
+            size = os.path.getsize(got)
+            if '%d bytes read' % size not in reply:
+                raise RuntimeError('Y get %s: %s' % (remote, reply))
+            shutil.move(got, local)     # RUN_DIR may be another file system
+        finally:
+            for f in os.listdir(where):
+                os.unlink(os.path.join(where, f))
+            os.rmdir(where)
+        return size
+
     @classmethod
     def converse(cls, cmds, wait=40.0, verbose=True):
         board = cls.open()
@@ -797,6 +1002,34 @@ def main():
                                        else 'NO CONFIRMATION'))
         print(txt[-600:])
         print('(full text: %s)' % OUT)
+    elif cmd == 'sd':
+        if a[1:2] == ['rm'] and len(a) == 3:
+            board = Board.open()
+            try:
+                print(board.sd_rm(a[2]))
+            except RuntimeError as e:
+                sys.exit(str(e))
+            finally:
+                board.close()
+            return
+        if len(a) != 4 or a[1] not in ('put', 'sync', 'get'):
+            sys.exit('usage: %s sd put|sync LOCAL REMOTE, sd get REMOTE LOCAL or sd rm REMOTE'
+                     % os.path.basename(sys.argv[0]))
+        board = Board.open()
+        t0 = time.time()
+        try:
+            if a[1] == 'get':
+                size = sent = board.sd_get(a[2], a[3])
+            else:
+                size = os.path.getsize(a[2])
+                sent = board.sd_put(a[2], a[3], sync=a[1] == 'sync')
+        except RuntimeError as e:
+            sys.exit(str(e))
+        finally:
+            board.close()
+        took = time.time() - t0
+        print('%s: %d of %d bytes transferred in %.1fs (%.0f bytes/s)'
+              % (a[1], sent, size, took, sent / took))
     elif cmd == 'abort':
         print('aborted' if abort() else 'abort failed')
     elif cmd == 'run':

@@ -21,6 +21,7 @@
  *  F - list files in SD card
  *  L - load Intel Hex/Motorola S-record file
  *  O - mount/unmount disk image
+ *  Y - YMODEM a file to/from the SD card, delete one
  *  U - upload Intel Hex/Motorola S-record
  *  I - show/select I/O device
  *  W - write identity EEPROM
@@ -38,6 +39,9 @@
 #if defined(ENABLE_SDCARD)
 #include <SD.h>
 #include "disk.h"
+#include "disk_image.h"
+#include "watchdog.h"
+#include "ymodem.h"
 #endif
 
 namespace debugger {
@@ -64,6 +68,15 @@ constexpr char HELP2[] =
         "  F [path]       : list files on SD card\r\n"
         "  L file         : load an Intel HEX / S-record file from card\r\n"
         "  O [drive [file]]: list disks, mount file on drive, unmount drive\r\n"
+        "  Y put [file [offset [size]]]\r\n"
+        "                 : receive a file by YMODEM onto the card, at offset;\r\n"
+        "                   the sender names it when file is left out\r\n"
+        "  Y get file [offset [len]]\r\n"
+        "                 : send a card file by YMODEM\r\n"
+        "  Y crc file [chunk]\r\n"
+        "                 : the file's size and CRC-32 per chunk (default 1000)\r\n"
+        "                   Y takes its numbers in hexadecimal\r\n"
+        "  Y rm file      : delete a card file, unless a drive holds it\r\n"
 #endif
         "  G [n]          : run freely, backtrace last n lines (default: all)\r\n"
         "  g addr [n]     : run until addr (a one-shot breakpoint), same backtrace\r\n"
@@ -94,7 +107,7 @@ constexpr char HELP2[] =
         "  W +identity    : write identity EEPROM\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
 #ifdef STRESS_HALTGO
-        "  Y [n]          : yield on one in n halt polls (default 1)\r\n"
+        "  y [n]          : yield on one in n halt polls (default 1)\r\n"
 #endif
         "  ?              : this help\r\n"
         "\r\n";
@@ -733,6 +746,226 @@ void handleLoadFile(char *line, uintptr_t, State state) {
 }
 #endif
 
+#if defined(ENABLE_SDCARD)
+// 'Y': a card file to or from the host by YMODEM over the console, which
+// a terminal's own transfer menu or lrzsz drives; the CPU stays halted.
+struct ConsoleLink : YmodemLink {
+    int get(uint32_t ms) override {
+        const auto start = millis();
+        while (!Console.available()) {
+            Watchdog::feed();
+            Debugger.target().idle();
+            if (millis() - start >= ms)
+                return -1;
+        }
+        return Console.read();
+    }
+    void put(const uint8_t *data, size_t len) override {
+        Console.write(data, len);
+        Console.flush();
+    }
+    // Eats what the other end sends after the session, so none of it
+    // reaches the prompt as a command, and outlasts lrzsz's exit, which
+    // flushes its input: a report printed sooner would go with it.
+    void drain() {
+        while (get(500) >= 0)
+            ;
+    }
+} console_link;
+
+// Up to |limit| bytes of a card file from |at|; a received file goes to
+// |at|, named by the sender when the command gave no path.
+struct TransferFile : YmodemSink, YmodemSource {
+    CardFile file;
+    uint32_t at;
+    uint32_t limit;
+    bool named;  // by the command, not the sender
+
+    bool open(const char *name, uint32_t) override {
+        if (named)
+            return true;
+        // The sender's name, less any directory, lands in the card's root.
+        const auto slash = strrchr(name, '/');
+        return file.open(slash ? slash + 1 : name, true);
+    }
+    bool write(const uint8_t *data, uint16_t len) override {
+        if (!file.write(at, data, len))
+            return false;
+        at += len;
+        return true;
+    }
+    uint16_t read(uint8_t *data, uint16_t len) override {
+        if (len > limit)
+            len = limit;
+        const auto got = file.read(at, data, len);
+        at += got;
+        limit -= got;
+        return got;
+    }
+} transfer;
+
+char ymodem_line[80];
+
+// The next word of |p|, ended in place; empty at the line's end.
+char *nextWord(char *&p) {
+    while (*p == ' ')
+        ++p;
+    const auto word = p;
+    while (*p && *p != ' ')
+        ++p;
+    if (*p)
+        *p++ = 0;
+    return word;
+}
+
+// The hexadecimal |word| into |value|, |defval| for an empty one; false
+// for anything else.
+bool hexWord(const char *word, uint32_t &value, uint32_t defval) {
+    value = defval;
+    if (*word == 0)
+        return true;
+    char *end;
+    value = strtoul(word, &end, 16);
+    return *end == 0;
+}
+
+// The CRC-32 of zlib and PNG, continued from |crc|.
+uint32_t crc32(uint32_t crc, const uint8_t *data, uint16_t len) {
+    static constexpr uint32_t TABLE[16] = {
+            0x00000000, 0x1DB71064, 0x3B6E20C8, 0x26D930AC, 0x76DC4190, 0x6B6B51F4,
+            0x4DB26158, 0x5005713C, 0xEDB88320, 0xF00F9344, 0xD6D6A3E8, 0xCB61B38C,
+            0x9B64C2B0, 0x86D3D2D4, 0xA00AE278, 0xBDBDF21C,
+    };
+    crc = ~crc;
+    while (len--) {
+        crc ^= *data++;
+        crc = TABLE[crc & 15] ^ (crc >> 4);
+        crc = TABLE[crc & 15] ^ (crc >> 4);
+    }
+    return ~crc;
+}
+
+// The file's size, then the CRC-32 of each |chunk| bytes, eight a line
+// after the offset of the first; ^C stops it.
+void printCrcs(uint32_t chunk) {
+    const auto size = transfer.file.size();
+    cli.print(size);
+    cli.println(" bytes");
+    for (uint32_t at = 0, column = 0; at < size; at += chunk) {
+        uint32_t crc = 0;
+        for (uint32_t done = 0; done < chunk;) {
+            uint8_t data[512];
+            const auto left = chunk - done;
+            const auto num = transfer.file.read(
+                    at + done, data, left < sizeof(data) ? left : sizeof(data));
+            if (num == 0)
+                break;
+            crc = crc32(crc, data, num);
+            done += num;
+            Watchdog::feed();
+            if (Console.available() && Console.read() == 0x03) {
+                cli.println();
+                return;
+            }
+        }
+        if (column == 0) {
+            cli.printHex(at, 8);
+            cli.print(':');
+        }
+        cli.print(' ');
+        cli.printHex(crc, 8);
+        if (++column == 8 || at + chunk >= size) {
+            cli.println();
+            column = 0;
+        }
+    }
+}
+
+void handleYmodem(char *line, uintptr_t, State state) {
+    if (state == State::CLI_CANCEL) {
+        printPrompt();
+        return;
+    }
+    cli.println();
+    const auto verb = nextWord(line);
+    const auto path = nextWord(line);
+    const auto put = strcmp(verb, "put") == 0;
+    const auto get = strcmp(verb, "get") == 0;
+    const auto crc = strcmp(verb, "crc") == 0;
+    const auto rm = strcmp(verb, "rm") == 0;
+    const auto first = nextWord(line);
+    const auto second = nextWord(line);
+    uint32_t offset, length;
+    if (!(put || get || crc || rm) || (*path == 0 && !put) || (rm && *first) ||
+            !hexWord(first, offset, crc ? 0x1000 : 0) ||
+            !hexWord(second, length, UINT32_MAX) || (crc && offset < 0x200)) {
+        cli.println("?put [file [offset [size]]], get file [offset [len]], "
+                    "crc file [chunk] or rm file");
+        printPrompt();
+        return;
+    }
+    SD.begin(BUILTIN_SDCARD);
+    if (rm) {
+        const auto removed = CardFile::remove(path);
+        cli.print(path);
+        cli.println(removed == CardFile::REMOVED  ? " removed"
+                    : removed == CardFile::IN_USE ? ": in use, not removed"
+                                                  : " not found");
+        printPrompt();
+        return;
+    }
+    transfer.named = *path != 0;
+    if (transfer.named && !transfer.file.open(path, put)) {
+        cli.print(path);
+        cli.println(put ? ": can't open" : " not found");
+        printPrompt();
+        return;
+    }
+    transfer.at = offset;
+    if (crc) {
+        printCrcs(offset);
+    } else {
+        Ymodem ymodem(console_link);
+        Ymodem::Result result;
+        uint32_t count;
+        if (put) {
+            cli.println("YMODEM: send the file now (^C cancels)");
+            result = ymodem.receive(transfer, count);
+            if (result == Ymodem::OK) {
+                // Without an offset the file is replaced, so it ends where
+                // the received data does; a size given cuts it there.
+                if (*second)
+                    transfer.file.truncate(length);
+                else if (*first == 0)
+                    transfer.file.truncate(count);
+            }
+            transfer.file.flush();
+        } else {
+            const auto size = transfer.file.size();
+            count = offset < size ? size - offset : 0;
+            if (count > length)
+                count = length;
+            transfer.limit = count;
+            const auto slash = strrchr(path, '/');
+            cli.println("YMODEM: receive the file now (^C cancels)");
+            result = ymodem.send(slash ? slash + 1 : path, count, transfer);
+        }
+        console_link.drain();
+        cli.println();
+        cli.print("YMODEM ");
+        cli.print(Ymodem::name(result));
+        if (result == Ymodem::OK) {
+            cli.print(": ");
+            cli.print(count);
+            cli.print(put ? " bytes written" : " bytes read");
+        }
+        cli.println();
+    }
+    transfer.file.close();
+    printPrompt();
+}
+#endif
+
 struct UploadContext {
     uint32_t size;
     uint32_t addr;
@@ -1105,6 +1338,10 @@ void Debugger::exec(char c) {
         cli.print("Disk? ");
         cli.readLine(handleDisk, 0, str_buffer, sizeof(str_buffer));
         return;
+    case 'Y':
+        cli.print("YMODEM? ");
+        cli.readLine(handleYmodem, 0, ymodem_line, sizeof(ymodem_line));
+        return;
 #endif
     case 'U':
         cli.println("Upload waiting...");
@@ -1136,7 +1373,7 @@ void Debugger::exec(char c) {
         return;
 #endif
 #ifdef STRESS_HALTGO
-    case 'Y':
+    case 'y':
         cli.print("Yield interval? ");
         cli.readDec(handleYield, 0, UINT32_MAX);
         return;

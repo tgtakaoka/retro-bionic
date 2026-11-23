@@ -1,6 +1,7 @@
 #include "disk_image.h"
 #include <SD.h>
 #include <string.h>
+#include <strings.h>
 #include "watchdog.h"
 
 namespace debugger {
@@ -15,19 +16,48 @@ namespace {
 DiskFile files[8];
 uint8_t sector_buffer[DiskUnit::BUFFER_BYTES];
 
-DiskFile *openFile(const char *path) {
+// A path names its file one way: without the leading slashes.
+const char *cardPath(const char *path) {
+    while (*path == '/')
+        ++path;
+    return path;
+}
+
+// The open handle on |path|, if any; the card's names know no case.
+DiskFile *findFile(const char *path) {
+    for (auto &f : files) {
+        if (f.refs && strcasecmp(f.path, path) == 0)
+            return &f;
+    }
+    return nullptr;
+}
+
+DiskFile *openFile(const char *path, bool create = false) {
+    path = cardPath(path);
+    if (const auto f = findFile(path)) {
+        ++f->refs;
+        return f;
+    }
     DiskFile *free = nullptr;
     for (auto &f : files) {
-        if (f.refs && strcmp(f.path, path) == 0) {
-            ++f.refs;
-            return &f;
-        }
-        if (f.refs == 0 && free == nullptr)
+        if (f.refs == 0) {
             free = &f;
+            break;
+        }
     }
-    if (free == nullptr || strlen(path) >= sizeof(free->path) ||
-            !SD.exists(path))
+    if (free == nullptr || *path == 0 || strlen(path) >= sizeof(free->path))
         return nullptr;
+    if (!SD.exists(path)) {
+        if (!create)
+            return nullptr;
+        strcpy(free->path, path);
+        const auto slash = strrchr(free->path, '/');
+        if (slash) {
+            *slash = 0;
+            SD.mkdir(free->path);
+        }
+        *free->path = 0;
+    }
     free->file = SD.open(path, FILE_WRITE_BEGIN);
     if (!free->file)
         return nullptr;
@@ -135,6 +165,52 @@ bool DiskUnit::flush() {
         return false;
     _file->file.flush();
     return true;
+}
+
+bool CardFile::open(const char *path, bool create) {
+    close();
+    if (strstr(path, ".."))
+        return false;
+    _file = openFile(path, create);
+    return _file != nullptr;
+}
+
+void CardFile::close() {
+    closeFile(_file);
+    _file = nullptr;
+}
+
+uint32_t CardFile::size() const {
+    return _file ? _file->file.size() : 0;
+}
+
+uint16_t CardFile::read(uint32_t at, uint8_t *data, uint16_t len) {
+    if (_file == nullptr || !_file->file.seek(at))
+        return 0;
+    const auto got = int(_file->file.read(data, len));
+    return got < 0 ? 0 : got;
+}
+
+bool CardFile::write(uint32_t at, const uint8_t *data, uint16_t len) {
+    return _file && _file->file.seek(at) && _file->file.write(data, len) == len;
+}
+
+bool CardFile::truncate(uint32_t size) {
+    return _file && (_file->file.size() <= size || _file->file.truncate(size));
+}
+
+void CardFile::flush() {
+    if (_file)
+        _file->file.flush();
+}
+
+CardFile::Removed CardFile::remove(const char *path) {
+    path = cardPath(path);
+    if (strstr(path, "..") || !SD.exists(path))
+        return NOT_FOUND;
+    if (findFile(path))
+        return IN_USE;
+    return SD.remove(path) ? REMOVED : IN_USE;
 }
 
 }  // namespace debugger
