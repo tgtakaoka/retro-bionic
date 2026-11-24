@@ -2,7 +2,7 @@ ASM=asm
 
 .PHONY: clean
 
-all: mandelbrot.hex fmandel.hex dmandel.hex clock.hex rk11.hex unix_v6.hex
+all: mandelbrot.hex fmandel.hex dmandel.hex clock.hex rk11.hex unix_v6.hex bsd211.hex
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<
@@ -22,6 +22,20 @@ unix_v6.dsk: $(V6)/.fetched
 	dd if=$(V6)/rk1.dsk of=$@.new bs=512 seek=7168 conv=notrunc status=none
 	dd if=$(V6)/rk2.dsk of=$@.new bs=512 seek=13312 conv=notrunc status=none
 	mv $@.new $@
+
+# 2.11BSD's disk for L bsd211.hex: the installation runs once under
+# open-simh, which bsd211-fetch.py builds along with fetching the tape
+# into $(BSD)/, and bsd211-install.py types it at the simulator's console.
+BSD ?= bsd211.fetch
+BSDFETCH = ../../debugger/pdp11/tools/bsd211-fetch.py
+BSDINSTALL = ../../debugger/pdp11/tools/bsd211-install.py
+$(BSD)/.fetched: $(BSDFETCH)
+	$(BSDFETCH) $(BSD)
+
+# /usr/root holds the DCJ11 samples for 2.11BSD's as and cc.
+BSDFILES = bsd211/fmandel.s ../arith/fmandel.c
+bsd211.dsk: $(BSD)/.fetched $(BSDINSTALL) $(BSDFILES)
+	$(BSDINSTALL) $(BSD)/open-simh/BIN/pdp11 $(BSD)/PL500.tap $@ $(BSDFILES)
 
 clean:
 	-rm -f *.lst *.hex

@@ -197,6 +197,62 @@ drops it, as the terminal of the time did.
 `cc` build `fmandel`, each drawing the set. It's also on
 [asciinema.org](https://asciinema.org/a/HtOD7HEGkPyrR5U9).
 
+## 2.11BSD on the DCJ11
+
+[`samples/dcj11/bsd211.asm`](../samples/dcj11/bsd211.asm) is the MSCP bootstrap, what
+a KDJ11's ROM does: it initializes the controller, brings unit 0 online, reads its
+first block into memory and runs it. `L dcj11/bsd211.hex` loads it and mounts
+`dcj11/bsd211.dsk` beside it as ra0 on the debugger's MSCP controller (see
+[I/O devices](debugger.md#io-devices)). 2.11BSD wants split I/D, 22-bit addresses, an
+FP11 and a megabyte or more, which the DCJ11 and its board have (the board's memory is
+4088 KB), and the KW11-L line clock, which the board emulates.
+
+The system is not in the repository. `debugger/pdp11/tools/bsd211-fetch.py` downloads
+the 2.11BSD PL500 tape from [TUHS](https://www.tuhs.org/Archive/Distributions/UCB/2BSD/2.11BSD/Patches/)
+into `samples/dcj11/bsd211.fetch/`, checks its sha256, and builds open-simh's PDP-11
+simulator there from a pinned commit; the system is distributed under the BSD license
+and [Caldera's license](https://www.tuhs.org/Archive/Caldera-license.pdf) for ancient
+UNIX. `bsd211-install.py` then installs it under the simulator, as 2.11BSD's setup
+document has it, on an 11/73 with an RQDX3 and an RD54 (159 MB: a root of 7.8 MB,
+8.2 MB of swap, the rest `/usr` with the sources), with the GENERIC kernel, cuts
+`/etc/dtab` to the MSCP controller, so that the kernel's autoconfig looks for nothing
+the board has not, and puts the DCJ11 samples in `/usr/root` from a tape of its own: [`bsd211/fmandel.s`](../samples/dcj11/bsd211/fmandel.s),
+V6's `fmandel.s` with the system calls as 2.11BSD's `as` and kernel want them, and
+`samples/arith`'s `fmandel.c`. No tape is emulated on the board: it boots the
+installed disk.
+
+```sh
+cd samples/dcj11
+make bsd211.dsk
+```
+
+does both in a few minutes, and the image goes to the card over the console
+(`scripts/bionic-control.py sd put bsd211.dsk dcj11/bsd211.dsk`, and `bsd211.hex`
+to `dcj11/bsd211.hex` beside it).
+
+`L dcj11/bsd211.hex`, `R`, `= SP 1000` (the power-up SP may point into the I/O
+page), `I DL11 177` (the console sends each character with a parity bit, as V6's
+does), `G`: the bootstrap reads block 0, rauboot prints
+`73Boot from ra(0,0,0) at 0172150` and its `: ` prompt, and Enter loads
+`ra(0,0,0)unix`, the GENERIC kernel, which comes up single-user at `#`. From `#`,
+`^D` runs `/etc/rc` without the disk checks (the operator is taken to have done them:
+`fsck -p` takes 24 s on a root left dirty) to `login:`; `root` has no password. On the
+bench rauboot's banner comes a second after `G`, the kernel's at 40 s, `#` at 2 minutes
+and `login:` at 3 min 20 s, with the kernel's own MMU aborts, which it handles,
+reported as `?#ABORT` while the debugger is verbose. `halt` syncs the disks and
+executes HALT, which the board's power-up configuration traps to 4, so the kernel ends
+in `panic: trap`; the debugger's halt switch then brings the prompt back, the disks
+already synced. `ra(0,0,0)unix -m`, the boot straight to multi-user, is refused by
+`/etc/rc` as installed (`rc.conf` is not configured); configured, it checks the root,
+which no halt left marked clean, marks it and reboots, which is that same HALT. So
+multi-user is reached from `#`. Single-user, `mount /usr`
+reaches `/usr/root`, where `as fmandel.s; ./a.out` and `cc -O -o fmandel fmandel.c;
+./fmandel` each draw the set.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast):
+`L` loads the bootstrap and mounts the disk, 2.11BSD boots single-user, and its `as`
+and `cc` build `fmandel`, each drawing the set. It's also on
+[asciinema.org](https://asciinema.org/a/0g96wFIKzY4koiQ4).
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather

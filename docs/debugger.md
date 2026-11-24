@@ -149,7 +149,8 @@ alone; a reset clears only the device's own registers and pending interrupts.
   controller reports as the unit's size; `O ra0 disk.dsk` mounts one and `O ra0`
   unmounts it. `L x.hex` mounts `x.dsk` as ra0 and `x<n>.dsk` as ra<n> beside it, as
   an image of any other size than the RK11's goes to the MSCP controller; the other
-  controller's drives are unmounted.
+  controller's drives are unmounted. [2.11BSD](samples.md#211bsd-on-the-dcj11) boots
+  from `L dcj11/bsd211.hex`.
 - **SWR** (DCJ11) — `debugger/pdp11/swr.h`: `SWR`, the console switch register at
   177570. `I SWR 173030` sets what it reads; that value, the default, starts Unix
   single-user.
