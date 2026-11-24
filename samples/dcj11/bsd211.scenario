@@ -1,0 +1,73 @@
+# Scenario for scripts/record-scenario.py: 2.11BSD on the DCJ11, from the
+# MSCP controller's disk on the SD card (docs/samples.md, "2.11BSD on the
+# DCJ11"). L loads the MSCP bootstrap and mounts dcj11/bsd211.dsk beside it
+# as ra0; rauboot and /boot bring the GENERIC kernel up single-user, /usr
+# is mounted, and its own as and cc build fmandel in /usr/root, each
+# drawing the set on the FP11.
+#
+# The kernel sends each character with a parity bit, so the line is masked
+# to 7 bits for the recording. After power-up SP may sit in the I/O page,
+# where G's restore cannot stack PC and PS. Addresses are octal, the
+# target's radix.
+#
+# Starts from the installed disk (bsd211-install.py's image, with the
+# sources alone in /usr/root) freshly synced onto the card: the runs
+# leave a.out and fmandel there, so sync it again before recording.
+
+key ?
+pace 2.0
+
+key R
+type L
+wait Load?
+command dcj11/bsd211.hex
+key R
+type =
+wait Set register?
+command SP 1000
+command I DL11 177
+pace 1.0
+
+# The bootstrap reads block 0: rauboot asks for the kernel, Enter takes
+# ra(0,0,0)unix, which comes up single-user; its banner has a # in it,
+# so the prompt is awaited by the line before it.
+type G 5\r
+waitfor 30 :
+type \r
+waitfor 300 intr ^C
+pace 1.5
+type mount /usr\r
+waitfor 60 #
+type cd /usr/root\r
+waitfor 30 #
+type ls -l\r
+waitfor 30 #
+pace 2.0
+
+# 2.11BSD's as, then its C compiler; ls shows what each made, and each
+# draws the set.
+type as fmandel.s\r
+waitfor 300 #
+type ls -l\r
+waitfor 30 #
+pace 1.0
+type ./a.out\r
+waitfor 300 #
+pace 3.0
+type cc -O -o fmandel fmandel.c\r
+waitfor 900 #
+type ls -l\r
+waitfor 30 #
+pace 1.0
+type ./fmandel\r
+waitfor 300 #
+pace 3.0
+
+# The disk written out, then the halt.
+type sync\r
+waitfor 30 #
+type sync\r
+waitfor 30 #
+pace 1.0
+halt
+command I DL11 377
