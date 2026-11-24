@@ -17,6 +17,7 @@ using pdp11::InstPdp11;
 using pdp11::MemsDcj11;
 using pdp11::RegsPdp11;
 using pdp11::Rk11;
+using pdp11::Rq;
 
 // clang-format off
 /**
@@ -775,19 +776,30 @@ void PinsDcj11::setBreakInst(uint32_t addr) const {
 // The line clock's is #EVENT, level 6 through vector 100, and the disk's
 // IRQ1, level 5. Every other request is IRQ0, level 4. An IRQ's vector is
 // served at the IACK.
+namespace {
+// The disks share IRQ1, level 5; the console has IRQ0.
+inline bool level5(uint8_t name) {
+    return name == Rk11::VECTOR || name == Rq::VECTOR;
+}
+}  // namespace
+
 void PinsDcj11::assertInt(uint8_t name) {
     if (name == Kw11l::VECTOR) {
         write_latch(Q_EVENT, LOW);
     } else {
-        write_latch(name == Rk11::VECTOR ? Q_IRQ1 : Q_IRQ0, HIGH);
+        write_latch(level5(name) ? Q_IRQ1 : Q_IRQ0, HIGH);
     }
 }
 
+// A shared line stays up while the other device still requests.
 void PinsDcj11::negateInt(uint8_t name) {
     if (name == Kw11l::VECTOR) {
         write_latch(Q_EVENT, HIGH);
+    } else if (level5(name)) {
+        if (!devs<DevsPdp11>()->requesting(5))
+            write_latch(Q_IRQ1, LOW);
     } else {
-        write_latch(name == Rk11::VECTOR ? Q_IRQ1 : Q_IRQ0, LOW);
+        write_latch(Q_IRQ0, LOW);
     }
 }
 

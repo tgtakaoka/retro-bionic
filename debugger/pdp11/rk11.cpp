@@ -99,7 +99,12 @@ bool Rk11::place(uint8_t unit, uint32_t bytes, const DiskGeometry *&format,
         offset = 0;
         return true;
     }
-    offset = (RK_START + unit * DRIVE_BLOCKS) * RK05.sectorBytes;
+    const uint32_t drum = RK_START * RK05.sectorBytes;
+    const uint32_t slot = DRIVE_BLOCKS * RK05.sectorBytes;
+    if (bytes < drum + slot || (bytes - drum) % slot != 0 ||
+            (bytes - drum) / slot > DRIVES)
+        return false;
+    offset = drum + unit * slot;
     return offset < bytes;
 }
 

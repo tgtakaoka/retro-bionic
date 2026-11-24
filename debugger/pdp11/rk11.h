@@ -51,7 +51,7 @@ protected:
     const char *unitName(uint8_t unit) const override;
     uint8_t unitOf(const char *name) const override;
     // A pack's file starts its drive; a longer one is the slotted image,
-    // and |unit|'s slot stands where that has it.
+    // the drum and whole drives, and |unit|'s slot stands where that has it.
     bool place(uint8_t unit, uint32_t bytes, const DiskGeometry *&format,
             uint32_t &offset) const override;
 

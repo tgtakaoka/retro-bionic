@@ -98,16 +98,23 @@ void DiskDrives::printUnmounted(uint8_t unit) const {
     cli.println(" unmounted");
 }
 
-void DiskDrives::printDrives() const {
-    auto none = true;
+bool DiskDrives::anyMounted() const {
     for (auto u = 0; u < _count; ++u) {
-        if (_units[u].mounted()) {
-            printDrive(u);
-            none = false;
-        }
+        if (_units[u].mounted())
+            return true;
     }
-    if (none)
+    return false;
+}
+
+void DiskDrives::printDrives() const {
+    if (!anyMounted()) {
         cli.println("  no disk mounted");
+        return;
+    }
+    for (auto u = 0; u < _count; ++u) {
+        if (_units[u].mounted())
+            printDrive(u);
+    }
 }
 
 }  // namespace debugger
