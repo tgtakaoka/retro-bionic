@@ -10,7 +10,11 @@ namespace z380 {
 // The 16MB of EXTMEM is all the main memory there is: the bus decodes
 // A0-A23 at most and the rest of the 4GB space mirrors it. The address
 // mask register narrows the decoding, as on a board with less memory.
+// The upper half, 800000-FFFFFF, is lent to the disk cache: it reads 0
+// and drops writes, and a mask of 23 bits or fewer never reaches it.
 struct MemsZ380 : ExtMemory {
+    static constexpr uint32_t CACHE_BASE = 0x800000;
+
     MemsZ380();
 
     // The address lines memory decodes, as the address mask register
@@ -23,17 +27,24 @@ struct MemsZ380 : ExtMemory {
     uint32_t addrMask() const { return _addrMask; }
 
     uint16_t read_byte(uint32_t addr) const override {
-        return ExtMemory::read_byte(addr & _addrMask);
+        addr &= _addrMask;
+        return addr < CACHE_BASE ? ExtMemory::read_byte(addr) : 0;
     }
     void write_byte(uint32_t addr, uint16_t data) const override {
-        ExtMemory::write_byte(addr & _addrMask, data);
+        addr &= _addrMask;
+        if (addr < CACHE_BASE)
+            ExtMemory::write_byte(addr, data);
     }
     uint16_t read_word(uint32_t addr) const override {
-        return ExtMemory::read_word(addr & (_addrMask >> 1));
+        addr &= _addrMask >> 1;
+        return addr < CACHE_BASE / 2 ? ExtMemory::read_word(addr) : 0;
     }
     void write_word(uint32_t addr, uint16_t data) const override {
-        ExtMemory::write_word(addr & (_addrMask >> 1), data);
+        addr &= _addrMask >> 1;
+        if (addr < CACHE_BASE / 2)
+            ExtMemory::write_word(addr, data);
     }
+    Area cacheArea() const override { return extArea(CACHE_BASE, MEM_SIZE); }
 
     // A plain little-endian byte memory, as the CPU sees it. A word
     // transfer to 16-bit memory (#MSIZE high) moves the aligned pair: the

@@ -1470,7 +1470,9 @@ there points at the mux or its settle delay.
 #### Memory and devices **[code]**
 
 Main memory is the 16 MB of EXTMEM, decoded from A0-A23 and mirrored over
-4 GB. The ring and register dump keep 32-bit addresses; memory commands
+4 GB, less the upper half, 800000-FFFFFF, lent to the disk cache: it reads 0
+and drops writes, which a 23-bit or narrower address mask never reaches.
+The ring and register dump keep 32-bit addresses; memory commands
 take 24. The USART is the Z80's at 140H (`USART_BASE` in `devs_z380.h`),
 decoded from all 32 bits, byte I/O on D0-D7. `IN A,(n)` puts A on A8-A15,
 so samples use `INA`/`OUTA`.
