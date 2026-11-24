@@ -99,6 +99,10 @@ constexpr uint16_t ORG_RESTART = 0173004;
 constexpr uint16_t VEC_PWRFAIL = 0000024;
 // The emulated memory takes all of DAL21-DAL00.
 constexpr uint32_t MAX_ADDR = 017777777;
+// The maintenance register, a system register the DCJ11 leaves to its
+// board: a KDJ11-A module id, which 2.11BSD's boot reads as an 11/73.
+constexpr uint16_t MAINT_REG = 0177750;
+constexpr uint16_t MAINT_KDJ11A = 0000020;
 
 // The 74HCT259's outputs.
 constexpr uint8_t Q_PWRF = 0;
@@ -239,9 +243,14 @@ void negate_abort() {
 }
 
 // Whether |s| reads where no device answers: Unix sizes its memory by
-// the bus timeout at the I/O page's first words, 760000-760077.
+// the bus timeout at the I/O page's first words, 760000-760077, and
+// 2.11BSD's boot looks for a UNIBUS map at 770200-770376, which a read
+// of 0 would turn on.
 inline bool bus_timeout(const Signals *s) {
-    return s->read() && !s->fetch() && s->ioPage() && (s->addr & 017700) == 0;
+    if (!s->read() || s->fetch() || !s->ioPage())
+        return false;
+    const auto reg = s->addr & 017777;
+    return (reg & 017700) == 0 || (reg & 017600) == 010200;
 }
 
 // Sets output |q| of the 259 to |level|, and leaves the 153s at select 2.
@@ -464,7 +473,8 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
 }
 
 // Reads are whole words; the CPU picks the byte it needs. The system
-// registers and the I/O page outside its devices read 0.
+// registers other than the maintenance register, and the I/O page
+// outside its devices, read 0.
 void PinsDcj11::retrieveData(Signals *s) {
     if (!s->readMemory())
         return;
@@ -474,6 +484,8 @@ void PinsDcj11::retrieveData(Signals *s) {
         s->data = devs->peek(addr);
         _devRead = addr;
         _devPending = true;
+    } else if (s->system() && addr == MAINT_REG) {
+        s->data = MAINT_KDJ11A;
     } else if (s->memory()) {
         // The little-endian word in one read.
         s->data = mems<MemsDcj11>()->read_word(s->addr / 2);
