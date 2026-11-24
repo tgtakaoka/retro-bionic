@@ -192,6 +192,10 @@ assembler (`as fmandel.s; a.out`), and `samples/arith`'s `fmandel.c` and `dmande
 for its C compiler (`cc -f fmandel.c; a.out` draws the set in about 24 s). The
 console sends each character with a parity bit, as V6's DL11 driver does; `I DL11 177`
 drops it, as the terminal of the time did.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast):
+`L` loads the bootstrap and mounts the disk, V6 boots single-user, and its `as` and
+`cc` build `fmandel`, each drawing the set. It's also on
+[asciinema.org](https://asciinema.org/a/HtOD7HEGkPyrR5U9).
 
 ## The reference implementation
 
