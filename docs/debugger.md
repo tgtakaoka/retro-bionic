@@ -138,10 +138,18 @@ alone; a reset clears only the device's own registers and pending interrupts.
   with eight RK05 drives, vector 220, which `I RK11` turns off and on. The drives are
   image files on the Teensy's SD card. `L dcj11/unix_v6.hex` loads a bootstrap and
   mounts the slots of `unix_v6.dsk` beside it as rk0 up: 1024 blocks of 512 bytes for
-  a drum, then 6144 blocks a drive, the layout of TangConsoleDCJ11MEM's disk images.
-  `O rk1 pack.dsk` mounts a single RK05 pack's file, up to 2494464 bytes, on a drive
-  and `O rk1` unmounts it. [Unix V6](samples.md#unix-v6-on-the-dcj11) installs
+  a drum, then 6144 blocks a drive, the layout of TangConsoleDCJ11MEM's disk images,
+  and only that layout, with one to eight drives. `O rk1 pack.dsk` mounts a single
+  RK05 pack's file, up to 2494464 bytes, on a drive and `O rk1` unmounts it. [Unix V6](samples.md#unix-v6-on-the-dcj11) installs
   itself on that disk.
+- **MSCP** (DCJ11) — `debugger/pdp11/rq.cpp`: `MSCP`, an RQDX3 disk controller at
+  172150, vector 154, which `I MSCP` turns off and on; `debugger/pdp11/mscp.cpp` is
+  the controller itself, which `test/test_mscp` runs on the host. Its four units,
+  ra0-ra3, are image files on the SD card, each as large as its file, which the
+  controller reports as the unit's size; `O ra0 disk.dsk` mounts one and `O ra0`
+  unmounts it. `L x.hex` mounts `x.dsk` as ra0 and `x<n>.dsk` as ra<n> beside it, as
+  an image of any other size than the RK11's goes to the MSCP controller; the other
+  controller's drives are unmounted.
 - **SWR** (DCJ11) — `debugger/pdp11/swr.h`: `SWR`, the console switch register at
   177570. `I SWR 173030` sets what it reads; that value, the default, starts Unix
   single-user.

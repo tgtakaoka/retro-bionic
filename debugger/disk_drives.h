@@ -27,6 +27,7 @@ struct DiskDrives : Disk {
     DiskUnit &unit(uint8_t unit) { return _units[unit]; }
     const DiskUnit &unit(uint8_t unit) const { return _units[unit]; }
     uint8_t units() const { return _count; }
+    bool anyMounted() const;
     // The index of |unit|'s format in |formats|, 0 when it is not mounted.
     uint8_t formatIndex(uint8_t unit) const;
 

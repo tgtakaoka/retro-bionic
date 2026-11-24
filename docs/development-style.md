@@ -3051,6 +3051,18 @@ select (BS 01, as 17777740-17777750 are; User's Guide, Table 2-1), reads
 000020, a KDJ11-A module id, which that boot reports as an 11/73. The
 rest of the I/O page outside its devices still reads 0. **[doc][code]**
 
+**Disks.** The RK11 and the MSCP controller both interrupt at level 5
+on IRQ1: `DevsPdp11::vector(5)` asks each whether it requests, and the
+line is let go only when neither does. A transfer is done whole inside
+the register access that starts it, the RK11's GO write or the MSCP
+poll's service, so the kernel sees it complete as the interrupt comes;
+the DCJ11 is static and waits. `Mscp` is the controller without the
+board: it reads and writes the host's memory and drives through
+`MscpHost`, so `test/test_mscp` runs 2.11BSD's init handshakes and
+packets against arrays on the host, and a flash tests the bus, not the
+protocol. `Rq` is its board side: the `Device`, the SD card images and
+the interrupt. **[doc][code]**
+
 **Entries and power-up.** The power-up configuration read is answered
 with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
 traps to 4. #PWRF halts through vector 24, BPT and the trace trap through
