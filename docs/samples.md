@@ -190,7 +190,8 @@ page), `G`, Enter, then `unix` at the bootstrap's `@` boots single-user to `#`; 
 [`mandelbrot.s`](../samples/dcj11/v6/mandelbrot.s), the DCJ11 samples in V6's
 assembler (`as fmandel.s; a.out`), and `samples/arith`'s `fmandel.c` and `dmandel.c`
 for its C compiler (`cc -f fmandel.c; a.out` draws the set in about 24 s). The
-console sends each character with a parity bit, as V6's DL11 driver does.
+console sends each character with a parity bit, as V6's DL11 driver does; `I DL11 177`
+drops it, as the terminal of the time did.
 
 ## The reference implementation
 

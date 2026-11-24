@@ -31,7 +31,17 @@ void Dl11::print() const {
     cli.printNum(_rxIntr, radix, digits);
     cli.print(" Tx=");
     cli.printNum(_txIntr, radix, digits);
+    cli.print(" Bits=");
+    cli.print(_dataMask == 0177 ? '7' : '8');
     cli.println();
+}
+
+void Dl11::setBaseAddr(uint32_t value) {
+    if (value == 0177 || value == 0377) {
+        _dataMask = value;
+        return;
+    }
+    UartBase::setBaseAddr(value);
 }
 
 void Dl11::resetUart() {
@@ -46,7 +56,7 @@ void Dl11::resetUart() {
 void Dl11::loopUart() {
     if (Console.available() > 0 && ARM_DWT_CYCCNT - _rxTime >= CHAR_CYCLES) {
         _rxTime = ARM_DWT_CYCCNT;
-        _rxData = Console.read();
+        _rxData = Console.read() & _dataMask;
         _rxDone = true;
         if (_rxIe)
             requestRx();
@@ -58,7 +68,7 @@ void Dl11::loopUart() {
             requestTx();
     }
     if (!_txReady && Console.availableForWrite() > 0) {
-        consoleWrite(_txData);
+        consoleWrite(_txData & _dataMask);
         _txDone = true;  // READY comes on the next service
     }
 }

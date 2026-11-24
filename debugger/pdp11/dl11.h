@@ -11,6 +11,10 @@ namespace pdp11 {
  * XBUF, a word each. A request is raised as DONE or READY comes with its
  * interrupt enable set, or the enable is set with it, and is dropped at
  * its acknowledge: the vectors are the interrupt names.
+ *
+ * `I DL11 177` masks each character to 7 bits, as a console terminal's
+ * line was: the parity bit Unix sets on what it sends goes no further.
+ * `I DL11 377` passes all 8 again; any other number is the base address.
  */
 struct Dl11 final : UartBase {
     Dl11();
@@ -18,6 +22,7 @@ struct Dl11 final : UartBase {
     const char *name() const override;
     const char *description() const override;
     void print() const override;
+    void setBaseAddr(uint32_t value) override;
 
     void write(uint32_t addr, uint16_t data) override;
     uint16_t read(uint32_t addr) override;
@@ -36,7 +41,8 @@ private:
     bool _txRequest;
     uint8_t _rxData;
     uint8_t _txData;
-    uint32_t _rxTime = 0;  // when the last character came, in CPU cycles
+    uint8_t _dataMask = 0377;  // 0177 on a 7-bit line
+    uint32_t _rxTime = 0;      // when the last character came, in CPU cycles
 
     static constexpr uint8_t RCSR = 0;
     static constexpr uint8_t RBUF = 2;

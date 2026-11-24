@@ -757,7 +757,10 @@ output. What the console taught it:
 
 - V6 drops keys typed faster than 50 ms apart, and its `kl` driver sends
   every character with a parity bit, with DEL as the fill after a
-  newline, so the script strips bit 7 and DEL before matching. Until
+  newline, so the script strips bit 7 and DEL before matching; a scenario
+  masks the line to 7 bits instead, `I DL11 177`, as the terminal of the
+  time did, since the recorder matches and records the bytes as they come;
+  the setting is a mask, not a count, since 8 is no octal digit. Until
   `stty -lcase` the shell echoes in upper case; `#` erases and `@` kills,
   so a file typed in with `cat` may hold neither.
 - A typed line resets what the script has seen, so the `^D` that ends a

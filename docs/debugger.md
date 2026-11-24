@@ -129,7 +129,9 @@ alone; a reset clears only the device's own registers and pending interrupts.
 - **MC6850 ACIA** — `debugger/mc6850.cpp`
 - **i8251 USART** — `debugger/i8251.cpp`
 - **DL11** (DCT11, DCJ11) — `debugger/pdp11/dl11.cpp`: the console at 177560, its
-  vectors being the Rx and Tx interrupt names.
+  vectors being the Rx and Tx interrupt names. `I DL11 177` masks each character to 7
+  bits, as a console terminal's line was: Unix sends each character with a parity
+  bit, which the terminal would have ignored. `I DL11 377` passes all 8 again.
 - **KW11-L** (DCJ11) — `debugger/pdp11/kw11l.cpp`: `KW11L`, the 60 Hz line clock at
   177546, which `I KW11L` turns off and on. Its interrupt is the CPU's #EVENT.
 - **RK11** (DCJ11) — `debugger/pdp11/rk11.cpp`: `RK11`, a disk controller at 177400
