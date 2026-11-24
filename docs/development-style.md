@@ -1012,12 +1012,13 @@ nothing notices. Syntax-check a target with and without
 
 ### One ITCM overlay per target directory **[code]**
 
-Only one target runs per power-up, so the `teensy41-overlay` image
-(`-D ITCM_OVERLAY`) makes the code in the namespaces each `debugger/<dir>/`
+Only one target runs per power-up, so the `teensy41` image (`-D ITCM_OVERLAY`,
+on by default) makes the code in the namespaces each `debugger/<dir>/`
 declares an overlay: all of them are kept in flash and share one ITCM
 address, and `Identity::instance()` copies in the one the identity EEPROM
-names. RAM1 holds the shared code plus the largest overlay. Other images
-keep every target in ITCM, but the rules below hold for all of them.
+names. RAM1 holds the shared code plus the largest overlay. An image built
+without the flag keeps every target in ITCM, but the rules below hold either
+way.
 
 - Code that another directory calls belongs in the shared `debugger`
   namespace, as `DevsZ80` and `DevsMc6800` are; the link fails on a reference
