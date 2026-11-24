@@ -62,6 +62,10 @@ copy `cpm80.hex` and the four disks into `i8080/` on the SD card, and `L i8080/c
 `R`, `G` boots to `A>`; `B>A:MBASIC FMANDEL` draws the set. The Z80, NSC800 and
 KL5C80 boot the same files.
 
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mbasic_kl5c80.cast)
+on the KL5C80: `L` loads `cpm80.hex` and mounts the disks beside it, CP/M boots, and
+MBASIC draws the set from `fmandel.bas` on B:.
+
 The Z180, Z280 and Z380 decode 16-bit ports, so `samples/z180` has their port
 routines (0140H, 0150H, `OUT (C)`); `make cpm80.dsk` there puts that BIOS on a copy of
 the 8080's A:, and `L z180/cpm80.hex` boots it. That boot also writes 16 to the
@@ -249,8 +253,8 @@ multi-user is reached from `#`. Single-user, `mount /usr`
 reaches `/usr/root`, where `as fmandel.s; ./a.out` and `cc -O -o fmandel fmandel.c;
 ./fmandel` each draw the set.
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast):
-`L` loads the bootstrap and mounts the disk, 2.11BSD boots single-user, and its `as`
-and `cc` build `fmandel`, each drawing the set. It's also on
+`U` uploads the bootstrap and `O` mounts the disk, 2.11BSD boots single-user, and its
+`as` and `cc` build `fmandel`, each drawing the set. It's also on
 [asciinema.org](https://asciinema.org/a/0g96wFIKzY4koiQ4).
 
 ## The reference implementation

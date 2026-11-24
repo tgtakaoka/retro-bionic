@@ -40,6 +40,7 @@
 #include <SD.h>
 #include "disk.h"
 #include "disk_image.h"
+#include "disk_cache.h"
 #include "watchdog.h"
 #include "ymodem.h"
 #endif
@@ -68,6 +69,9 @@ constexpr char HELP2[] =
         "  F [path]       : list files on SD card\r\n"
         "  L file         : load an Intel HEX / S-record file from card\r\n"
         "  O [drive [file]]: list disks, mount file on drive, unmount drive\r\n"
+        "  O sync         : write the disk cache's dirty blocks to the card\r\n"
+        "  O cache [on|off|through|back]\r\n"
+        "                 : show the disk cache, turn it, set its write policy\r\n"
         "  Y put [file [offset [size]]]\r\n"
         "                 : receive a file by YMODEM onto the card, at offset;\r\n"
         "                   the sender names it when file is left out\r\n"
@@ -651,8 +655,39 @@ int loadS19Record(const char *line, uint32_t &addr) {
 }
 
 #if defined(ENABLE_SDCARD)
+// "sync" writes the cache's dirty blocks; "cache" shows it, and with
+// "on", "off", "through" or "back" sets it first. False for other words.
+bool handleCache(const char *word, const char *arg) {
+    auto &cache = DiskImages::cache();
+    auto ok = true;
+    if (strcasecmp(word, "sync") == 0) {
+        DiskImages::sync();
+    } else if (strcasecmp(word, "cache") == 0) {
+        if (strcasecmp(arg, "on") == 0) {
+            cache.enable(true);
+        } else if (strcasecmp(arg, "off") == 0) {
+            ok = cache.enable(false);
+        } else if (strcasecmp(arg, "through") == 0) {
+            ok = cache.setPolicy(DiskCache::WRITE_THROUGH);
+        } else if (strcasecmp(arg, "back") == 0) {
+            cache.setPolicy(DiskCache::WRITE_BACK);
+        } else if (*arg) {
+            cli.print("?cache: ");
+            cli.println(arg);
+            return true;
+        }
+    } else {
+        return false;
+    }
+    if (!ok)
+        cli.println("?cache: dirty blocks not written, left as it was");
+    DiskImages::printCache();
+    return true;
+}
+
 // "drive file" mounts the file on that drive, "drive" alone unmounts it,
-// and an empty line lists the drives. The disk prints each change.
+// and an empty line lists the drives and the cache. The disk prints each
+// change.
 void handleDisk(char *line, uintptr_t, State state) {
     if (state == State::CLI_CANCEL) {
         printPrompt();
@@ -674,7 +709,8 @@ void handleDisk(char *line, uintptr_t, State state) {
             ++path;
         *end = 0;
         SD.begin(BUILTIN_SDCARD);
-        if (*path == 0) {
+        if (handleCache(line, path)) {
+        } else if (*path == 0) {
             if (!disk->unmount(line)) {
                 cli.print(line);
                 cli.println(" not mounted");
@@ -694,6 +730,7 @@ void handleDisk(char *line, uintptr_t, State state) {
         }
     } else {
         disk->printDrives();
+        DiskImages::printCache();
     }
     printPrompt();
 }

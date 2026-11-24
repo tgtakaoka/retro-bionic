@@ -73,6 +73,8 @@ struct Target {
     void enableDevice(Device *dev) const;
 
 private:
+    // After run() or step() returns, before the prompt.
+    void stopped() const;
     const Identity *_id;
     Pins *_pins;
     Regs *_regs;

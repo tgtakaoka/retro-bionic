@@ -1,4 +1,5 @@
 #include "target.h"
+#include "disk_image.h"
 
 namespace debugger {
 
@@ -10,8 +11,23 @@ Target::Target(const Identity *id, Pins *pins)
       _devs(pins->_devs) {}
 
 void Target::begin() const {
+#if defined(ENABLE_SDCARD)
+    // Only a target with disks lends memory, so no other has slot
+    // headers written into it.
+    const auto area =
+            _devs->disk() ? _mems->cacheArea() : Mems::Area{nullptr, 0};
+    DiskImages::beginCache(area.base, area.bytes);
+#endif
     reset();
     _devs->begin();
+}
+
+// Whatever the run left in the disk cache is on the card before the
+// prompt: the OS's sync, then the halt switch, means what it says.
+void Target::stopped() const {
+#if defined(ENABLE_SDCARD)
+    DiskImages::sync();
+#endif
 }
 
 void Target::reset() const {
@@ -25,10 +41,13 @@ void Target::run() const {
     _pins->run();
     _devs->setIdle(true);
     _pins->setHalt();
+    stopped();
 }
 
 bool Target::step(bool show) const {
-    return _pins->step(show);
+    const auto stepped = _pins->step(show);
+    stopped();
+    return stepped;
 }
 
 void Target::idle() const {
@@ -127,6 +146,10 @@ void Target::loadCode(
                 data |= next << 8;
             }
         }
+        // A record past the target's memory lands nowhere: above it lies
+        // the disk cache.
+        if (addr > _mems->maxAddr())
+            return;
         _mems->put_prog(addr++, data);
         if (wordAccess)
             addr++;
