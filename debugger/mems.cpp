@@ -65,6 +65,25 @@ void ExtMemory::write_word(uint32_t word_addr, uint16_t data) const {
         EXT_MEMORY.WORD[word_addr] = data;
 }
 
+Mems::Area DmaMemory::cacheArea() const {
+    return {EXT_MEMORY.BYTE, ExtMemory::MEM_SIZE};
+}
+
+Mems::Area ExtMemory::extArea(uint32_t begin, uint32_t end) {
+    if (end > MEM_SIZE)
+        end = MEM_SIZE;
+    if (begin >= end)
+        return {nullptr, 0};
+    return {EXT_MEMORY.BYTE + begin, end - begin};
+}
+
+// Everything above the last address, in bytes.
+Mems::Area ExtMemory::cacheArea() const {
+    const auto used = uint64_t(maxAddr()) + 1;
+    const auto bytes = used * addressUnit();
+    return extArea(bytes < MEM_SIZE ? bytes : MEM_SIZE, MEM_SIZE);
+}
+
 Mems::Mems(Endian endian, bool wordAccess)
     : _endian(endian),
       _wordAccess(wordAccess)

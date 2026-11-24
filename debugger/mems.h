@@ -35,6 +35,14 @@ struct Mems : MatchMemory {
     // Maximum address of data memory
     virtual uint32_t maxData() const { return maxAddr(); }
 
+    // Memory the disk cache may take instead of the target: none unless
+    // a Mems lends some.
+    struct Area {
+        uint8_t *base;
+        uint32_t bytes;
+    };
+    virtual Area cacheArea() const { return {nullptr, 0}; }
+
     // Raw memory access for ADDRESS_BYTE
     virtual uint16_t read_byte(uint32_t byte_addr) const = 0;
     virtual void write_byte(uint32_t byte_addr, uint16_t data) const = 0;
@@ -137,7 +145,7 @@ protected:
 };
 
 /**
- * Emulated Memory on 128KB DMAMEM.
+ * Emulated Memory on 128KB DMAMEM; all of EXTMEM goes to the disk cache.
  */
 struct DmaMemory : Mems {
     uint32_t maxAddr() const override { return MEM_SIZE - 1; }
@@ -145,6 +153,7 @@ struct DmaMemory : Mems {
     void write_byte(uint32_t addr, uint16_t data) const override;
     uint16_t read_word(uint32_t addr) const override;
     void write_word(uint32_t addr, uint16_t data) const override;
+    Area cacheArea() const override;
 
     static constexpr uint32_t MEM_SIZE = 128U * 1024U;
 
@@ -154,7 +163,8 @@ protected:
 };
 
 /**
- * Emulated Memory on 16MB EXTMEM.
+ * Emulated Memory on 16MB EXTMEM. What lies above the target's address
+ * space goes to the disk cache.
  */
 struct ExtMemory : Mems {
     uint32_t maxAddr() const override { return MEM_SIZE - 1; }
@@ -162,12 +172,15 @@ struct ExtMemory : Mems {
     void write_byte(uint32_t addr, uint16_t data) const override;
     uint16_t read_word(uint32_t addr) const override;
     void write_word(uint32_t addr, uint16_t data) const override;
+    Area cacheArea() const override;
 
     static constexpr uint32_t MEM_SIZE = 16U * 1024U * 1024U;
 
 protected:
     ExtMemory(Endian endian, bool wordAccess = false)
         : Mems(endian, wordAccess) {}
+    // The bytes [begin, end) of EXTMEM.
+    static Area extArea(uint32_t begin, uint32_t end);
 };
 
 }  // namespace debugger

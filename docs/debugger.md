@@ -35,7 +35,7 @@ From the header of `debugger/debugger.cpp`:
 | `U` | Upload Intel HEX or Motorola S-record |
 | `L` | Load Intel HEX or S-record file from SD card |
 | `F` | List files on SD card |
-| `O` | Mount a disk image — `drive file` mounts it on that drive, `drive` unmounts, Enter lists |
+| `O` | Mount a disk image — `drive file` mounts it on that drive, `drive` unmounts, Enter lists; `sync` and `cache [on\|off\|through\|back]` drive the [disk cache](#disk-cache) |
 | `Y` | YMODEM a file onto or off the SD card — `put [file [offset [size]]]`, `get file [offset [len]]`; `crc file [chunk]` lists its CRC-32s, `rm file` deletes |
 | `I` | Show/select I/O device — `dev [addr [vec]]` also sets its base and interrupt vector |
 | `W` | Write identity EEPROM |
@@ -115,7 +115,8 @@ Emulated memory lives in the Teensy's RAM (`debugger/mems.cpp`):
 | `ExtMemory` | 16 MB | `EXTMEM` — the Teensy 4.1's optional PSRAM |
 
 Byte- and word-addressed CPUs are both supported, in either endianness, and the listing
-radix can be octal for the PDP-8 targets.
+radix can be octal for the PDP-8 targets. What a target leaves of `EXTMEM` above its
+address space holds the [disk cache](#disk-cache).
 
 ## I/O devices
 
@@ -204,6 +205,47 @@ is the chunk size (at least 200). Those serve `scripts/bionic-control.py`:
 CRCs, `sd rm REMOTE` deletes one, and `sd sync LOCAL REMOTE` sends only the chunks whose CRC differs,
 the cheap way to refresh a disk image of several MB with a few blocks
 changed. The host side is lrzsz's `sb` and `rb`, which minicom uses too.
+
+## Disk cache
+
+Disk images are read and written through a cache of 512-byte blocks in the part
+of `EXTMEM` the target's memory does not use (`debugger/disk_cache.cpp`, behind
+`debugger/disk_image.cpp`): 15 MB on a 1 MB target such as the 8086 or Z180,
+12 MB on the DCJ11, all 16 MB on the 8080 and 8085, whose memory is elsewhere.
+A target that uses all 16 MB, such as the 68000, Z280 or Z380, lends nothing and
+reads and writes the card directly. Drives sharing an
+image file share its blocks. A sector read that hits costs no card access; a
+miss reads the block in. A mount reads the image into the cache as far as the
+free blocks go, about a second for 10 MB: the drive's line then ends in `cached`
+when all of it is in, or in the MB that are, such as the first 11.8 MB of a 159 MB
+BSD image, the rest filling on demand. `O`
+lists the cache after the drives:
+
+```
+  cache 11.8 MB write-through: 4096 hits, 120 misses, 0 dirty
+```
+
+Writes follow one of two policies, write-through at power-up:
+
+- `O cache through`: a sector write goes to the card at once, as it would
+  without the cache, and only reads are served from memory.
+- `O cache back`: a written block stays in memory, dirty, and reaches the card
+  when the CPU stops (the halt switch, a breakpoint, `S`), when a full set has
+  to evict it, when its drive is unmounted, or on `O sync`. The controller's own
+  flush, after each CP/M sector or RK11 and MSCP command, writes nothing then,
+  so an OS `sync` followed by the halt switch still leaves everything on the
+  card by the time the prompt returns. Power loss, a watchdog reboot or a reflash
+  before the CPU stops loses the dirty blocks: use write-back for a session you
+  will stop at the prompt, and expect a stop after much writing to take seconds.
+  A block the card refuses stays dirty and is retried by the next sync; the
+  prompt says `disk: 3 blocks not written to dcj11/bsd211.dsk`.
+
+`O cache` shows the state, `O cache off` and `O cache on` turn the cache off
+(writing dirty blocks first) and on for the session, and `O sync` writes the
+dirty blocks and reports. A file's length is kept exact: a block written at the
+end of a 256256-byte CP/M image extends the file by the sector, never to a
+block boundary. `Y put` writes the card directly and drops the blocks it
+overwrites; `Y rm` leaves a mounted image alone.
 
 ## Bus-cycle capture
 

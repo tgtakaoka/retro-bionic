@@ -29,18 +29,24 @@ struct DiskGeometry {
  * and never make a file. read()/write()/flush() run inside a held bus
  * cycle, and fail on a card error, which the controller reports. Past
  * the file's end a read returns fill and a write first fills the gap.
- * The caller pads or trims partial sectors in buffer(). A RAM cache
- * would sit behind read(), write() and flush().
+ * The caller pads or trims partial sectors in buffer(). The disk cache
+ * sits behind read(), write() and flush(): see DiskImages.
  */
 struct DiskUnit {
     static constexpr uint16_t BUFFER_BYTES = 512;
     static uint8_t *buffer();
 
     // |reserve| grows the file to full size now, not inside a bus cycle.
+    // The image is read into the disk cache as far as its free blocks go,
+    // so the first reads hit too.
     bool mount(const char *path, uint32_t offset, const DiskGeometry *geometry,
             bool reserve = false);
     void unmount();
     bool mounted() const { return _file != nullptr; }
+    // The bytes of the image mount() read into the cache, and whether
+    // that was all of it.
+    uint32_t cachedBytes() const { return _cachedBytes; }
+    bool cached() const { return _cachedBytes && _cachedBytes == _bytes; }
     const DiskGeometry *geometry() const { return _geometry; }
     const char *path() const;
     uint32_t offset() const { return _offset; }
@@ -59,6 +65,8 @@ private:
     struct DiskFile *_file = nullptr;
     uint32_t _offset = 0;
     const DiskGeometry *_geometry = nullptr;
+    uint32_t _bytes = 0;  // of the image in the file
+    uint32_t _cachedBytes = 0;
 
     bool grow(uint32_t size);
 };
@@ -66,7 +74,9 @@ private:
 /**
  * A card file for the debugger to read and write at the prompt. A mounted
  * image is reached through the handle its drives hold, so no second copy
- * of it goes out of step; a RAM cache would sit behind read() and write().
+ * of it goes out of step: open() puts the cache's blocks of it on the
+ * card and forgets them, and write() and truncate() forget what they
+ * overwrite.
  */
 struct CardFile {
     // |create| makes the file, and the directories on its way, when it is
@@ -88,6 +98,24 @@ struct CardFile {
 
 private:
     struct DiskFile *_file = nullptr;
+};
+
+struct DiskCache;
+
+/**
+ * The image files the units and CardFile share, and the block cache
+ * over them, which the target lends its spare memory to.
+ */
+struct DiskImages {
+    static DiskCache &cache();
+    // Lends the cache |bytes| at |arena|: none leaves the card as it is.
+    static void beginCache(uint8_t *arena, uint32_t bytes);
+    // Writes every dirty block to the card, naming each file that keeps
+    // some; for the prompt, not a bus cycle.
+    static void sync();
+    // The cache's state as O lists it, such as
+    // "  cache 11.8 MB write-back: 4096 hits, 120 misses, 3 dirty".
+    static void printCache();
 };
 
 }  // namespace debugger

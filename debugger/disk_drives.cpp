@@ -18,7 +18,8 @@ bool DiskDrives::place(uint8_t, uint32_t bytes, const DiskGeometry *&format,
         uint32_t &offset) const {
     offset = 0;
     for (auto i = 0; i < _formatCount; ++i) {
-        if (i == 0 ? bytes <= _formats[0].bytes() : bytes == _formats[i].bytes()) {
+        if (i == 0 ? bytes <= _formats[0].bytes()
+                   : bytes == _formats[i].bytes()) {
             format = &_formats[i];
             return true;
         }
@@ -88,6 +89,16 @@ void DiskDrives::printDrive(uint8_t u) const {
         cli.print('+');
         cli.print(unit.offset() / 1024);
         cli.print('K');
+    }
+    if (unit.cached()) {
+        cli.print(" cached");
+    } else if (unit.cachedBytes()) {
+        const auto tenths = (unit.cachedBytes() + 52428) / 104858;  // of a MB
+        cli.print(' ');
+        cli.print(tenths / 10);
+        cli.print('.');
+        cli.print(tenths % 10);
+        cli.print(" MB cached");
     }
     cli.println();
 }
