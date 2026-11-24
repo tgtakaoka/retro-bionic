@@ -1,0 +1,64 @@
+# Scenario for scripts/record-scenario.py: Unix V6 on the DCJ11, from the
+# RK11's disk on the SD card (docs/samples.md, "Unix V6 on the DCJ11").
+# L loads the RK05 bootstrap and mounts dcj11/unix_v6.dsk beside it; V6
+# boots single-user, and its own as and cc build fmandel in /usr/mandel,
+# each drawing the set on the FP11.
+#
+# V6 sends each character with a parity bit, so the line is masked to 7
+# bits for the recording, and its console takes a key every 50 ms. After
+# power-up SP may sit in the I/O page, where G's restore cannot stack PC
+# and PS. Addresses are octal, the target's radix.
+#
+# Starts from the installed disk (v6-install.py's --save copy, with
+# /usr/mandel) on the card; the runs leave a.out there.
+
+key ?
+pace 2.0
+
+key R
+type L
+wait Load?
+command dcj11/unix_v6.hex
+key R
+type =
+wait Set register?
+command SP 1000
+command I DL11 177
+pace 1.0
+
+# The bootstrap reads block 0, which asks for the kernel.
+type G 5\r
+waitfor 10 @
+type unix\r
+waitfor 60 #
+pace 1.5
+type stty -lcase\r
+waitfor 10 #
+type chdir /usr/mandel\r
+waitfor 10 #
+type ls\r
+waitfor 10 #
+pace 2.0
+
+# V6's as, then its C compiler with -f for the FP11; a.out draws the set.
+type as fmandel.s\r
+waitfor 120 #
+type a.out\r
+waitfor 120 #
+pace 3.0
+type cc -f fmandel.c\r
+waitfor 300 #
+type a.out\r
+waitfor 120 #
+pace 3.0
+
+# The disk written out, then the halt.
+type sync\r
+waitfor 10 #
+type sync\r
+waitfor 10 #
+type sync\r
+waitfor 10 #
+pace 1.0
+halt
+command I DL11 377
