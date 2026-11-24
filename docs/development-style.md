@@ -3039,11 +3039,17 @@ a memory read's goes out after the first, where the address has left
 (User's Guide, Figure 3-3). **[doc][bench]**
 
 **Bus timeout.** A read of 760000-760077, the I/O page's first words,
-is aborted: the debugger pulls #ABORT low in the cycle's stretch, as an
-abort from outside has to come (DCJ11 User's Guide, 2.6.3), and lets it
-go as #SCTL rises. The CPU traps through 4 with the timeout bit in its
-error register; Unix sizes its memory by that trap. The rest of the I/O
-page outside its devices still reads 0. **[doc][code]**
+or of 770200-770376, the UNIBUS map's registers, is aborted: the
+debugger pulls #ABORT low in the cycle's stretch, as an abort from
+outside has to come (DCJ11 User's Guide, 2.6.3), and lets it go as
+#SCTL rises. The CPU traps through 4 with the timeout bit in its error
+register; Unix sizes its memory by that trap, and 2.11BSD's boot finds
+no UNIBUS map, which a read of 0 would turn on in MMR3 and so put every
+DMA address through the map. The maintenance register at 177750, which
+the DCJ11 leaves to its board and reads with the system-register bank
+select (BS 01, as 17777740-17777750 are; User's Guide, Table 2-1), reads
+000020, a KDJ11-A module id, which that boot reports as an 11/73. The
+rest of the I/O page outside its devices still reads 0. **[doc][code]**
 
 **Entries and power-up.** The power-up configuration read is answered
 with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that

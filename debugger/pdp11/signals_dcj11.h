@@ -41,6 +41,8 @@ struct Signals final : SignalsBase<Signals> {
     uint8_t bs() const { return _signals[1]; }
     bool memory() const { return bs() == BS_MEMORY; }
     bool ioPage() const { return bs() == BS_IO; }
+    // 17777740-17777750, the board's registers beside the CPU's CCR.
+    bool system() const { return bs() == BS_SYSTEM; }
     // A register inside the DCJ11, which drives and takes its data.
     bool internal() const { return bs() == BS_INTERNAL; }
     // The address a 16-bit program sees, the I/O page at 160000.
