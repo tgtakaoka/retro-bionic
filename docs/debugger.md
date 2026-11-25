@@ -141,8 +141,8 @@ alone; a reset clears only the device's own registers and pending interrupts.
   mounts the slots of `unix_v6.dsk` beside it as rk0 up: 1024 blocks of 512 bytes for
   a drum, then 6144 blocks a drive, the layout of TangConsoleDCJ11MEM's disk images,
   and only that layout, with one to eight drives. `O rk1 pack.dsk` mounts a single
-  RK05 pack's file, up to 2494464 bytes, on a drive and `O rk1` unmounts it. [Unix V6](samples.md#unix-v6-on-the-dcj11) installs
-  itself on that disk.
+  RK05 pack's file, up to 2494464 bytes, on a drive and `O rk1` unmounts it. [Unix V6](samples.md#unix-v6-on-the-dcj11) is
+  installed on that disk under a simulator.
 - **MSCP** (DCJ11) — `debugger/pdp11/rq.cpp`: `MSCP`, an RQDX3 disk controller at
   172150, vector 154, which `I MSCP` turns off and on; `debugger/pdp11/mscp.cpp` is
   the controller itself, which `test/test_mscp` runs on the host. Its four units,

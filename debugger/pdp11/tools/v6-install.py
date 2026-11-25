@@ -1,253 +1,209 @@
 #!/usr/bin/env python3
-"""Install Unix V6 on the DCJ11's RK05 disks, as V6's setup does.
+"""Install Unix V6 from its distribution tape's disks onto an RK11 image.
 
-    debugger/pdp11/tools/v6-install.py [--log PATH] [--save PATH] IMAGE [FILE...]
+    debugger/pdp11/tools/v6-install.py PDP11 DISKS IMAGE [FILE...]
 
-Run on the bench with the board at its prompt and dcj11/unix_v6.hex on
-the SD card. IMAGE is samples/dcj11/unix_v6.dsk (`make unix_v6.dsk`,
-the distribution tape's three disks); the install starts from it every
-time. Through the console it:
+Runs open-simh's PDP11 (simh-fetch.py's), an 11/40 with 256 KB and an
+RK11 holding the tape's three RK05 disks from DISKS (v6-fetch.py's
+rk0.dsk-rk2.dsk), and types V6's setup at its console:
 
-  - makes the card's dcj11/unix_v6.dsk the same as IMAGE with `Y`
-    (lrzsz's sb and rb on the host), sending only the chunks that differ;
-  - loads the bootstrap and boots the tape's rkunix single-user;
+  - boots the tape's rkunix single-user;
   - builds /unix from /usr/sys for the 11/40 (m40.s) with the rk, rp
     and tm drivers, and makes /dev's nodes for them;
   - boots the new /unix and adds the mounts of rk1 on /usr/source and
     rk2 on /usr/doc to /etc/rc;
-  - types FILE... into /usr/mandel, reading each back to check it;
-  - checks rk0 with icheck and dcheck, syncs and halts;
-  - with --save, reads the installed disk back into PATH, checked by
-    its CRCs: the copy to keep, and to sync onto another card.
+  - types each FILE into /usr/mandel, reading it back to check it;
+  - checks rk0 with icheck and dcheck;
+  - boots the disk again from its block 0, as the board will.
 
-Each step's output is checked before the next; on a surprise it stops
-with the console text, and a run after that starts over from IMAGE.
-The console goes to stdout, and to PATH with --log.
+Each step's output is checked before the next. IMAGE gets the drives in
+the slots the board's RK11 reads, 1024 blocks for a drum and then 6144
+a drive; IMAGE.log is the console's transcript.
 """
-import argparse
 import os
-import select
+import re
 import sys
 import time
-from importlib.machinery import SourceFileLoader
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-bc = SourceFileLoader(
-    'bc', os.path.join(HERE, '../../../scripts/bionic-control.py')).load_module()
+import pexpect
 
-# The disk L dcj11/unix_v6.hex mounts.
-CARD = 'dcj11/unix_v6.dsk'
-# V6's console drops characters typed faster than this.
-KEY_GAP = 0.05
+BLOCK = 512
+RK05_BLOCKS = 4872
+DRUM_BLOCKS = 1024
+SLOT_BLOCKS = 6144
+DRIVES = 3
 SAMPLES = '/usr/mandel'
 CONF = ['rk', 'rp', 'tm']
 NODES = ['rk0 b 0 0', 'rk1 b 0 1', 'rk2 b 0 2', 'rp0 b 1 0', 'mt0 b 3 0',
          'rrk0 c 9 0', 'rrk1 c 9 1', 'rrk2 c 9 2', 'rrp0 c 11 0', 'rmt0 c 12 0']
 RC = ['/etc/mount /dev/rk1 /usr/source', '/etc/mount /dev/rk2 /usr/doc']
-
-
-class Console:
-    def __init__(self, board, log):
-        self.board, self.fd, self.log = board, board.fd, log
-        self.seen = ''
-
-    def read(self, secs):
-        """What V6 sends in |secs|, without its parity bit, CRs or fill."""
-        r, _, _ = select.select([self.fd], [], [], secs)
-        if not r:
-            return ''
-        try:
-            d = os.read(self.fd, 4096)
-        except BlockingIOError:
-            return ''
-        # Without the parity bit, the fill after each newline is DEL.
-        t = bytes(c & 0x7f for c in d if c & 0x7f not in (0, 0x7f, 0x0d))
-        t = t.decode('latin-1')
-        sys.stdout.write(t)
-        sys.stdout.flush()
-        if self.log:
-            self.log.write(t)
-            self.log.flush()
-        self.seen += t
-        return t
-
-    def until(self, ends, timeout):
-        """What came since the last typing, once it ends in one of |ends|."""
-        end = time.time() + timeout
-        while time.time() < end:
-            self.read(0.2)
-            if any(self.seen.endswith(e) for e in ends):
-                return self.seen
-        fail('timed out waiting for %r after %r' % (ends, self.seen[-40:]))
-
-    def type(self, text):
-        self.seen = ''
-        for ch in text:
-            os.write(self.fd, ch.encode('latin-1'))
-            time.sleep(KEY_GAP)
-            self.read(0)
-
-    def shell(self, line, timeout=120, expect=None, quiet=True):
-        """Run |line| at the # prompt; its output, checked."""
-        self.type(line + '\n')
-        out = self.until(['\n# '], timeout)
-        body = out[out.find('\n') + 1:-len('# ')]
-        # The debugger reports the CPU's own aborts, as a stack grows.
-        body = ''.join(l for l in body.splitlines(True)
-                       if not l.startswith('?#ABORT'))
-        if expect is not None and expect not in body:
-            fail('%s: no %r' % (line, expect))
-        if quiet and expect is None and body.strip():
-            fail('%s: unexpected output' % line)
-        if 'panic' in out:
-            fail('panic')
-        return body
-
-
-# The console, once V6 runs: a stop syncs first, so the disk stays
-# consistent for a look at what went wrong.
-console = None
+# After a newline the console sends a CR and DELs as fill.
+PROMPT = rb'\n[\r\x7f]*# '
 
 
 def fail(why):
-    global console
-    con, console = console, None
-    if con:
-        con.type('sync\n')
-        end = time.time() + 5
-        while time.time() < end and not con.seen.endswith('\n# '):
-            con.read(0.2)
-    sys.exit('\nv6-install: ' + why)
+    sys.exit('v6-install: ' + why)
 
 
-def sync_card(board, image):
-    """The card's disk made the same as |image|, chunk by chunk."""
-    print('v6-install: sync %s to %s' % (image, CARD))
-    sent = board.sd_put(image, CARD, sync=True)
-    print('v6-install: %d bytes sent' % sent)
+class V6:
+    def __init__(self, pdp11, ini, log):
+        self.c = pexpect.spawn(pdp11, [ini], timeout=60, logfile=log, echo=False)
+        self.c.expect(rb'sim> ')
+
+    def boot(self, kernel):
+        """Drive 0's block 0, then |kernel| single-user to its # prompt."""
+        c = self.c
+        c.sendline(b'boot rk0')
+        c.expect(rb'@')
+        c.sendline(kernel.encode())
+        c.expect(rb'mem = ')
+        c.expect(PROMPT)
+        self.sh('stty -lcase')
+
+    def sh(self, line, timeout=120, expect=None, quiet=True):
+        """Run |line| at the # prompt; its output, checked."""
+        self.c.sendline(line.encode())
+        self.c.expect(PROMPT, timeout=timeout)
+        out = self.c.before.decode('latin-1').replace('\r', '').replace('\x7f', '')
+        # The first line is the command's echo.
+        body = out.partition('\n')[2]
+        if body:
+            body += '\n'
+        if 'panic' in out:
+            fail('%s: panic' % line)
+        if expect is not None and expect not in body:
+            fail('%s: no %r in %r' % (line, expect, body))
+        if quiet and expect is None and body.strip():
+            fail('%s: unexpected output %r' % (line, body))
+        return body
+
+    def type(self, text):
+        """|text| into a program reading the console, then ^D."""
+        self.c.send(text.encode('latin-1') + b'\x04')
+        self.c.expect(PROMPT)
+
+    def halt(self):
+        for _ in range(3):
+            self.sh('sync')
+        time.sleep(1)
+        self.c.sendcontrol('e')
+        self.c.expect(rb'sim> ')
+
+    def exit(self):
+        self.c.sendline(b'exit')
+        self.c.expect(pexpect.EOF)
 
 
-def save_card(board, path):
-    """The card's disk read back into |path|, checked by its CRCs."""
-    print('v6-install: save %s to %s' % (CARD, path))
-    board.sd_get(CARD, path)
-    size, crcs = board.sd_crcs(CARD)
-    with open(path, 'rb') as f:
-        data = f.read()
-    if len(data) != size or bc.chunk_crcs(data) != crcs:
-        raise RuntimeError('%s differs from the card' % path)
-
-
-def boot(board, con, kernel):
-    """The bootstrap from the SD card, which mounts the disks, then
-    |kernel| single-user to its # prompt."""
-    board.send(b'R')
-    reply = board.send(b'L', idle=0.3) + board.send(b'dcj11/unix_v6.hex\r', wait=5, idle=1)
-    if b'not found' in reply:
-        fail('dcj11/unix_v6.hex not on the SD card')
-    board.send(b'R')
-    board.send(b'G', idle=0.2)
-    con.type('\r')
-    con.until(['@'], 10)
-    con.type(kernel + '\r')
-    out = con.until(['\n# '], 60)
-    if 'mem =' not in out:
-        fail('%s did not boot' % kernel)
-    global console
-    console = con
-    con.shell('stty -lcase')
-
-
-def halt(board, con):
-    con.shell('sync')
-    con.shell('sync')
-    con.shell('sync')
-    time.sleep(1)
-    global console
-    console = None
-    board.abort()
-    board.send(wait=4.0, idle=1.0)
-
-
-def build_kernel(con):
-    con.shell('chdir /usr/sys/conf')
-    con.shell('cc mkconf.c', 300)
-    con.shell('mv a.out mkconf')
+def build_kernel(v6):
+    v6.sh('chdir /usr/sys/conf')
+    v6.sh('cc mkconf.c', 300)
+    v6.sh('mv a.out mkconf')
     # mkconf reads device names up to "done".
-    con.type('./mkconf\n')
-    time.sleep(0.5)
-    con.type(''.join(name + '\n' for name in CONF + ['done']))
-    if 'cannot find' in con.until(['\n# '], 60):
+    v6.c.sendline(b'./mkconf')
+    for name in CONF + ['done']:
+        v6.c.sendline(name.encode())
+    v6.c.expect(PROMPT)
+    if b'cannot find' in v6.c.before:
         fail('mkconf: unknown device')
-    con.shell('as m40.s', 300)
-    con.shell('mv a.out m40.o')
-    con.shell('cc -c c.c', 300)
-    con.shell('as l.s', 300)
-    con.shell('ld -x a.out m40.o c.o ../lib1 ../lib2', 300)
-    con.shell('ls a.out', expect='a.out')
-    con.shell('rm /unix')
-    con.shell('mv a.out /unix')
+    v6.sh('as m40.s', 300)
+    v6.sh('mv a.out m40.o')
+    v6.sh('cc -c c.c', 300)
+    v6.sh('as l.s', 300)
+    v6.sh('ld -x a.out m40.o c.o ../lib1 ../lib2', 300)
+    v6.sh('ls a.out', expect='a.out')
+    v6.sh('rm /unix')
+    v6.sh('mv a.out /unix')
     for node in NODES:
-        con.shell('/etc/mknod /dev/' + node)
+        v6.sh('/etc/mknod /dev/' + node)
 
 
-def put_file(con, path):
+def put_file(v6, path):
     name = os.path.basename(path)
     with open(path) as f:
         text = f.read()
     if '#' in text or '@' in text:
         fail('%s: # and @ are the console\'s erase and kill' % path)
-    con.type('cat >%s/%s\n' % (SAMPLES, name))
+    v6.c.sendline(('cat >%s/%s' % (SAMPLES, name)).encode())
     time.sleep(0.5)
-    # The prompt after ^D follows the text's last newline.
-    con.type(text + '\x04')
-    con.until(['\n# '], 60)
-    back = con.shell('cat %s/%s' % (SAMPLES, name), quiet=False)
+    v6.type(text)
+    back = v6.sh('cat %s/%s' % (SAMPLES, name), quiet=False)
     # The console may print tabs as spaces.
     if back not in (text, text.expandtabs()):
         fail('%s: reads back different' % name)
 
 
-def main():
-    p = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--log')
-    p.add_argument('--save')
-    p.add_argument('image')
-    p.add_argument('files', nargs='*')
-    a = p.parse_args()
-    log = open(a.log, 'w') if a.log else None
-    board = bc.Board.open()
-    con = Console(board, log)
+def main(argv):
+    if len(argv) < 3:
+        sys.exit(__doc__)
+    pdp11, disks, image = argv[:3]
+    files = argv[3:]
+    pdp11 = os.path.abspath(pdp11)
+    drives = [os.path.abspath('%s.rk%d' % (image, d)) for d in range(DRIVES)]
+    for d, path in enumerate(drives):
+        with open(os.path.join(disks, 'rk%d.dsk' % d), 'rb') as f:
+            data = f.read()
+        with open(path, 'wb') as f:
+            f.write(data.ljust(RK05_BLOCKS * BLOCK, b'\0'))
+    ini = os.path.abspath(image + '.ini')
+    with open(ini, 'w') as f:
+        f.write('set cpu 11/40\nset cpu 256k\n')
+        # V6 sends a parity bit; 173030 in the switches boots single-user.
+        f.write('set tto 7b\ndeposit sr 173030\n')
+        for dev in ('rl', 'rp', 'rx', 'tm', 'hk', 'rq', 'tq', 'ts', 'xq', 'dz'):
+            f.write('set %s disable\n' % dev)
+        f.write('set rk enable\n')
+        for d, path in enumerate(drives):
+            f.write('attach rk%d %s\n' % (d, path))
+    log = open(image + '.log', 'wb')
+    t0 = time.time()
 
-    try:
-        sync_card(board, a.image)
-        boot(board, con, 'rkunix')
-        build_kernel(con)
-        halt(board, con)
+    def mark(what):
+        print(f'{time.time() - t0:6.0f} s  {what}', flush=True)
 
-        boot(board, con, 'unix')
-        con.shell('mkdir /usr/doc')
-        con.type('cat >>/etc/rc\n')
-        time.sleep(0.5)
-        con.type(''.join(line + '\n' for line in RC) + '\x04')
-        con.until(['\n# '], 30)
-        con.shell('cat /etc/rc', expect=RC[-1], quiet=False)
-        if a.files:
-            con.shell('mkdir ' + SAMPLES)
-            for path in a.files:
-                put_file(con, path)
-        con.shell('sync')
-        con.shell('icheck /dev/rrk0', expect='free', quiet=False)
-        con.shell('dcheck /dev/rrk0', quiet=False)
-        halt(board, con)
-        if a.save:
-            save_card(board, a.save)
-    except RuntimeError as e:
-        fail(str(e))
-    board.close()
-    print('\nv6-install: done')
+    v6 = V6(pdp11, ini, log)
+    v6.boot('rkunix')
+    mark('rkunix up single-user')
+    build_kernel(v6)
+    mark('/unix built')
+    v6.halt()
+
+    v6.boot('unix')
+    mark('/unix up single-user')
+    v6.sh('mkdir /usr/doc')
+    v6.c.sendline(b'cat >>/etc/rc')
+    time.sleep(0.5)
+    v6.type(''.join(line + '\n' for line in RC))
+    v6.sh('cat /etc/rc', expect=RC[-1], quiet=False)
+    if files:
+        v6.sh('mkdir ' + SAMPLES)
+        for path in files:
+            put_file(v6, path)
+        mark(f'{len(files)} file(s) in {SAMPLES}')
+    v6.sh('sync')
+    v6.sh('icheck /dev/rrk0', expect='free', quiet=False)
+    v6.sh('dcheck /dev/rrk0', quiet=False)
+    v6.halt()
+    mark('installed')
+
+    # From block 0 to the new kernel, as the board boots it.
+    v6.boot('unix')
+    v6.sh('ls ' + SAMPLES, quiet=False)
+    v6.halt()
+    v6.exit()
+    log.close()
+    mark('booted from the disk')
+
+    new = image + '.new'
+    with open(new, 'wb') as out:
+        out.write(bytes(DRUM_BLOCKS * BLOCK))
+        for path in drives:
+            with open(path, 'rb') as f:
+                out.write(f.read().ljust(SLOT_BLOCKS * BLOCK, b'\0'))
+    os.replace(new, image)
+    for path in drives + [ini]:
+        os.remove(path)
+    mark(f'{image} written')
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

@@ -3,7 +3,7 @@
 
     debugger/pdp11/tools/bsd211-install.py PDP11 TAPE IMAGE [FILE...]
 
-Runs open-simh's PDP11, an 11/73 with 4 MB, an RQDX3 with an RD54 and a
+Runs open-simh's PDP11 (simh-fetch.py's), an 11/73 with 4 MB, an RQDX3 with an RD54 and a
 TS11 holding TAPE (bsd211-fetch.py's), and types the installation at
 its console as 2.11BSD's setup document has it: the disk label (a root
 of 15884 blocks, a swap of 16720, the rest /usr), mkfs, the root from

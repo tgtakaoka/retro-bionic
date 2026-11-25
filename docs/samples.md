@@ -191,28 +191,23 @@ Ken Wellsch's V6 distribution tape from [TUHS](https://www.tuhs.org/Archive/Dist
 into `samples/dcj11/unix_v6.fetch/`, checks its sha256, and cuts the three RK05 disks
 it carries, the root, `/usr/source` and `/usr/doc`, as V6's setup would; the tape
 is distributed under [Caldera's license](https://www.tuhs.org/Archive/Caldera-license.pdf)
-for ancient UNIX. Then:
+for ancient UNIX. `debugger/pdp11/tools/simh-fetch.py` builds open-simh's PDP-11
+simulator into `samples/dcj11/simh.fetch/` from a pinned commit, and `v6-install.py`
+installs the system under it, on an 11/40 with those disks on an RK11: it boots the
+tape's `rkunix` single-user, builds `/unix` for the 11/40 with the `rk`, `rp` and `tm`
+drivers, makes `/dev`'s nodes, boots that kernel, adds the mounts of rk1 and rk2 to
+`/etc/rc`, types the DCJ11 samples into `/usr/mandel`, checks the root with `icheck`
+and `dcheck`, boots the disk again from its first block, and puts the three disks in
+the image's slots.
 
 ```sh
 cd samples/dcj11
 make unix_v6.dsk
 ```
 
-puts them in the disk image's slots, and the installer does the rest over the console,
-with the board at its prompt and `unix_v6.hex` in `dcj11/` on the SD card
-(`scripts/bionic-control.py sd put unix_v6.hex dcj11/unix_v6.hex` puts it there):
-
-```sh
-../../debugger/pdp11/tools/v6-install.py --save unix_v6.installed.dsk unix_v6.dsk \
-    v6/fmandel.s v6/mandelbrot.s ../arith/fmandel.c ../arith/dmandel.c
-```
-
-It syncs the image onto the card with `Y`, boots the tape's `rkunix` single-user,
-builds `/unix` for the 11/40 with the `rk`, `rp` and `tm` drivers, makes `/dev`'s
-nodes, boots that kernel, adds the mounts of rk1 and rk2 to `/etc/rc`, types the
-files named into `/usr/mandel`, checks the root with `icheck` and `dcheck`, and
-reads the installed disk back to `--save`'s file. About seven minutes, as V6's
-console takes a keystroke every 50 ms. A run that stops starts over from the image.
+does all of it in under a minute, and the image goes to the card over the console
+(`scripts/bionic-control.py sd put unix_v6.dsk dcj11/unix_v6.dsk`, and `unix_v6.hex`
+to `dcj11/unix_v6.hex` beside it).
 
 `L dcj11/unix_v6.hex`, `R`, `G`, Enter, then `unix` at the bootstrap's `@` boots single-user to `#`; `stty
 -lcase` makes the console lower-case. `/usr/mandel` holds
@@ -239,10 +234,10 @@ FP11 and a megabyte or more, which the DCJ11 and its board have (the board's mem
 
 The system is not in the repository. `debugger/pdp11/tools/bsd211-fetch.py` downloads
 the 2.11BSD PL500 tape from [TUHS](https://www.tuhs.org/Archive/Distributions/UCB/2BSD/2.11BSD/Patches/)
-into `samples/dcj11/bsd211.fetch/`, checks its sha256, and builds open-simh's PDP-11
-simulator there from a pinned commit; the system is distributed under the BSD license
-and [Caldera's license](https://www.tuhs.org/Archive/Caldera-license.pdf) for ancient
-UNIX. `bsd211-install.py` then installs it under the simulator, as 2.11BSD's setup
+into `samples/dcj11/bsd211.fetch/` and checks its sha256; the system is distributed
+under the BSD license and [Caldera's license](https://www.tuhs.org/Archive/Caldera-license.pdf)
+for ancient UNIX. `bsd211-install.py` then installs it under the simulator V6's
+install uses, as 2.11BSD's setup
 document has it, on an 11/73 with an RQDX3 and an RD54 (159 MB: a root of 7.8 MB,
 8.2 MB of swap, the rest `/usr` with the sources), with the GENERIC kernel, cuts
 `/etc/dtab` to the MSCP controller, so that the kernel's autoconfig looks for nothing
@@ -256,9 +251,11 @@ cd samples/dcj11
 make bsd211.dsk
 ```
 
-does both in a few minutes, and the image goes to the card over the console
+does it in a few minutes, and the image goes to the card over the console
 (`scripts/bionic-control.py sd put bsd211.dsk dcj11/bsd211.dsk`, and `bsd211.hex`
 to `dcj11/bsd211.hex` beside it).
+`make` alone builds both systems' disk images along with the samples, `make clean`
+removes them, and `make distclean` the tapes and the simulator too.
 
 `L dcj11/bsd211.hex`, `R`, `I DL11 177` (the console sends each character with a parity bit, as V6's
 does), `G`: the bootstrap reads block 0, rauboot prints
