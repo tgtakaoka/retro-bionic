@@ -1773,11 +1773,12 @@ access of milliseconds, inside the OUT to its command port; the next
 IN reads the status. A DMA address is a 16-bit memory address and
 wraps. The images open at the prompt, when `L` loads the cold boot or
 `O` mounts one, never in a transfer; `L`'s set goes through `O`'s
-mount, and an image that is not there is not made. The BIOS's
-disk parameters and skew table are the 8" single-density ones of
-DRI's skeletal `CBIOS.ASM`, the format cpmtools calls
-`ibm-3740`. The disk's ports keep clear of the Z180's internal I/O below
-40H, for a Z80 port. **[code]**
+mount, and an image that is not there is not made. The BIOS picks
+each drive's DPB and skew table by the format DRIVE reads back:
+`hd8`, 8 MB with no skew, or the 8" single-density ones of DRI's
+skeletal `CBIOS.ASM`, the format cpmtools calls `ibm-3740`. The
+disk's ports keep clear of the Z180's internal I/O below 40H, for a
+Z80 port. **[code]**
 
 ### 8085
 

@@ -1,22 +1,12 @@
 #include "devs_z80.h"
 #include <strings.h>
 #include "i8251.h"
-#include "sector_disk.h"
+#include "i8080/cpm80_disk.h"
 
 namespace debugger {
 
-namespace {
-// CP/M's disk formats, by the index DRIVE reads back: ibm-3740 holds any
-// image up to 256256 bytes, hd8 an image of exactly 8 MB. CP/M-80 and
-// CP/M-86 share them, and hd8's DPB with them.
-const DiskGeometry CPM_FORMATS[] = {
-        {"ibm-3740", 77, 1, 26, 128, 1, 0xE5},  // 8" SSSD, sectors from 1
-        {"hd8", 256, 1, 256, 128, 0, 0xE5},     // 8 MB, sectors from 0
-};
-}  // namespace
-
 DevsZ80::DevsZ80(uint16_t addr, const Mems *mems)
-    : _usart(new I8251()), _disk(mems ? new SectorDisk(mems, CPM_FORMATS, 2) : nullptr) {
+    : _usart(new I8251()), _disk(mems ? new Cpm80Disk(mems) : nullptr) {
     _usart->setBaseAddr(addr);
     if (_disk)
         _disk->setBaseAddr(addr + 0x10);

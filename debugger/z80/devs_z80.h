@@ -8,7 +8,7 @@
 namespace debugger {
 
 struct Mems;
-struct SectorDisk;
+struct Cpm80Disk;
 
 struct DevsZ80 final : Devs {
     // With |mems|, the CP/M disk is there too, 10H above the USART.
@@ -30,7 +30,7 @@ struct DevsZ80 final : Devs {
 
 private:
     Device *_usart;
-    SectorDisk *_disk;
+    Cpm80Disk *_disk;
 };
 
 }  // namespace debugger

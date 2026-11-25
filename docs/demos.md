@@ -9,7 +9,8 @@ The full profile is at [asciinema.org/~tgtakaoka](https://asciinema.org/~tgtakao
 
 Every CPU's recording is listed in [mandelbrot.md](mandelbrot.md), with its
 Mandelbrot timing, its cast and its listing; the uploads are on the profile
-above.
+above. The operating systems' demos, CP/M 2.2, CP/M-86, Unix V6 and 2.11BSD, are in
+[samples.md](samples.md#operating-systems).
 
 Some also have a short video: [TMS7000 (TMS7002)](https://www.youtube.com/shorts/hNlnmbQgTaM),
 [NSC800](https://www.youtube.com/shorts/VR8pdkmnnt4),

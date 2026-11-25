@@ -23,9 +23,10 @@ namespace debugger {
  *   +6 MOUNTED  read: bit n is set when drive n has its image
  *   +7 DMAX     DMA address bits 16-23, past a 64K space
  *
- * The target gives the formats; see DiskDrives::place().
+ * The target gives the formats; see DiskDrives::place(). The arch gives
+ * mountBeside(), the images L mounts with its boot disk.
  */
-struct SectorDisk final : Device, DiskDrives {
+struct SectorDisk : Device, DiskDrives {
     static constexpr uint8_t DRIVES = 4;
 
     SectorDisk(const Mems *mems, const DiskGeometry *formats, uint8_t count)
@@ -47,10 +48,10 @@ struct SectorDisk final : Device, DiskDrives {
 
     // Turns the disk on.
     Mounted mount(const char *name, const char *path) override;
-    // |path|'s .dsk, b.dsk, c.dsk and d.dsk as A-D.
-    void mountBeside(const char *path) override;
 
 protected:
+    // Mounts |path| on |unit|, or unmounts it, telling a size no format has.
+    void mountDrive(uint8_t unit, const char *path);
     // A-D
     const char *unitName(uint8_t unit) const override;
     uint8_t unitOf(const char *name) const override;

@@ -17,6 +17,9 @@ the missing half.
 **Variants** are dies the firmware tells apart at runtime, so one board and one identity can
 report several parts.
 
+The boards that boot an operating system from the SD card are listed in
+[samples.md](samples.md#operating-systems).
+
 ## All targets
 
 <table>

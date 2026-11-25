@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; CP/M 2.2 cold boot on 16-bit ports: L z180/cpm80.hex loads this and
-;;; mounts cpm80.dsk as A: (and cpm80b.dsk etc. as B:-D:). It reads CCP,
+;;; mounts cpm80a.dsk as A: (and cpm80b.dsk etc. as B:-D:). It reads CCP,
 ;;; BDOS and the BIOS from the system tracks and enters the BIOS's cold
 ;;; boot. For the Z180, Z280 and Z380.
 ;;;

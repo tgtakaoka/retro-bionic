@@ -1,7 +1,7 @@
 #include "devs_i8085.h"
 #include <strings.h>
 #include "i8085_sio_handler.h"
-#include "sector_disk.h"
+#include "cpm80_disk.h"
 
 namespace debugger {
 namespace i8085 {

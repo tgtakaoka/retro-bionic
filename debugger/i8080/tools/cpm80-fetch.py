@@ -7,9 +7,9 @@ Downloads each archive below into DIR/dl/ (kept, so later runs work
 offline), checks its sha256, and extracts the listed files: CPM22.ASM
 into DIR/, the A: files into DIR/a/. Writes DIR/.fetched when done.
 
-Only freely distributable files are fetched: DRI's CP/M 2.2 (see
-http://www.cpm.z80.de/license.html), BDS C (public domain) and HI-TECH
-C 3.09 (free). MBASIC is Microsoft's; put your own MBASIC.COM in DIR/a/.
+It fetches DRI's CP/M 2.2 (see http://www.cpm.z80.de/license.html), BDS
+C (public domain), HI-TECH C 3.09 (free), and Microsoft's MBASIC 5.21
+from the textfiles.com mirror of an old CP/M archive.
 """
 import fnmatch
 import hashlib
@@ -25,6 +25,8 @@ import lbr
 CPM = 'http://www.cpm.z80.de/download/'
 HTC = 'https://raw.githubusercontent.com/agn453/HI-TECH-Z80-C/' \
       'd5ebbb2e1e4353b8f7644aef38698ae71eb87c12/'
+BARNYARD = 'https://discmaster.textfiles.com/file/19793/' \
+           '2015.02.ftp.barnyard.co.uk.tar/ftp.barnyard.co.uk/cpm/'
 
 # (URL, sha256, {member pattern: subdirectory of DIR})
 SOURCES = [
@@ -45,6 +47,10 @@ SOURCES = [
     (HTC + 'htc-bin.lbr',
      '4c1f140725700fe337408c64a13f96b78f3c4ded34cce2d2bcdb5815313c067a',
      {'*': 'a'}),
+    # A plain file, not an archive.
+    (BARNYARD + 'commercial-software/programming/Mbasic.com',
+     '29d957fc6899c24f6296a1662a27eca545d85ee3f7d70d2794c9d045d92ff157',
+     {'MBASIC.COM': 'a'}),
 ]
 
 
@@ -72,6 +78,9 @@ def download(url, sha, cache):
 def members(url, data):
     if url.endswith('.lbr'):
         yield from lbr.members(data)
+        return
+    if not url.endswith('.zip'):
+        yield url.rsplit('/', 1)[1].upper(), data
         return
     z = zipfile.ZipFile(io.BytesIO(data))
     for name in z.namelist():
