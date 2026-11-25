@@ -6,7 +6,7 @@
 ;;; through DS0; IRET resumes it.
         include "../i8080/i8080.inc"
         cpu     V30
-        include "usart.inc"
+        include "../i8086/usart.inc"
 
 SEG_I8080:      equ     1000H   ; the 8080 program's code and data
 VEC_I8080:      equ     22H     ; BRKEM's vector to its reset entry
@@ -30,7 +30,7 @@ init:
         brkem   VEC_I8080
         jmp     $               ; the 8080 program never returns
 
-        include "io.inc"
+        include "../i8086/io.inc"
 
         org     0FFFF0H
         jmpf    0:init

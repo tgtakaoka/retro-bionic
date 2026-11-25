@@ -695,7 +695,7 @@ to it afterwards, pass or fail.
 ### Another architecture's image, unchanged **[hw]**
 
 The V20/V30 run `samples/i8080/mandelbrot.hex` as is, in 8080 emulation
-mode (`samples/i8086/mandelbrot_8080emu.asm`):
+mode (`samples/v30/mandelbrot_8080emu.asm`):
 
 - Load it outside segment 0: there its RST 5/6 interrupt types (EFH, F7H)
   would have their native vectors inside its own code. The Makefile puts
@@ -715,7 +715,7 @@ mode (`samples/i8086/mandelbrot_8080emu.asm`):
   instruction after a segment register load: a step over MOV DS,AX would
   also run the next one. The harness loads DS early, so the instruction
   before its BRKEM steps alone; the V20's behaviour there is not tried.
-- CP/M runs the same way (`samples/i8086/cpm80.asm`) at 1000:0000; its
+- CP/M runs the same way (`samples/v30/cpm80.asm`) at 1000:0000; its
   BIOS polls, so no native handlers. The harness sets DMAX to 1 so the
   BIOS's 16-bit DMA addresses land in that segment.
 
