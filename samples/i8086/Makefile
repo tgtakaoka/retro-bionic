@@ -109,7 +109,69 @@ msdos200c.dsk: msdosboot.hex mbr.hex io.sys $(MSDOS)/.fetched $(DISK)
 	    --system io.sys $(MSDOS)/MSDOS.SYS $(MSDOS)/COMMAND.COM \
 	    $(wildcard $(MSDOS)/bin/*)
 
+# MS-DOS 2.11, assembled from source on the board, for L msdos211.hex:
+# its disks are msdos211a.dsk, a 360K boot floppy, and msdos211c.dsk,
+# the hard disk, with 2.11's IO.SYS, MSDOS.SYS, COMMAND.COM and
+# utilities; C: also has MASM 5.10 and LINK 3.65, which BUILD ran, and
+# 2.0's CREF. bld211.dsk is the disk the board builds on, which
+# boots MS-DOS 2.0; after `make bld211.dsk`, with the board locked,
+#     ../../debugger/i8086/tools/msdos-build.py bench 2.11 msdos211.built
+# assembles on it and puts the results in $(MSDOS211)/. bld200.dsk and
+# `bench 2.00` rebuild the 2.0 kernel and check it is the release's.
+MSDOS211 ?= msdos211.built
+MSDOS_BUILD = ../../debugger/i8086/tools/msdos-build.py
+$(MSDOS)/.fetched-source: $(MSDOS_FETCH)
+	$(MSDOS_FETCH) --source $(MSDOS)
+
+bld211/.tree bld200/.tree: $(MSDOS)/.fetched-source $(MSDOS)/.fetched \
+	    $(MSDOS_BUILD)
+	$(MSDOS_BUILD) tree $(patsubst bld2%,2.%,$(@D)) $(MSDOS) $(@D)
+
+bld211.dsk bld200.dsk: %.dsk: %/.tree msdosboot.hex mbr.hex io.sys $(DISK)
+	$(DISK) make $@ --format hd32 --boot msdosboot.hex --mbr mbr.hex \
+	    --system io.sys $(MSDOS)/MSDOS.SYS $(MSDOS)/COMMAND.COM $*/*
+
+msdos211.hex: rombios.hex
+	cp $< $@
+
+# The same msdosbio.hex: 2.11's SYSINIT keeps 2.0's variables where
+# sysinit.inc has them, which --check makes sure of.
+$(MSDOS211)/IO.SYS: msdosbio.hex $(MSDOS211)/SYSINIT.OBJ \
+	    $(MSDOS211)/SYSIMES.OBJ $(LINK)
+	$(LINK) link -o $@ --base 0x70 --bin msdosbio.hex --define RE_INIT=3 \
+	    --check sysinit.inc $(MSDOS211)/SYSINIT.OBJ $(MSDOS211)/SYSIMES.OBJ
+
+MSDOS211_SYSTEM = --system $(MSDOS211)/IO.SYS $(MSDOS211)/MSDOS.SYS \
+	$(MSDOS211)/COMMAND.COM
+msdos211a.dsk: msdosboot.hex $(MSDOS211)/IO.SYS $(MSDOS211)/MSDOS.SYS \
+	    $(MSDOS211)/COMMAND.COM $(DISK)
+	$(DISK) make $@ --format fd360 --boot msdosboot.hex \
+	    $(MSDOS211_SYSTEM) $(addprefix $(MSDOS211)/bin/,$(MSDOS_A))
+
+# C: also has Microsoft C 5.10 from the 4.0 tree, its small model,
+# and fmandel.c and imandel.c: after MSC.BAT, `CL FMANDEL.C` builds a
+# FMANDEL.EXE whose floating point takes an 8087 when there is one.
+# The compiler needs more than the 8 files DOS opens without
+# CONFIG.SYS.
+msc211/.made: fmandel.c ../arith/imandel.c
+	mkdir -p msc211
+	sed 's/\r$$//; s/$$/\r/' fmandel.c > msc211/FMANDEL.C
+	(echo '#include <stdio.h>'; cat ../arith/imandel.c) | \
+	    sed 's/\r$$//; s/$$/\r/' > msc211/IMANDEL.C
+	printf 'SET PATH=C:\\\r\nSET INCLUDE=C:\\\r\nSET LIB=C:\\\r\nSET TMP=C:\\\r\n' \
+	    > msc211/MSC.BAT
+	printf 'FILES=20\r\nBUFFERS=20\r\n' > msc211/CONFIG.SYS
+	touch $@
+
+msdos211c.dsk: msdosboot.hex mbr.hex $(MSDOS211)/IO.SYS $(MSDOS211)/MSDOS.SYS \
+	    $(MSDOS211)/COMMAND.COM $(MSDOS)/.fetched-source msc211/.made $(DISK)
+	$(DISK) make $@ --format hd32 --boot msdosboot.hex --mbr mbr.hex \
+	    $(MSDOS211_SYSTEM) $(MSDOS211)/bin/* \
+	    $(MSDOS)/src/tools/MASM.EXE $(MSDOS)/src/tools/LINK.EXE \
+	    $(MSDOS)/bin/CREF.EXE $(MSDOS)/src/msc/* msc211/*
+
 clean:
 	-rm -f *.lst *.hex *.dsk fmandel.pb imandel.inc io.sys
+	-rm -rf bld211 bld200 msc211
 
 include ../deps.mk

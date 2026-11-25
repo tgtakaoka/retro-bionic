@@ -1,0 +1,101 @@
+# Scenario for scripts/record-scenario.py: MS-DOS 2.11 on the P80C88,
+# assembled on the board (docs/samples.md): L loads the PC BIOS and
+# mounts the 2.11 disks, DOS boots from the floppy A:, lists and checks
+# it and sorts the hard disk's directory through a pipe; then, with A:
+# unmounted, boots from the hard disk, which COUNTRY=081 added to its
+# CONFIG.SYS switches to Japan's year-month-day dates.
+#
+# Needs the SD card's i8086/msdos211.hex, msdos211a.dsk and
+# msdos211c.dsk (docs/samples.md).
+
+key ?
+pace 2.0
+
+command L i8086/msdos211.hex
+pace 2.0
+
+# A short backtrace for the halt at the end.
+key R
+type G
+wait backtrace?
+type 5\r
+waitfor 60 new date:
+pace 1.0
+type 11-25-2026\r
+waitfor 20 new time:
+pace 1.0
+type 12:00\r
+waitfor 20 A>
+pace 2.0
+
+type VER\r
+waitfor 20 A>
+pace 2.0
+type DIR\r
+waitfor 30 A>
+pace 2.0
+type CHKDSK\r
+waitfor 60 A>
+pace 2.0
+type DIR C: | SORT\r
+waitfor 120 A>
+pace 2.0
+
+halt
+
+# A: unmounted, INT 19H boots the hard disk's MBR.
+type O
+wait Disk?
+command A
+pace 1.0
+key R
+type G
+wait backtrace?
+type 5\r
+waitfor 60 new date:
+pace 1.0
+type \r
+waitfor 20 new time:
+pace 1.0
+type \r
+waitfor 20 C>
+pace 2.0
+type VER\r
+waitfor 20 C>
+pace 2.0
+type ECHO COUNTRY=081>>CONFIG.SYS\r
+waitfor 30 C>
+pace 1.0
+type TYPE CONFIG.SYS\r
+waitfor 20 C>
+pace 2.0
+
+halt
+
+# Japan's dates.
+key R
+type G
+wait backtrace?
+type 5\r
+waitfor 60 new date:
+pace 1.0
+type 2026-11-25\r
+waitfor 20 new time:
+pace 1.0
+type 12:00\r
+waitfor 20 C>
+pace 2.0
+type DATE\r
+waitfor 20 new date:
+pace 1.0
+type \r
+waitfor 20 C>
+pace 2.0
+
+halt
+
+# A: back, as L mounted it.
+type O
+wait Disk?
+command A i8086/msdos211a.dsk
+pace 2.0

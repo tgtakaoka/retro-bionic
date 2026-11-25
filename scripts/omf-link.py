@@ -3,7 +3,7 @@
 
     scripts/omf-link.py inc OBJ... > NAME.inc
     scripts/omf-link.py link -o OUT.SYS --base SEG --bin BIOS.hex \\
-        [--define NAME=OFFSET...] OBJ...
+        [--define NAME=OFFSET...] [--check NAME.inc] OBJ...
 
 For MS-DOS 2.0's IO.SYS: samples/i8086/msdosbio.asm is assembled flat
 and Microsoft's SYSINIT.OBJ and SYSIMES.OBJ follow it, so no MASM or
@@ -13,6 +13,8 @@ hex file's bytes from offset 0 of the segment at paragraph SEG, then
 every object's segments, which must all combine into one, at the next
 paragraph, and resolves the objects' fixups. --define gives an external
 the objects need from the BIOS, an offset in the hex file's segment.
+--check fails the link if a symbol of an `inc` file the BIOS was
+assembled with is public in the objects at another offset.
 
 Only what a MASM 1.x object holds is handled: public segments, LEDATA
 and LIDATA, and 16-bit offset, segment and far-pointer fixups to
@@ -311,6 +313,22 @@ class Link:
         self.image[at + 1] = (value >> 8) & 0xFF
 
 
+def check(incs, modules):
+    """Each `inc` file's symbols the objects make public, at the same
+    offsets in their segments."""
+    publics = {n: offset for m in modules for n, _, offset in m.publics}
+    for inc in incs:
+        with open(inc) as f:
+            for line in f:
+                n, colon, rest = line.partition(':')
+                if not colon or line.startswith(';'):
+                    continue
+                offset = int(rest.split()[1].rstrip('Hh'), 16)
+                if n in publics and publics[n] != offset:
+                    sys.exit(f'{inc}: {n} is {offset:04X}H, '
+                             f'the objects have {publics[n]:04X}H')
+
+
 def main(argv):
     if len(argv) < 2:
         sys.exit(__doc__)
@@ -325,6 +343,7 @@ def main(argv):
         sys.exit(__doc__)
     out = base = bios = None
     defines = {}
+    checks = []
     objs = []
     i = 0
     while i < len(argv):
@@ -337,6 +356,9 @@ def main(argv):
             i += 2
         elif a == '--bin':
             bios = argv[i + 1]
+            i += 2
+        elif a == '--check':
+            checks.append(argv[i + 1])
             i += 2
         elif a == '--define':
             n, v = argv[i + 1].split('=')
@@ -354,7 +376,9 @@ def main(argv):
     if first != 0:
         sys.exit(f'{bios}: starts at {first:X}, not 0')
     flat = bytes(mem.get(a, 0) for a in range(max(mem) + 1))
-    link = Link(base, flat, [Module(p) for p in objs], defines)
+    modules = [Module(p) for p in objs]
+    check(checks, modules)
+    link = Link(base, flat, modules, defines)
     with open(out, 'wb') as f:
         f.write(link.image)
     print(f'{out}: {len(flat)} bytes of {bios}, {link.name} at '

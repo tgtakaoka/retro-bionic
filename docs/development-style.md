@@ -749,6 +749,26 @@ sector disk and USART:
   name with any type; `BASIC FMANDEL` starts it without loading one.
   CB86 opens its overlays on the current drive.
 
+### MS-DOS on the 8086 **[code]**
+
+`rombios.asm`, `msdosboot.asm`, `mbr.asm` and `msdosbio.asm` serve both
+2.0 and 2.11:
+
+- SYSINIT 2.11 keeps 2.0's variable offsets, so one `msdosbio.hex`
+  links against either; `omf-link.py --check sysinit.inc` fails the
+  build if a SYSINIT ever moves them.
+- IO.SYS's drivers switch to a private 256-byte stack: DOS calls them
+  on its own 160 bytes, which a driver plus an interrupt overran.
+- MASM 5.10 is not the assembler Microsoft used. `msdos-build.py`
+  patches the sources it rejects or assembles differently, and pins the
+  sha256 of every output; the 2.0 kernel it makes is 3 bytes shorter,
+  from shorter `AND reg,imm` encodings, and boots.
+- `msdos-build.py bench` turns the disk cache off around its run:
+  `sd put` to a mounted image loses writes.
+- Microsoft C 5.10 opens more files than DOS's default 8, so the 2.11
+  hard disk's `CONFIG.SYS` sets `FILES=20`; without it CL stops with
+  fatal error C1015.
+
 ### Unix V6 installs itself under simh **[code]**
 
 `debugger/pdp11/tools/v6-install.py` types V6's setup at the console of
