@@ -31,8 +31,9 @@ void Dl11::print() const {
     cli.printNum(_rxIntr, radix, digits);
     cli.print(" Tx=");
     cli.printNum(_txIntr, radix, digits);
-    cli.print(" Bits=");
-    cli.print(_dataMask == 0177 ? '7' : '8');
+    // As I DL11 takes it.
+    cli.print(" Mask=");
+    cli.printNum(_dataMask, radix, digits);
     cli.println();
 }
 
