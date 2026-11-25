@@ -1031,6 +1031,15 @@ way.
 is the set `O` and `L` mount. Formats come from the target's devices.
 Transfers run inside a held bus cycle and flush once per transfer.
 
+### Drain a transfer's stores before the next bus cycle **[hw][code]**
+
+A device that copies into target memory in EXTMEM or DMAMEM leaves the
+stores buffered when it returns. The next cycle's pin reads then stall
+behind them and can miss their window: after a cached sector copy, the
+8088 read A16-A19 a clock late, in T2, and was fed from the wrong
+address. End such a copy with `asm volatile("dsb" ::: "memory")`, as
+`SectorDisk::transfer()` does; once per transfer, not once per cycle.
+
 ### Devices send console output through consoleWrite() **[code]**
 
 A UART device's character goes out with `consoleWrite()`, never
