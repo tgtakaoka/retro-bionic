@@ -29,6 +29,8 @@ def load(name, path):
 
 msdos_disk = load('msdos_disk', os.path.join(PROJ, 'scripts', 'msdos-disk.py'))
 omf_link = load('omf_link', os.path.join(PROJ, 'scripts', 'omf-link.py'))
+msdos_build = load('msdos_build', os.path.join(
+    DEBUGGER, 'i8086', 'tools', 'msdos-build.py'))
 
 GEOMETRY = re.compile(
     r'\{"([\w-]+)",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+),\s*(0x[0-9A-Fa-f]+)\}')
@@ -269,6 +271,70 @@ class Link(unittest.TestCase):
         self.assertEqual(sysinit[0x35:0x43], struct.pack('<HHHHHHH', 0,
                 0x14, 0x71, 0x11, 0x71, 0x34, 0x71))
         self.assertIn(b'Bad or missing $', sysinit)
+
+    def test_check(self):
+        modules = [omf_link.Module(os.path.join(self.FETCH, n))
+                   for n in ('SYSINIT.OBJ', 'SYSIMES.OBJ')]
+        omf_link.check([os.path.join(SAMPLES, 'sysinit.inc')], modules)
+        with tempfile.NamedTemporaryFile('w', suffix='.inc') as f:
+            f.write('MEMORY_SIZE:            equ     0010H\n')
+            f.flush()
+            with self.assertRaises(SystemExit):
+                omf_link.check([f.name], modules)
+
+
+class BuildTree(unittest.TestCase):
+    """msdos-build.py tree on the fetched sources: every module BUILD.BAT
+    assembles, and every file they include, is on the build disk."""
+
+    FETCH = os.path.join(SAMPLES, 'msdos.fetch')
+    INCLUDE = re.compile(rb'^\s*INCLUDE\s+([\w.:]+)', re.I | re.M)
+
+    def setUp(self):
+        if not os.path.exists(os.path.join(self.FETCH, '.fetched-source')):
+            self.skipTest('no msdos.fetch/src')
+        self.out = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.out)
+
+    def closure(self, version):
+        msdos_build.tree(version, self.FETCH, self.out)
+        files = set(os.listdir(self.out))
+        bat = open(os.path.join(self.out, 'BUILD.BAT'), 'rb').read()
+        modules = re.findall(rb' MASM (\w+);', bat)
+        todo = [m.decode() + '.ASM' for m in modules]
+        seen = set()
+        while todo:
+            name = todo.pop()
+            if name in seen:
+                continue
+            seen.add(name)
+            self.assertIn(name, files)
+            data = open(os.path.join(self.out, name), 'rb').read()
+            self.assertNotIn(b'\0', data, name)
+            self.assertIsNone(re.search(rb'\r(?!\n)|(?<!\r)\n', data), name)
+            self.assertTrue(data.endswith(b'\r\n'), name)
+            todo += [n.decode().upper() for n in self.INCLUDE.findall(data)]
+        return files, modules
+
+    def test_211(self):
+        files, modules = self.closure('2.11')
+        self.assertEqual(len(modules), 21 + 16 + 2 + 27)
+        for name in ('MASM.EXE', 'LINK.EXE', 'EXE2BIN.EXE', 'DOSLINK',
+                     'CMDLINK', 'CONFIG.SYS', 'AUTOEXEC.BAT'):
+            self.assertIn(name, files)
+        read = lambda n: open(os.path.join(self.out, n), 'rb').read()
+        self.assertIn(b'MSVER   EQU     true', read('STDSW.ASM'))
+        self.assertIn(b'IBM     EQU     false', read('STDSW.ASM'))
+        self.assertIn(b'IBMVER  EQU     false', read('COMSW.ASM'))
+        self.assertEqual(read('DOSMES.ASM').count(b'IF\tTRUE'), 3)
+        for n in (b'BADSIZ_PRE', b'BADLD_POST', b'BADCOUNTRY'):
+            self.assertIn(n, read('SYSIMES.ASM'))
+
+    def test_200(self):
+        files, modules = self.closure('2.00')
+        self.assertEqual(len(modules), 24)
 
 
 if __name__ == '__main__':

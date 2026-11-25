@@ -226,6 +226,58 @@ and [the P80C88](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples
 checks A: and C:, copies to B: and keeps time; then, with A: unmounted, it boots from
 the hard disk.
 
+### MS-DOS 2.11, assembled on the board
+
+Microsoft's repository has no MS-DOS 2.11 binaries, so the board assembles them, under MS-DOS 2.0, with
+MASM 5.10 and LINK 3.65 from the same repository's `v4.0/src/TOOLS` and 2.0's EXE2BIN.
+The MSDOS.SYS kernel is [John Elliott's tree](https://www.seasip.info/DOS/) (MIT), which
+completes Microsoft's with the STDIO.ASM, IO.ASM and IO2.ASM it lacks; COMMAND.COM,
+SYSINIT and the ten utilities 2.0's disks have are Microsoft's 2.11 sources.
+`debugger/i8086/tools/msdos-build.py` sets them up to build the generic MS-DOS that OEMs
+got, rather than the IBM version, whose kernel leaves EXEC out, while keeping the UK, German, French
+and Japanese country tables. It gives SYSIMES.ASM the messages 2.11's SYSINIT needs, and
+works around what MASM 5.10 reads differently from the assemblers of 1983: COMMAND.ASM's
+`MOV AH,WAIT`, and TDATA.ASM's line feeds with bit 7 set. SORT links with `/CP:1`, as
+Microsoft's did. IO.SYS is `msdosbio.asm` again, linked with the SYSINIT.OBJ and
+SYSIMES.OBJ the board assembled.
+
+```sh
+cd samples/i8086
+make bld211.dsk          # the build disk: MS-DOS 2.0, the tools, sources, BUILD.BAT
+../../scripts/bionic-bench.py lock bench1
+../../debugger/i8086/tools/msdos-build.py bench 2.11 msdos211.built
+make msdos211.hex msdos211a.dsk msdos211c.dsk
+```
+
+`make bld211.dsk` fetches the sources first, pinned and checked by sha256
+(`msdos-fetch.py --source`). `msdos-build.py bench` turns the debugger's disk cache off,
+copies the build disk to the SD card, boots it as C: with A: unmounted, types `BUILD`
+([`msdos211_build.scenario`](../samples/i8086/msdos211_build.scenario)), copies the disk
+back, turns the cache on again and takes MSDOS.SYS, COMMAND.COM, SYSINIT.OBJ, SYSIMES.OBJ
+and the utilities off it into `msdos211.built/`: half an hour on the P80C86, and the
+same bytes each time, whose sha256 the script checks. BUILD skips
+a module whose object is already on the disk, so a build that stopped picks up where it
+left off. Copy `msdos211.hex`, `msdos211a.dsk` and `msdos211c.dsk` into the card's
+`i8086/`; `L i8086/msdos211.hex` then boots 2.11 as `L i8086/msdos200.hex` boots 2.0. C:
+also has MASM 5.10, LINK 3.65 and 2.0's CREF. `COUNTRY=081` in CONFIG.SYS gives Japan's
+year-month-day dates, `044` the UK's day-month-year; the default, `001`, is the US's
+month-day-year.
+Demos on [the P80C86](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos211_80c86.cast)
+and [the P80C88](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos211_80c88.cast): 2.11 boots from A:, lists and checks it and sorts C:'s directory through a
+pipe; then it boots from the hard disk, which `COUNTRY=081` switches to year-month-day
+dates.
+
+The 2.11 hard disk also holds Microsoft C 5.10 from the 4.0 tree, with its small-model
+libraries, and `fmandel.c` and `imandel.c`. After `MSC`, which sets the compiler's paths,
+`CL FMANDEL.C` builds `FMANDEL.EXE`, whose floating point uses an 8087 when the board has
+one and emulates it otherwise. Its `CONFIG.SYS` sets `FILES=20`: with DOS's default of 8,
+the compiler stops with fatal error C1015, unable to open a file.
+
+`bld200.dsk` and `msdos-build.py bench 2.00 msdos200.built` do the same for 2.0's
+kernel, from Elliott's 2.00 tree, which gives the release's MSDOS.SYS with MASM 4.00.
+MASM 5.10 makes it 3 bytes shorter: it encodes three `AND reg,imm16` whose immediates
+fit in a byte in the short form, and everything else only moves. The 2.0 disks themselves need no board: `make` builds them on the host.
+
 ## Unix V6 on the DCJ11
 
 [`samples/dcj11/unix_v6.asm`](../samples/dcj11/unix_v6.asm) is the RK05 bootstrap: it
