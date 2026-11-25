@@ -15,7 +15,8 @@ namespace pdp11 {
  * the image named as the bootstrap it loaded, the drum's 1024 blocks and
  * then 6144 a drive. A transfer is done whole within the
  * write that starts it, between the file and the memory at RKBA, and
- * the next service sets READY and requests the interrupt.
+ * the next service sets READY and requests the interrupt. The CPU waits
+ * meanwhile, and the line clock drops the ticks it would have made.
  */
 struct Rk11 final : Device, DiskDrives {
     static constexpr uint8_t DRIVES = 8;
@@ -35,7 +36,7 @@ struct Rk11 final : Device, DiskDrives {
     }
     void setBaseAddr(uint32_t addr) override { _base_addr = addr & ~017; }
     uint32_t baseAddr() const override { return _base_addr; }
-    uint16_t read(uint32_t addr) override { return peek(addr); }
+    uint16_t read(uint32_t addr) override;
     uint16_t peek(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) override;
 
@@ -67,6 +68,8 @@ private:
     bool _ready = true;
     bool _done = false;  // a function ended; READY comes on the next service
     bool _request = false;
+    uint8_t _locked = 0;  // drives write locked, a bit each
+    uint8_t _sector = 0;  // the sector counter RKDS shows
 
     static constexpr uint8_t RKDS = 000;
     static constexpr uint8_t RKER = 002;
@@ -76,7 +79,7 @@ private:
     static constexpr uint8_t RKDA = 012;
 
     void start();
-    void transfer(bool toDisk);
+    void transfer(uint8_t function);
 };
 
 }  // namespace pdp11

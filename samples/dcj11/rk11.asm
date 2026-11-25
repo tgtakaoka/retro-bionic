@@ -70,6 +70,41 @@ fill:   mov     r0, (r1)+
         jsr     pc, transfer
         bmi     error
         mtps    #PSW_PRI7       ; Disable interrupt
+        ;; The disk matches the pattern, and no longer once it changes
+        mov     #pattern, r1
+        mov     #RKCS_WCHK|RKCS_GO_bm, r2
+        jsr     pc, transfer
+        bmi     error
+        inc     pattern+100
+        jsr     pc, transfer
+        bpl     error
+        dec     pattern+100
+        cmp     @#RK11_RKER, #RKER_WCE_bm
+        bne     error
+        mov     #RKCS_RCHK|RKCS_GO_bm, r2
+        jsr     pc, transfer
+        bmi     error
+        ;; A byte write changes its half of a register
+        mov     #001234, @#RK11_RKBA
+        movb    #056, @#RK11_RKBA+1
+        cmp     @#RK11_RKBA, #027234
+        bne     error
+        movb    #177, @#RK11_RKBA
+        cmp     @#RK11_RKBA, #027177
+        bne     error
+        ;; A locked drive refuses a write until a drive reset
+        mov     #RKCS_WLOCK|RKCS_GO_bm, r2
+        jsr     pc, transfer
+        bmi     error
+        mov     #saved, r1
+        mov     #RKCS_WRITE|RKCS_GO_bm, r2
+        jsr     pc, transfer
+        bpl     error
+        cmp     @#RK11_RKER, #RKER_WLO_bm
+        bne     error
+        mov     #RKCS_DRESET|RKCS_GO_bm, r2
+        jsr     pc, transfer
+        bmi     error
         ;; Put the sector back, by polling
         mov     #saved, r1
         mov     #RKCS_WRITE|RKCS_GO_bm, r2

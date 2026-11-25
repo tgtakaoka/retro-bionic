@@ -53,6 +53,9 @@ struct DevsPdp11 final : Devs {
     // What read() would return, without its side effects.
     uint16_t peek(uint32_t addr) const;
     void write(uint32_t addr, uint16_t data) const override;
+    // A byte write: a high byte keeps its odd address, except on the
+    // RK11, whose registers take the byte into the word.
+    void writeByte(uint32_t addr, uint8_t data) const;
     // The vector an interrupt acknowledge reads; it drops that request.
     uint16_t vector() const override;
     // The same for a CPU that tells the level it acknowledges: 5 is the
