@@ -95,9 +95,21 @@ constexpr uint16_t POWER_UP_CONFIG = ORG_START | 0000017;
 // General-purpose write codes (DCJ11 User's Guide, Table 3-3).
 constexpr uint8_t GP_BUS_RESET = 0014;
 constexpr uint8_t GP_EVENT_ACK = 0100;
-// The debugger's traps go here; the debugger answers its fetch.
-constexpr uint16_t ORG_RESTART = 0173004;
+// The debugger's traps go here; the debugger answers its fetch. Kernel
+// I page 0 is always mapped whole, unlike page 7, where 2.11BSD maps its
+// overlays (some shorter than 6 KB). Clear of the vectors and of the
+// stack below 1000.
+constexpr uint16_t ORG_RESTART = 0017000;
+// PS's current and previous modes.
+constexpr uint16_t PSW_MODE = 0140000;
+constexpr uint16_t PSW_PREVIOUS = 0030000;
+constexpr uint16_t MOV_ABS_PUSH = 0013746;  // MOV @#addr, -(SP)
+constexpr uint16_t BIC_IMM_SP = 0042716;    // BIC #imm, (SP)
+constexpr uint16_t BIS_IMM_SP = 0052716;    // BIS #imm, (SP)
+constexpr uint16_t RTI = 0000002;
 constexpr uint16_t VEC_PWRFAIL = 0000024;
+// A HALT outside kernel mode, and in it with this halt option, traps here.
+constexpr uint16_t VEC_HALT = 0000004;
 // The emulated memory takes all of DAL21-DAL00.
 constexpr uint32_t MAX_ADDR = 017777777;
 // The maintenance register, a system register the DCJ11 leaves to its
@@ -281,7 +293,7 @@ void negate_pwrf() {
 PinsDcj11::PinsDcj11() {
     _mems = new MemsDcj11(MAX_ADDR);
     _devs = new DevsPdp11(_mems);
-    _regs = new RegsPdp11(this, mems<MemsDcj11>(), true);
+    _regs = new RegsPdp11(this, mems<MemsDcj11>(), true, true);
 }
 
 
@@ -622,19 +634,41 @@ bool PinsDcj11::breakTrap(const Signals *s) const {
     return false;
 }
 
+// Whether the trap whose vector |s| reads follows a HALT: its fetch, or
+// the prefetch after it, just before |s|, past the power-up
+// configuration read the HALT makes. Unlike the other vectors this one
+// is watched through a whole run, so its whole bus address must match:
+// kernel D page 0 at 0, as V6 and 2.11BSD map it.
+bool PinsDcj11::haltTrap(const Signals *s) const {
+    const auto back = Cycles::cycles() < 3U ? Cycles::cycles() : 3U;
+    for (auto i = 1U; i <= back; ++i) {
+        const auto w = s->prev(i);
+        if (w->gpRead())
+            continue;
+        if (!w->fetch())
+            break;
+        if (w->data == InstPdp11::HALT)
+            return true;
+    }
+    return false;
+}
+
 // Whether |s|, a prepared cycle, enters the debugger. BPT and a T-bit
-// trace read the vector at 14, #PWRF the one at 24: the debugger answers
-// with the restart address and priority 7, and parks at its fetch. The
-// PC and PS the trap pushed are the two latest writes. A BPT's PC is its
-// own unless |step| ran it. A program reads those words as data too, and
-// may handle BPT itself: the vector at 14 is answered only in a |step|
-// or for the debugger's BPT, the one at 24 only while |halting| holds
-// #PWRF.
-bool PinsDcj11::parkAfterFrame(Signals *s, bool step, bool halting) {
+// trace read the vector at 14, #PWRF the one at 24, a HALT the one at 4:
+// the debugger answers with the restart address and priority 7, and
+// parks at its fetch, which the memory management may have put anywhere
+// on the bus. The PC and PS the trap pushed are the two latest writes.
+// A BPT's PC is its own unless |step| ran it. A program reads those
+// words as data too, and may handle BPT itself: the vector at 14 is
+// answered only in a |step| or for the debugger's BPT, the one at 24
+// only while |halting| holds #PWRF. Only a kernel's HALT stops; one in
+// another mode goes on through the program's vector at 4.
+bool PinsDcj11::parkAfterFrame(Signals *&s, bool step, bool halting) {
     if (s->read() && !s->fetch() && s->memory()) {
         const uint16_t addr = s->addr16();
         if ((addr == InstPdp11::VEC_BPT && (step || breakTrap(s))) ||
-                (addr == VEC_PWRFAIL && halting)) {
+                (addr == VEC_PWRFAIL && halting) ||
+                (s->addr == VEC_HALT && haltTrap(s))) {
             s->inject(ORG_RESTART);
             _trapVector = addr;
             // Still asserted, #PWRF would trap again before the fetch.
@@ -645,7 +679,7 @@ bool PinsDcj11::parkAfterFrame(Signals *s, bool step, bool halting) {
         }
         return false;
     }
-    if (_trapVector == 0 || !s->fetch() || s->addr16() != ORG_RESTART)
+    if (_trapVector == 0 || !s->fetch())
         return false;
     const auto vector = _trapVector;
     _trapVector = 0;
@@ -673,11 +707,35 @@ bool PinsDcj11::parkAfterFrame(Signals *s, bool step, bool halting) {
         return false;
     const uint16_t at =
             (vector == InstPdp11::VEC_BPT && !step) ? pc->data - 2 : pc->data;
+    if (vector == VEC_HALT && (ps->data & PSW_MODE) != 0) {
+        passTrap(s, vector, ps->data);
+        return false;
+    }
     // A trace trap pushed the T bit the step set.
     const uint16_t psw = ps->data & ~InstPdp11::PSW_T;
     Cycles::discard(first);
-    regs<RegsPdp11>()->parkInTrap(at, psw, ORG_RESTART);
+    regs<RegsPdp11>()->parkInTrap(at, psw, ORG_RESTART, s->addr16());
     return true;
+}
+
+// Ends the trap through |vector| the debugger took, from the restart
+// fetch |s|, as the CPU would have: the program's PC and PS from the
+// vector, the previous mode from |ps|, the one the trap pushed. The
+// vector is read, and the frame pushed, through the kernel's mapping,
+// which haltTrap() found putting kernel D page 0 at 0. |s| is then the
+// handler's first fetch.
+void PinsDcj11::passTrap(Signals *&s, uint16_t vector, uint16_t ps) {
+    const uint16_t previous = (ps >> 2) & PSW_PREVIOUS;
+    const uint16_t seq[] = {
+            MOV_ABS_PUSH, uint16_t(vector + 2),  // MOV @#vector+2, -(SP)
+            BIC_IMM_SP, PSW_PREVIOUS,            // BIC #PSW_PREVIOUS, (SP)
+            BIS_IMM_SP, previous,                // BIS #previous, (SP)
+            MOV_ABS_PUSH, vector,                // MOV @#vector, -(SP)
+            RTI,
+    };
+    uint16_t org = s->addr16();
+    execInst(seq, sizeof(seq) / sizeof(seq[0]), org);
+    s = resumeCycle();
 }
 
 // Raises #PWRF on |s|, a prepared cycle, or on a CPU in WAIT when null:

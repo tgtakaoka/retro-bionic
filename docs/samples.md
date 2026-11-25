@@ -265,13 +265,15 @@ does), `G`: the bootstrap reads block 0, rauboot prints
 `fsck -p` takes 24 s on a root left dirty) to `login:`; `root` has no password. On the
 bench rauboot's banner comes a second after `G`, the kernel's at 40 s, `#` at 2 minutes
 and `login:` at 3 min 20 s, with the kernel's own MMU aborts, which it handles,
-reported as `?#ABORT` while the debugger is verbose. `halt` syncs the disks and
-executes HALT, which the board's power-up configuration traps to 4, so the kernel ends
-in `panic: trap`; the debugger's halt switch then brings the prompt back, the disks
-already synced. `ra(0,0,0)unix -m`, the boot straight to multi-user, is refused by
-`/etc/rc` as installed (`rc.conf` is not configured); configured, it checks the root,
-which no halt left marked clean, marks it and reboots, which is that same HALT. So
-multi-user is reached from `#`. Single-user, `mount /usr`
+reported as `?#ABORT` while the debugger is verbose. The halt switch stops the
+running system, in the kernel or in a user program, and `G` continues it. `halt` syncs
+the disks and executes HALT, which the board's power-up configuration traps to 4; the
+debugger takes that trap as the halt and stops at its prompt, with the kernel's PC
+(000014) and registers. A HALT in a user program goes on to the kernel, which ends the
+program with `Bus error`. `ra(0,0,0)unix -m`, the boot straight to multi-user, is
+refused by `/etc/rc` as installed (`rc.conf` is not configured); configured, it checks
+the root, which no halt left marked clean, marks it and reboots, which is that same
+HALT, stopping at the prompt. So multi-user is reached from `#`. Single-user, `mount /usr`
 reaches `/usr/root`, where `as fmandel.s; ./a.out` and `cc -O -o fmandel fmandel.c;
 ./fmandel` each draw the set.
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast):

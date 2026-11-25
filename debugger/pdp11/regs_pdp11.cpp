@@ -23,12 +23,15 @@ constexpr auto ac_width = 26;
 // Where the save sequence stores; captured, never in memory. The CPU
 // reads it before each write.
 constexpr uint16_t STORE = 0177000;
+// MOV @#addr, @#STORE
+constexpr uint16_t MOV_ABS_ABS = 0013737;
 }  // namespace
 
-RegsPdp11::RegsPdp11(PinsPdp11 *pins, FpMode *mems, bool fpu)
+RegsPdp11::RegsPdp11(PinsPdp11 *pins, FpMode *mems, bool fpu, bool mmu)
     : _pins(pins),
       _mems(mems),
       _fpu(fpu),
+      _mmu(mmu),
       _buffer1(fpu ? line1f : line1),
       _buffer2(line2) {}
 
@@ -54,24 +57,35 @@ void RegsPdp11::print() const {
 
 void RegsPdp11::save() {
     // A trap's frame holds the PS; otherwise MFPS reads it, ahead of the
-    // MOVs that set the condition codes.
-    uint16_t seq[2 * 9];
+    // MOVs that set the condition codes; then MMR0 and MMR3.
+    uint16_t seq[2 * 9 + 3 * 2];
     auto n = 0u;
     if (!_frame) {
         seq[n++] = InstPdp11::MFPS_ABS;
         seq[n++] = STORE;
+    }
+    if (_mmu) {
+        for (const auto reg : {MmuPdp11::MMR0, MmuPdp11::MMR3}) {
+            seq[n++] = MOV_ABS_ABS;
+            seq[n++] = reg;
+            seq[n++] = STORE;
+        }
     }
     for (uint8_t i = 0; i <= InstPdp11::SP; ++i) {
         seq[n++] = InstPdp11::movAbs(i);
         seq[n++] = STORE;
     }
     seq[n++] = InstPdp11::JMP_ABS;
-    seq[n++] = _parkedAt;
-    uint16_t buf[8];
-    const uint_fast8_t max = _frame ? 7 : 8;
+    seq[n++] = _parkedVa;
+    uint16_t buf[2 + 8];
+    const uint_fast8_t mmu = _mmu ? 2 : 0;
+    const uint_fast8_t max = mmu + (_frame ? 7 : 8);
     auto org = _parkedAt;
     _pins->captureWrites(seq, n, buf, max, org);
-    const auto regs = _frame ? buf : buf + 1;
+    const auto ps = _frame ? 0 : 1;
+    _map.mmr0 = mmu ? buf[ps] : 0;
+    _map.mmr3 = mmu ? buf[ps + 1] : 0;
+    const auto regs = buf + ps + mmu;
     for (auto i = 0; i < 6; ++i)
         _r[i] = regs[i];
     _sp = regs[6];
@@ -83,8 +97,26 @@ void RegsPdp11::save() {
         _ps = buf[0] & 0377;  // MFPS writes a byte
     }
     _parkedAt = org;
+    if (_map.enabled())
+        saveMap();
     if (_fpu)
         saveFpu();
+}
+
+// The kernel data space's page address registers.
+void RegsPdp11::saveMap() {
+    uint16_t seq[3 * MmuPdp11::PAGES + 2];
+    auto n = 0u;
+    for (auto i = 0; i < MmuPdp11::PAGES; ++i) {
+        seq[n++] = MOV_ABS_ABS;
+        seq[n++] = _map.parBase() + 2 * i;
+        seq[n++] = STORE;
+    }
+    seq[n++] = InstPdp11::JMP_ABS;
+    seq[n++] = _parkedVa;
+    auto org = _parkedAt;
+    _pins->captureWrites(seq, n, _map.par, MmuPdp11::PAGES, org);
+    _parkedAt = org;
 }
 
 // AC4 and AC5 are reached only through AC0, which is stored first. FPS
@@ -105,7 +137,7 @@ void RegsPdp11::saveFpu() {
         seq[n++] = STORE;
     }
     seq[n++] = InstPdp11::JMP_ABS;
-    seq[n++] = _parkedAt;
+    seq[n++] = _parkedVa;
     uint16_t buf[1 + 6 * 4];
     auto org = _parkedAt;
     _pins->captureWrites(seq, n, buf, sizeof(buf) / sizeof(buf[0]), org);
@@ -137,7 +169,7 @@ void RegsPdp11::restoreFpu() {
     seq[n++] = InstPdp11::LDFPS_ABS;
     seq[n++] = STORE + 8 * 6;
     seq[n++] = InstPdp11::JMP_ABS;
-    seq[n++] = _parkedAt;
+    seq[n++] = _parkedVa;
     static constexpr uint8_t ORDER[] = {4, 5, 0, 1, 2, 3};
     for (auto k = 0; k < 6; ++k) {
         for (auto i = 0; i < 4; ++i)
@@ -145,7 +177,8 @@ void RegsPdp11::restoreFpu() {
     }
     data[6 * 4] = _fps;
     auto org = _parkedAt;
-    _pins->execInst(seq, n, org, org, data, STORE, sizeof(data) / sizeof(data[0]));
+    _pins->execInst(seq, n, org, org, data, bus(STORE),
+            sizeof(data) / sizeof(data[0]));
     _parkedAt = org;
 }
 
@@ -154,7 +187,9 @@ void RegsPdp11::restore() {
         restoreFpu();
     // RTT pops the PC and PS from below the program's SP, which the
     // debugger answers; it sets the program's priority and T bit together
-    // with the jump, and a T bit traps after one instruction.
+    // with the jump, and a T bit traps after one instruction. With the
+    // memory management on, the program's first fetch ends it wherever it
+    // lies.
     const uint16_t sp = _sp - 4;
     uint16_t seq[2 * 7 + 1];
     auto n = 0u;
@@ -168,7 +203,8 @@ void RegsPdp11::restore() {
     const uint16_t ps = _trace ? (_ps | InstPdp11::PSW_T) : _ps;
     const uint16_t frame[] = {_pc, ps};
     auto org = _parkedAt;
-    _pins->execInst(seq, n, org, _pc, frame, sp, 2);
+    const uint32_t exit = _map.enabled() ? PinsPdp11::EXIT_END : _pc;
+    _pins->execInst(seq, n, org, exit, frame, bus(sp), 2);
     // A pending interrupt the new priority lets in parks at its handler.
     park(org, org);
 }
