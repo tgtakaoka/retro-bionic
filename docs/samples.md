@@ -43,7 +43,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | [CP/M 2.2](#cpm-22-on-the-8080) | P8080, P8085, Z80, NSC800, KL5C80A12 | `i8080/cpm80.hex` | A: and B:, sector disk at 50H | [KL5C80](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/cpm80_kl5c80.cast), [MBASIC](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mbasic_kl5c80.cast) |
 | CP/M 2.2 | Z180, HD64180S, Z280, Z380 | `z180/cpm80.hex` | A: and B:, sector disk at 0150H | [Z380](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z180/cpm80_z380.cast) |
 | CP/M 2.2, in 8080 emulation | P8086 with a V20 or V30 | `v30/cpm80.hex` | A: and B:, sector disk at 50H | |
-| [CP/M-86 1.1](#cpm-86-on-the-8086) | P8086, D8087 | `i8086/cpm86.hex` | A: and B:, sector disk at 50H | [80C86 and 8087](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86_8087.cast) |
+| [CP/M-86 1.1](#cpm-86-on-the-8086) | P8086, D8087 | `i8086/cpm86.hex` | A: and B:, sector disk at 50H | [80C86](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86.cast), [80C86 and 8087](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86_8087.cast) |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -128,11 +128,12 @@ offline. It fetches `CPM.SYS` and the A: tools, such as `PIP.CMD`, `STAT.CMD` an
 
 ```sh
 cd samples/i8086
-make cpm86.hex cpm86.dsk
+make
 ```
 
-and copy both into an `i8086/` folder on the SD card. `L i8086/cpm86.hex`, `R`, then `G`
-boots to `A>`. DDT86's breakpoints and trace stop in the debugger, which owns INT 1-3.
+makes `cpm86.hex`, `cpm86a.dsk` and `cpm86b.dsk`; copy them into an `i8086/` folder on
+the SD card. `L i8086/cpm86.hex` mounts both disks beside it; `R`, then `G` boots to `A>`.
+DDT86's breakpoints and trace stop in the debugger, which owns INT 1-3.
 CP/M-86's CCP has no `SAVE`; DDT86's `W` writes back what `R` read, header and all, so
 `-RB:PROG.CMD`, a patch with `S` or `A`, then `-WB:PROG.CMD` keeps a loadable `.CMD`.
 `R` puts the file at its offsets, so the program's addresses are 80H further on.
@@ -141,7 +142,7 @@ For BASIC, the fetch puts DRI's CBASIC compiler, `CB86.CMD`, `CB86.OR1`-`CB86.OR
 and `CB86.L86` from
 [cbasic86.zip](http://www.cpm.z80.de/download/cbasic86.zip), on A:, and DRI's Personal
 BASIC, `BASIC.CMD` from [pbasic86.zip](http://www.cpm.z80.de/download/pbasic86.zip), on B:.
-`make cpm86.dsk cpm86b.dsk` makes A:, with `cb.sub`, and an `hd8` B: with
+A: also has `cb.sub`, and the `hd8` B: has
 [`fmandel.bas`](../samples/i8086/fmandel.bas), the `fmandel` program in CBASIC, and
 `samples/i8080/fmandel.bas` as `fmandel.pb` for Personal BASIC. On B:, `BASIC`, then
 `OLD FMANDEL.PB` and `RUN`, draws the set. CB86 reads its overlays from the current
@@ -158,14 +159,23 @@ which adds the `stdio.h` DRI's `putchar` needs to `samples/arith/imandel.c`, on 
 `imandel.inc`; `cc.sub` compiles and links from A: too: `A>SUBMIT CC FMANDEL`. DRC 1.32, the one with 8087 code,
 needs a CP/M-86 whose loader applies its programs' fixups, which 1.1's does not.
 
-For the 8087 on the D8087 board, B: has [`fmandel.a86`](../samples/i8086/fmandel.a86),
+For C on the 8087, A: has Manx's Aztec C86 3.2d from the
+[Aztec C museum](https://www.aztecmuseum.ca/compilers.htm#cpm86) in user 1, since its
+headers share names with DRI's: `CC.CMD`, `AS.CMD`, `LN.CMD`, `C.LIB`, and the math
+libraries `M.LIB` (software), `M87.LIB` (the 8087) and `M87S.LIB` (the 8087 if there).
+B: has `fmandel.c` in user 1 too. Its compiler reads headers from user 0 unless told:
+`A>USER 1`, `A>CC -I1/A: B:FMANDEL.C`, `A>LN -O B:FMANDEL.CMD B:FMANDEL.O M87.LIB C.LIB`,
+then `A>B:FMANDEL` draws the set on the 8087.
+
+In assembly, B: has [`fmandel.a86`](../samples/i8086/fmandel.a86),
 the `fmandel` of `samples/i8087` in DRI's ASM86 with its `8087.LIB` from `CPM-86.zip`,
 which ASM86 reads from the source's drive: `A>ASM86 B:FMANDEL`, `A>GENCMD B:FMANDEL`, then
 `A>B:FMANDEL` draws the set in seconds.
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86_8087.cast)
 on the P80C86A-2 and D8087: `U` uploads `cpm86.hex`, `O` mounts A: and B:, and CP/M-86
-boots; ASM86 builds `fmandel.a86` and DRI's C builds `imandel.c`, and each draws the set.
-It's also on [asciinema.org](https://asciinema.org/a/26nhB7uRNsBEngo9).
+boots; Aztec C builds `fmandel.c` for the 8087 and DRI's C builds `imandel.c`, and each
+draws the set. [The same on the P80C86 alone](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86.cast)
+links `fmandel` with `M87S.LIB`, which falls back to software floating point.
 
 ## Unix V6 on the DCJ11
 

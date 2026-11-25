@@ -60,7 +60,7 @@ void NpxInt::negate() {
     }
 }
 
-DevsD8087::DevsD8087(const Mems *mems) : DevsI8080(mems), _npx(new NpxInt()) {
+DevsD8087::DevsD8087(const Mems *mems) : DevsI8086(mems), _npx(new NpxInt()) {
     _everyCycle = _npx;
 }
 
@@ -70,22 +70,22 @@ DevsD8087::~DevsD8087() {
 
 void DevsD8087::reset() {
     _npx->reset();
-    DevsI8080::reset();
+    DevsI8086::reset();
 }
 
 bool DevsD8087::loopDevices() {
-    return DevsI8080::loopDevices();
+    return DevsI8086::loopDevices();
 }
 
 uint16_t DevsD8087::vector() const {
     const auto type = _npx->vector();
-    return type ? type : DevsI8080::vector();
+    return type ? type : DevsI8086::vector();
 }
 
 Device *DevsD8087::parseDevice(const char *name) const {
     if (strcasecmp(name, _npx->name()) == 0)
         return _npx;
-    return DevsI8080::parseDevice(name);
+    return DevsI8086::parseDevice(name);
 }
 
 // NPX goes on and off by itself; the console stays as it is.
@@ -95,11 +95,11 @@ void DevsD8087::enableDevice(Device *dev) {
             _npx->enable(!_npx->isEnabled());
         return;
     }
-    DevsI8080::enableDevice(dev);
+    DevsI8086::enableDevice(dev);
 }
 
 void DevsD8087::printDevices() const {
-    DevsI8080::printDevices();
+    DevsI8086::printDevices();
     printDevice(_npx);
 }
 

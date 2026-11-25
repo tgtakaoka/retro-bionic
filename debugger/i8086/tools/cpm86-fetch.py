@@ -5,12 +5,15 @@
 
 Downloads each archive below into DIR/dl/ (kept, so later runs work
 offline), checks its sha256, and extracts the listed files: CPM.SYS
-into DIR/, the A: files into DIR/a/, the B: files into DIR/b/. Writes
+into DIR/, the A: files into DIR/a/, the B: files into DIR/b/, and
+those for A:'s user 1 into DIR/a1/. Writes
 DIR/.fetched when done. pbasic86.zip is imploded, which Python's
 zipfile cannot read, so it takes Info-ZIP's unzip.
 
-All are DRI's, from http://www.cpm.z80.de/download/ (see
-http://www.cpm.z80.de/license.html).
+DRI's come from http://www.cpm.z80.de/download/ (see
+http://www.cpm.z80.de/license.html); Manx's Aztec C86 3.2d, whose
+8087 library DRI's C lacks, from the Aztec C museum. Aztec's headers
+share names with DRI C's, so it goes in user 1.
 """
 import hashlib
 import os
@@ -21,6 +24,7 @@ import urllib.request
 import zipfile
 
 CPM = 'http://www.cpm.z80.de/download/'
+AZTEC = 'AZCPM32d/'
 
 # (URL, sha256, {member: subdirectory of DIR})
 SOURCES = [
@@ -49,6 +53,15 @@ SOURCES = [
       'V1-11/DISK2/CLEARS.L86': 'a',
       'V1-11/DISK3/LINK86.CMD': 'a',
       'V1-11/DISK3/RASM86.CMD': 'a'}),
+    ('https://www.aztecmuseum.ca/AZCPM32d.zip',
+     'be4148b5dc4a6e598bad5d848d6f5568f5ed501bd137025eb77dc0e951a2f428',
+     {**{AZTEC + 'CMD/' + n: 'a1' for n in ('CC.CMD', 'AS.CMD', 'LN.CMD')},
+      **{AZTEC + 'LIB/' + n: 'a1' for n in ('C.LIB', 'M.LIB', 'M87.LIB',
+                                            'M87S.LIB')},
+      **{AZTEC + 'INCLUDE/' + n: 'a1' for n in (
+          'ASSERT.H', 'CTYPE.H', 'ERRNO.H', 'FCNTL.H', 'IO.H', 'LIBC.H',
+          'MATH.H', 'MEMORY.H', 'SETJMP.H', 'SIGNAL.H', 'STDIO.H',
+          'TIME.H')}}),
 ]
 
 
