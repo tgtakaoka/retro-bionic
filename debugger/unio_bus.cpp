@@ -128,6 +128,8 @@ UnioBus::State UnioBus::readByte(uint8_t &data, bool mak) {
 bool UnioBus::transfer(uint8_t addr, const uint8_t *command, uint8_t clen, uint8_t *response,
         uint8_t rlen, const uint8_t *data, uint8_t dlen) {
     if (isStandby()) {
+        // An interrupt could stretch a half bit past the device's timing.
+        noInterrupts();
         auto mak = (rlen | dlen);
         auto r = header(addr);
         while (clen-- && r)
@@ -137,6 +139,7 @@ bool UnioBus::transfer(uint8_t addr, const uint8_t *command, uint8_t clen, uint8
         while (dlen-- && r)
             r = writeByte(*data++, dlen);
         _state = r;
+        interrupts();
     }
     return _state;
 }
