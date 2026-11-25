@@ -53,27 +53,11 @@ Disk::Mounted SectorDisk::mount(const char *name, const char *path) {
     return mounted;
 }
 
-void SectorDisk::mountBeside(const char *path) {
-    const auto dot = strrchr(path, '.');
-    const auto slash = strrchr(path, '/');
-    const size_t stem = (dot && dot > slash) ? dot - path : strlen(path);
-    char name[64];
-    for (auto d = 0; d < DRIVES; ++d) {
-        if (stem + sizeof("b.dsk") > sizeof(name)) {
-            unmountUnit(d);
-            continue;
-        }
-        memcpy(name, path, stem);
-        name[stem] = 0;
-        if (d)
-            strncat(name, "abcd" + d, 1);
-        strcat(name, ".dsk");
-        if (mountUnit(d, name) == MOUNT_BAD_SIZE) {
-            cli.print(name);
-            cli.println(": no disk format of its size");
-        }
+void SectorDisk::mountDrive(uint8_t unit, const char *path) {
+    if (mountUnit(unit, path) == MOUNT_BAD_SIZE) {
+        cli.print(path);
+        cli.println(": no disk format of its size");
     }
-    enable(unit(0).mounted());
 }
 
 void SectorDisk::reset() {

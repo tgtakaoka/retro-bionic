@@ -12,7 +12,7 @@ struct Mems;
 struct SectorDisk;
 
 struct DevsI8080 : Devs {
-    // With |mems|, the CP/M disk is there too.
+    // With |mems|, the CP/M-80 disk is there too.
     DevsI8080(const Mems *mems = nullptr);
     ~DevsI8080();
 
@@ -30,6 +30,9 @@ struct DevsI8080 : Devs {
     Disk *disk() const override;
 
 protected:
+    // With |disk|, owned, at DISK_BASE.
+    DevsI8080(SectorDisk *disk);
+
     Device *_usart;
     SectorDisk *_disk;
 };

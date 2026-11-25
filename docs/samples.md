@@ -30,6 +30,23 @@ A few directories carry real vintage software as well:
 [`samples/mc6809/ASSIST09.S19`](../samples/mc6809/ASSIST09.S19) and
 [`samples/mc6809/BASIC9.S19`](../samples/mc6809/BASIC9.S19).
 
+## Operating systems
+
+The boards below boot an operating system from disk images on the SD card. `L` of the
+system's `.hex` loads it and mounts the `.dsk` images beside it on the debugger's disk
+controller; `O` mounts or unmounts a single drive and lists them, and `U`, an upload,
+mounts nothing, so the demos mount their disks with `O`. Images go through the
+[disk cache](debugger.md#disk-cache) on a target that lends it memory.
+
+| System | Boards | `L` | Disks | Demo |
+|---|---|---|---|---|
+| [CP/M 2.2](#cpm-22-on-the-8080) | P8080, P8085, Z80, NSC800, KL5C80A12 | `i8080/cpm80.hex` | A: and B:, sector disk at 50H | [KL5C80](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/cpm80_kl5c80.cast), [MBASIC](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mbasic_kl5c80.cast) |
+| CP/M 2.2 | Z180, HD64180S, Z280, Z380 | `z180/cpm80.hex` | A: and B:, sector disk at 0150H | [Z380](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z180/cpm80_z380.cast) |
+| CP/M 2.2, in 8080 emulation | P8086 with a V20 or V30 | `v30/cpm80.hex` | A: and B:, sector disk at 50H | |
+| [CP/M-86 1.1](#cpm-86-on-the-8086) | P8086, D8087 | `i8086/cpm86.hex` | A: and B:, sector disk at 50H | [80C86 and 8087](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86_8087.cast) |
+| [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
+| [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
+
 ## CP/M 2.2 on the 8080
 
 [`samples/i8080/cpm80bios.inc`](../samples/i8080/cpm80bios.inc) is a CP/M 2.2 BIOS in
@@ -40,40 +57,40 @@ system from A:'s system tracks. [`scripts/cpm-disk.py`](../scripts/cpm-disk.py) 
 and reads the disks.
 
 The disks: A: the system, an 8 MB `hd8` disk with the CP/M tools and MBASIC; B: the
-user disk, an 8 MB `hd8` with `fmandel.bas`; C: and D: blank `ibm-3740` floppies
-(empty files), removable through `O` and `^C`.
+user disk, an 8 MB `hd8` with `fmandel.bas`. The BIOS has C: and D: too, for
+disks mounted with `O`, such as an `ibm-3740` floppy; an empty file is a blank one.
 
 The CP/M binaries stay out of the repository: the first `make` downloads them
 with `debugger/i8080/tools/cpm80-fetch.py` into `samples/i8080/cpm80.fetch/`, checks
 each archive's sha256, and keeps the archives in its `dl/` so later builds work
 offline. It fetches CP/M 2.2 from [cpm.z80.de](http://www.cpm.z80.de/download/)
-([license](http://www.cpm.z80.de/license.html)), BDS C and HI-TECH C. MBASIC is
-Microsoft's and isn't fetched: put your own `MBASIC.COM` in
-`samples/i8080/cpm80.fetch/a/`. Every port's downloads are in a `*.fetch/` folder,
+([license](http://www.cpm.z80.de/license.html)), BDS C, HI-TECH C, and Microsoft's
+MBASIC 5.21 from a [textfiles.com](https://discmaster.textfiles.com/) mirror of an old
+CP/M archive. Every port's downloads are in a `*.fetch/` folder,
 so `rsync --exclude='*.fetch/'` keeps them off the SD card.
 Then:
 
 ```sh
 cd samples/i8080
-make cpm80.dsk cpm80b.dsk cpm80c.dsk cpm80d.dsk
+make
 ```
 
-copy `cpm80.hex` and the four disks into `i8080/` on the SD card, and `L i8080/cpm80.hex`,
-`R`, `G` boots to `A>`; `B>A:MBASIC FMANDEL` draws the set. The Z80, NSC800 and
+makes `cpm80.hex`, `cpm80a.dsk` and `cpm80b.dsk`; copy them into `i8080/` on the SD card, and `L i8080/cpm80.hex`,
+`R`, `G` boots to `A>`; `B>A:MBASIC FMANDEL` draws the set. The 8085, Z80, NSC800 and
 KL5C80 boot the same files.
 
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mbasic_kl5c80.cast)
 on the KL5C80: `L` loads `cpm80.hex` and mounts the disks beside it, CP/M boots, and
 MBASIC draws the set from `fmandel.bas` on B:.
 
-The Z180, Z280 and Z380 decode 16-bit ports, so `samples/z180` has their port
-routines (0140H, 0150H, `OUT (C)`); `make cpm80.dsk` there puts that BIOS on a copy of
+The Z180, HD64180S, Z280 and Z380 decode 16-bit ports, so `samples/z180` has their port
+routines (0140H, 0150H, `OUT (C)`); `make` there puts that BIOS on a copy of
 the 8080's A:, and `L z180/cpm80.hex` boots it. That boot also writes 16 to the
 Z380's address mask register, so its memory wraps at 64K as CP/M's programs expect.
 
 On a V20 or V30, `L v30/cpm80.hex` loads a native harness that enters 8080
-emulation at 1000:0000 with the 8080's cold boot, and mounts `v30/cpm80.dsk`, a copy
-of the 8080's (`make cpm80.dsk cpm80b.dsk` in `samples/v30`).
+emulation at 1000:0000 with the 8080's cold boot, and mounts `v30/cpm80a.dsk`, a copy
+of the 8080's (`make` in `samples/v30`).
 
 **BDS C** (public domain, [bdsoft.com](https://www.bdsoft.com/resources/bdsc.html))
 compiles on the 8080; A: has `bdsc160/`'s files from `bdsc-all.zip` and
