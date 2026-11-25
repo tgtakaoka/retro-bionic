@@ -70,12 +70,19 @@
 (1)       0 : =177412            RK11_RKDA       =       RK11+12 ; Disk address: drive, cylinder, surface, sector
 (1)       0 :                    ;;; Drive status
 (1)       0 : =200               RKDS_DRY_bm     =       200     ; Drive Ready
+(1)       0 :                    ;;; Error
+(1)       0 : =20000             RKER_WLO_bm     =       20000   ; Write to a locked drive
+(1)       0 : =1                 RKER_WCE_bm     =       1       ; Write check: memory and disk differ
 (1)       0 :                    ;;; Control status
 (1)       0 : =100000            RKCS_ERR_bm     =       100000  ; Error
 (1)       0 : =200               RKCS_RDY_bm     =       200     ; Control Ready
 (1)       0 : =100               RKCS_IE_bm      =       100     ; Interrupt Enable
 (1)       0 : =2                 RKCS_WRITE      =       2       ; Write function
 (1)       0 : =4                 RKCS_READ       =       4       ; Read function
+(1)       0 : =6                 RKCS_WCHK       =       6       ; Write check function
+(1)       0 : =12                RKCS_RCHK       =       12      ; Read check function
+(1)       0 : =14                RKCS_DRESET     =       14      ; Drive reset function
+(1)       0 : =16                RKCS_WLOCK      =       16      ; Write lock function
 (1)       0 : =1                 RKCS_GO_bm      =       1       ; Go
           0 :
          14 :                            org     VEC_BPT
@@ -85,7 +92,7 @@
          24 : 001000 000340              .word   initialize, PSW_PRI7
          30 :
         220 :                            org     RK11_VEC
-        220 : 001332 000340              .word   isr_rk11, PSW_PRI7
+        220 : 001524 000340              .word   isr_rk11, PSW_PRI7
         224 :
      173000 :                            org     ORG_RESET
      173000 : 000137 001000              jmp     @#initialize
@@ -105,18 +112,18 @@
        1000 : =1000              stack   =       .
        1000 :                    initialize:
        1000 : 012706 001000              mov     #stack, sp
-       1004 : 005067 000316              clr     interrupts
+       1004 : 005067 000510              clr     interrupts
        1010 : 132737 000200              bitb    #RKDS_DRY_bm, @#RK11_RKDS
        1014 : 177400
        1016 : 001003                     bne     ready
-       1020 : 012701 001373              mov     #msg_nodisk, r1
-       1024 : 000476                     br      report
+       1020 : 012701 001565              mov     #msg_nodisk, r1
+       1024 : 000573                     br      report
        1026 :                    ready:
        1026 :                            ;; Keep the sector, by polling
        1026 : 012701 004000              mov     #saved, r1
        1032 : 012702 000005              mov     #RKCS_READ|RKCS_GO_bm, r2
-       1036 : 004767 000174              jsr     pc, transfer
-       1042 : 100465                     bmi     error
+       1036 : 004767 000366              jsr     pc, transfer
+       1042 : 100562                     bmi     error
        1044 :                            ;; Write a pattern, by an interrupt
        1044 : 012701 005000              mov     #pattern, r1
        1050 : 012700 000400              mov     #sector_words, r0
@@ -128,94 +135,136 @@
        1072 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
        1076 : 012701 005000              mov     #pattern, r1
        1102 : 012702 000103              mov     #RKCS_IE_bm|RKCS_WRITE|RKCS_GO_bm, r2
-       1106 : 004767 000124              jsr     pc, transfer
-       1112 : 100441                     bmi     error
+       1106 : 004767 000316              jsr     pc, transfer
+       1112 : 100536                     bmi     error
        1114 :                            ;; Read it back, by an interrupt
        1114 : 012701 006000              mov     #readback, r1
        1120 : 012702 000105              mov     #RKCS_IE_bm|RKCS_READ|RKCS_GO_bm, r2
-       1124 : 004767 000106              jsr     pc, transfer
-       1130 : 100432                     bmi     error
+       1124 : 004767 000300              jsr     pc, transfer
+       1130 : 100527                     bmi     error
        1132 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
-       1136 :                            ;; Put the sector back, by polling
-       1136 : 012701 004000              mov     #saved, r1
-       1142 : 012702 000003              mov     #RKCS_WRITE|RKCS_GO_bm, r2
-       1146 : 004767 000064              jsr     pc, transfer
-       1152 : 100421                     bmi     error
-       1154 :                            ;; Compare
-       1154 : 026727 000146              cmp     interrupts, #2
-       1160 : 000002
-       1162 : 001015                     bne     error
-       1164 : 012701 005000              mov     #pattern, r1
-       1170 : 012702 006000              mov     #readback, r2
-       1174 : 012700 000400              mov     #sector_words, r0
-       1200 :                    compare:
-       1200 : 022122                     cmp     (r1)+, (r2)+
-       1202 : 001005                     bne     error
-       1204 : 005300                     dec     r0
-       1206 : 001374                     bne     compare
-       1210 : 012701 001344              mov     #msg_ok, r1
-       1214 : 000402                     br      report
-       1216 :                    error:
-       1216 : 012701 001356              mov     #msg_error, r1
-       1222 :                    report:
-       1222 : 112100                     movb    (r1)+, r0
-       1224 : 001403                     beq     halt_to_system
-       1226 : 004767 000056              jsr     pc, putchar
-       1232 : 000773                     br      report
-       1234 :                    halt_to_system:
-       1234 : 000003                     bpt
-       1236 :
-       1236 :                    ;;; Transfer the last sector
-       1236 :                    ;;; @param R1 buffer
-       1236 :                    ;;; @param R2 RKCS function, with RKCS_IE_bm to wait for the interrupt
-       1236 :                    ;;; @return PSW.N 1 if error
-       1236 :                    ;;; @clobber R0
-       1236 :                    transfer:
-       1236 : 012700 177412              mov     #RK11_RKDA, r0
-       1242 : 012710 014533              mov     #last_sector, (r0)
-       1246 : 010140                     mov     r1, -(r0)       ; RKBA
-       1250 : 012740 177400              mov     #-sector_words, -(r0) ; RKWC
-       1254 : 005067 000050              clr     done
-       1260 : 010240                     mov     r2, -(r0)       ; RKCS
-       1262 : 032702 000100              bit     #RKCS_IE_bm, r2
-       1266 : 001403                     beq     transfer_poll
-       1270 :                    transfer_wait:
-       1270 : 005767 000034              tst     done            ; until an interrupt
-       1274 : 001775                     beq     transfer_wait
-       1276 :                    transfer_poll:
-       1276 : 132710 000200              bitb    #RKCS_RDY_bm, (r0)
-       1302 : 001775                     beq     transfer_poll
-       1304 : 005710                     tst     (r0)            ; RKCS_ERR_bm
-       1306 : 000207                     rts     pc
-       1310 :
-       1310 :                    putchar:
-       1310 : 132737 000200              bitb    #XCSR_READY_bm, @#DL11_XCSR
-       1314 : 177564
-       1316 : 001774                     beq     putchar
-       1320 : 110037 177566              movb    r0, @#DL11_XBUF
-       1324 : 000207                     rts     pc
-       1326 :
-       1326 :                    interrupts:
-       1326 : 000000                     .word   0               ; RK11 interrupts taken
-       1330 : 000000             done:   .word   0               ; set by an interrupt
-       1332 :
-       1332 :                    isr_rk11:
-       1332 : 005267 177770              inc     interrupts
-       1336 : 005267 177766              inc     done
-       1342 : 000002                     rti
-       1344 :
-       1344 :                    msg_ok:
-       1344 : 045522 030461              .ascii  "RK11 OK"
-       1350 : 047440    113
-       1353 : 015    000012              .byte   15, 12, 0
-       1356 :                    msg_error:
-       1356 : 045522 030461              .ascii  "RK11 error"
-       1362 : 062440 071162
-       1366 : 071157
-       1370 : 005015    000              .byte   15, 12, 0
-       1373 :                    msg_nodisk:
-       1373 : 122    030513 020061           .ascii  "RK11 no disk"
-       1400 : 067556 062040
-       1404 : 071551    153
-       1407 : 015    000012              .byte   15, 12, 0
-       1412 :                            .even
+       1136 :                            ;; The disk matches the pattern, and no longer once it changes
+       1136 : 012701 005000              mov     #pattern, r1
+       1142 : 012702 000007              mov     #RKCS_WCHK|RKCS_GO_bm, r2
+       1146 : 004767 000256              jsr     pc, transfer
+       1152 : 100516                     bmi     error
+       1154 : 005267 003720              inc     pattern+100
+       1160 : 004767 000244              jsr     pc, transfer
+       1164 : 100111                     bpl     error
+       1166 : 005367 003706              dec     pattern+100
+       1172 : 023727 177402              cmp     @#RK11_RKER, #RKER_WCE_bm
+       1176 : 000001
+       1200 : 001103                     bne     error
+       1202 : 012702 000013              mov     #RKCS_RCHK|RKCS_GO_bm, r2
+       1206 : 004767 000216              jsr     pc, transfer
+       1212 : 100476                     bmi     error
+       1214 :                            ;; A byte write changes its half of a register
+       1214 : 012737 001234              mov     #001234, @#RK11_RKBA
+       1220 : 177410
+       1222 : 112737 000056              movb    #056, @#RK11_RKBA+1
+       1226 : 177411
+       1230 : 023727 177410              cmp     @#RK11_RKBA, #027234
+       1234 : 027234
+       1236 : 001064                     bne     error
+       1240 : 112737 000177              movb    #177, @#RK11_RKBA
+       1244 : 177410
+       1246 : 023727 177410              cmp     @#RK11_RKBA, #027177
+       1252 : 027177
+       1254 : 001055                     bne     error
+       1256 :                            ;; A locked drive refuses a write until a drive reset
+       1256 : 012702 000017              mov     #RKCS_WLOCK|RKCS_GO_bm, r2
+       1262 : 004767 000142              jsr     pc, transfer
+       1266 : 100450                     bmi     error
+       1270 : 012701 004000              mov     #saved, r1
+       1274 : 012702 000003              mov     #RKCS_WRITE|RKCS_GO_bm, r2
+       1300 : 004767 000124              jsr     pc, transfer
+       1304 : 100041                     bpl     error
+       1306 : 023727 177402              cmp     @#RK11_RKER, #RKER_WLO_bm
+       1312 : 020000
+       1314 : 001035                     bne     error
+       1316 : 012702 000015              mov     #RKCS_DRESET|RKCS_GO_bm, r2
+       1322 : 004767 000102              jsr     pc, transfer
+       1326 : 100430                     bmi     error
+       1330 :                            ;; Put the sector back, by polling
+       1330 : 012701 004000              mov     #saved, r1
+       1334 : 012702 000003              mov     #RKCS_WRITE|RKCS_GO_bm, r2
+       1340 : 004767 000064              jsr     pc, transfer
+       1344 : 100421                     bmi     error
+       1346 :                            ;; Compare
+       1346 : 026727 000146              cmp     interrupts, #2
+       1352 : 000002
+       1354 : 001015                     bne     error
+       1356 : 012701 005000              mov     #pattern, r1
+       1362 : 012702 006000              mov     #readback, r2
+       1366 : 012700 000400              mov     #sector_words, r0
+       1372 :                    compare:
+       1372 : 022122                     cmp     (r1)+, (r2)+
+       1374 : 001005                     bne     error
+       1376 : 005300                     dec     r0
+       1400 : 001374                     bne     compare
+       1402 : 012701 001536              mov     #msg_ok, r1
+       1406 : 000402                     br      report
+       1410 :                    error:
+       1410 : 012701 001550              mov     #msg_error, r1
+       1414 :                    report:
+       1414 : 112100                     movb    (r1)+, r0
+       1416 : 001403                     beq     halt_to_system
+       1420 : 004767 000056              jsr     pc, putchar
+       1424 : 000773                     br      report
+       1426 :                    halt_to_system:
+       1426 : 000003                     bpt
+       1430 :
+       1430 :                    ;;; Transfer the last sector
+       1430 :                    ;;; @param R1 buffer
+       1430 :                    ;;; @param R2 RKCS function, with RKCS_IE_bm to wait for the interrupt
+       1430 :                    ;;; @return PSW.N 1 if error
+       1430 :                    ;;; @clobber R0
+       1430 :                    transfer:
+       1430 : 012700 177412              mov     #RK11_RKDA, r0
+       1434 : 012710 014533              mov     #last_sector, (r0)
+       1440 : 010140                     mov     r1, -(r0)       ; RKBA
+       1442 : 012740 177400              mov     #-sector_words, -(r0) ; RKWC
+       1446 : 005067 000050              clr     done
+       1452 : 010240                     mov     r2, -(r0)       ; RKCS
+       1454 : 032702 000100              bit     #RKCS_IE_bm, r2
+       1460 : 001403                     beq     transfer_poll
+       1462 :                    transfer_wait:
+       1462 : 005767 000034              tst     done            ; until an interrupt
+       1466 : 001775                     beq     transfer_wait
+       1470 :                    transfer_poll:
+       1470 : 132710 000200              bitb    #RKCS_RDY_bm, (r0)
+       1474 : 001775                     beq     transfer_poll
+       1476 : 005710                     tst     (r0)            ; RKCS_ERR_bm
+       1500 : 000207                     rts     pc
+       1502 :
+       1502 :                    putchar:
+       1502 : 132737 000200              bitb    #XCSR_READY_bm, @#DL11_XCSR
+       1506 : 177564
+       1510 : 001774                     beq     putchar
+       1512 : 110037 177566              movb    r0, @#DL11_XBUF
+       1516 : 000207                     rts     pc
+       1520 :
+       1520 :                    interrupts:
+       1520 : 000000                     .word   0               ; RK11 interrupts taken
+       1522 : 000000             done:   .word   0               ; set by an interrupt
+       1524 :
+       1524 :                    isr_rk11:
+       1524 : 005267 177770              inc     interrupts
+       1530 : 005267 177766              inc     done
+       1534 : 000002                     rti
+       1536 :
+       1536 :                    msg_ok:
+       1536 : 045522 030461              .ascii  "RK11 OK"
+       1542 : 047440    113
+       1545 : 015    000012              .byte   15, 12, 0
+       1550 :                    msg_error:
+       1550 : 045522 030461              .ascii  "RK11 error"
+       1554 : 062440 071162
+       1560 : 071157
+       1562 : 005015    000              .byte   15, 12, 0
+       1565 :                    msg_nodisk:
+       1565 : 122    030513 020061           .ascii  "RK11 no disk"
+       1572 : 067556 062040
+       1576 : 071551    153
+       1601 : 015    000012              .byte   15, 12, 0
+       1604 :                            .even

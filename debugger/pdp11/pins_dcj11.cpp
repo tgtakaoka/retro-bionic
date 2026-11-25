@@ -510,13 +510,14 @@ void PinsDcj11::storeData(Signals *s) {
         return;
     }
     if (s->ioPage()) {
-        // A high byte keeps its odd address.
         const uint16_t addr = s->addr16();
-        if (_devs->isSelected(addr & ~1)) {
-            uint16_t val = s->data;
-            if (s->byteWrite())
-                val = s->writeLow() ? lo(s->data) : hi(s->data);
-            _devs->write(addr, val);
+        const auto devs = this->devs<DevsPdp11>();
+        if (!devs->isSelected(addr & ~1))
+            return;
+        if (s->byteWrite()) {
+            devs->writeByte(addr, s->writeLow() ? lo(s->data) : hi(s->data));
+        } else {
+            devs->write(addr, s->data);
         }
         return;
     }

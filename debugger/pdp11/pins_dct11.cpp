@@ -361,13 +361,15 @@ void PinsDct11::storeData(Signals *s) {
     if (!s->writeMemory())
         return;
     const uint16_t addr = s->addr & ~1;
-    if (_devs->isSelected(addr)) {
-        uint16_t val = s->data;
-        if (s->byteWrite())
-            val = s->writeLow() ? lo(s->data) : hi(s->data);
-        // A high byte keeps its odd address.
-        const auto high = s->byteWrite() && s->writeHigh();
-        _devs->write(high ? (addr | 1) : addr, val);
+    const auto devs = this->devs<DevsPdp11>();
+    if (devs->isSelected(addr)) {
+        if (!s->byteWrite()) {
+            devs->write(addr, s->data);
+        } else if (s->writeLow()) {
+            devs->writeByte(addr, lo(s->data));
+        } else {
+            devs->writeByte(addr | 1, hi(s->data));
+        }
     } else if (!s->byteWrite()) {
         _mems->write16(addr, s->data);
     } else if (s->writeLow()) {

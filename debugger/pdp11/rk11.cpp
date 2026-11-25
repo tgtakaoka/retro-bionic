@@ -9,15 +9,18 @@ namespace pdp11 {
 namespace {
 // RKDS
 constexpr uint16_t DS_SC_EQ_SA = 0000020;  // the sector is under the heads
+constexpr uint16_t DS_WPS = 0000040;       // write protected
 constexpr uint16_t DS_RWS_RDY = 0000100;   // read/write/seek ready
 constexpr uint16_t DS_DRY = 0000200;       // drive ready
 constexpr uint16_t DS_SOK = 0000400;       // sector counter OK
 constexpr uint16_t DS_RK05 = 0004000;
 // RKER
+constexpr uint16_t ER_WCE = 0000001;  // write check: memory and disk differ
 constexpr uint16_t ER_NXS = 0000040;  // non-existent sector
 constexpr uint16_t ER_NXC = 0000100;  // non-existent cylinder
 constexpr uint16_t ER_NXD = 0000200;  // non-existent disk
 constexpr uint16_t ER_NXM = 0002000;  // non-existent memory
+constexpr uint16_t ER_WLO = 0020000;  // a write to a locked drive
 constexpr uint16_t ER_DRE = 0100000;  // drive error: the card failed
 constexpr uint16_t ER_HARD = 0177740;
 // RKCS
@@ -25,6 +28,7 @@ constexpr uint16_t CS_GO = 0000001;
 constexpr uint16_t CS_MEX = 0000060;  // RKBA's bits 17 and 16
 constexpr uint16_t CS_IE = 0000100;
 constexpr uint16_t CS_RDY = 0000200;
+constexpr uint16_t CS_SSE = 0000400;  // stop on a soft error
 constexpr uint16_t CS_IBA = 0004000;  // inhibit RKBA's increment
 constexpr uint16_t CS_SCP = 0020000;  // search complete
 constexpr uint16_t CS_HE = 0040000;
@@ -34,8 +38,11 @@ constexpr uint16_t CS_RW = 0007576;   // what a program writes
 constexpr uint8_t FN_RESET = 0;
 constexpr uint8_t FN_WRITE = 1;
 constexpr uint8_t FN_READ = 2;
+constexpr uint8_t FN_WRITE_CHECK = 3;
 constexpr uint8_t FN_SEEK = 4;
+constexpr uint8_t FN_READ_CHECK = 5;
 constexpr uint8_t FN_DRIVE_RESET = 6;
+constexpr uint8_t FN_WRITE_LOCK = 7;
 
 constexpr uint8_t SECTORS = 12;
 constexpr uint16_t CYLINDERS = 203;
@@ -128,6 +135,7 @@ void Rk11::mountBeside(const char *path) {
 
 void Rk11::reset() {
     _rker = _rkcs = _rkwc = _rkba = _rkda = 0;
+    _locked = 0;
     _ready = true;
     _done = false;
     acknowledge();
@@ -158,12 +166,22 @@ void Rk11::acknowledge() {
     }
 }
 
+// The sector counter steps on each look, as the pack turns under it.
+uint16_t Rk11::read(uint32_t addr) {
+    if (addr - _base_addr == RKDS && ++_sector == SECTORS)
+        _sector = 0;
+    return peek(addr);
+}
+
 uint16_t Rk11::peek(uint32_t addr) const {
     switch (addr - _base_addr) {
-    case RKDS:
-        return (drive(_rkda) << 13) | DS_RK05 | DS_SOK | DS_SC_EQ_SA |
-               (unit(drive(_rkda)).mounted() ? (DS_DRY | DS_RWS_RDY) : 0) |
-               (_rkda & 017);
+    case RKDS: {
+        const auto d = drive(_rkda);
+        return (d << 13) | DS_RK05 | DS_SOK |
+               (unit(d).mounted() ? (DS_DRY | DS_RWS_RDY) : 0) |
+               (((_locked >> d) & 1) ? DS_WPS : 0) |
+               ((_rkda & 017) == _sector ? DS_SC_EQ_SA : 0) | _sector;
+    }
     case RKER:
         return _rker;
     case RKCS:
@@ -203,23 +221,35 @@ void Rk11::write(uint32_t addr, uint16_t data) {
 void Rk11::start() {
     const uint8_t function = (_rkcs >> 1) & 7;
     if (function == FN_RESET) {
+        // A control reset keeps the drives' write locks.
+        const auto locked = _locked;
         reset();
+        _locked = locked;
         return;
     }
     _ready = false;
     _done = true;
     _rker = 0;
     _rkcs &= ~CS_SCP;
-    if (function == FN_READ || function == FN_WRITE) {
-        transfer(function == FN_WRITE);
+    const uint8_t bit = 1 << drive(_rkda);
+    if (function == FN_WRITE_LOCK) {
+        _locked |= bit;
     } else if (function == FN_SEEK || function == FN_DRIVE_RESET) {
+        if (function == FN_DRIVE_RESET)
+            _locked &= ~bit;
         _rkcs |= CS_SCP;
+    } else if (function == FN_WRITE && (_locked & bit)) {
+        _rker |= ER_WLO;
+    } else {
+        transfer(function);
     }
 }
 
 // RKWC is the words left, negative; RKBA and RKDA end past the last
-// word and sector. A write's last sector is filled with zeros.
-void Rk11::transfer(bool toDisk) {
+// word and sector. A write's last sector is filled with zeros. A write
+// check compares the memory with the disk, a read check only reads.
+void Rk11::transfer(uint8_t function) {
+    const auto toDisk = function == FN_WRITE;
     const uint8_t sect = _rkda & 017;
     const uint16_t cyl = (_rkda >> 5) & 0377;
     if (sect >= SECTORS) {
@@ -260,19 +290,25 @@ void Rk11::transfer(bool toDisk) {
                 _rker |= ER_DRE;
                 break;
             }
-            for (auto i = 0U; i < n; ++i) {
-                _mems->write16(addr + 2 * i,
-                        sector[2 * i] | (sector[2 * i + 1] << 8));
+            for (auto i = 0U; i < n && function != FN_READ_CHECK; ++i) {
+                const uint16_t w = sector[2 * i] | (sector[2 * i + 1] << 8);
+                if (function == FN_READ) {
+                    _mems->write16(addr + 2 * i, w);
+                } else if (_mems->read16(addr + 2 * i) != w) {
+                    _rker |= ER_WCE;
+                }
             }
         }
         words -= n;
         addr += 2 * n;
         ++block;
         Watchdog::feed();
+        if ((_rker & ER_WCE) && (_rkcs & CS_SSE))
+            break;
     }
     if (toDisk && !disk.flush())
         _rker |= ER_DRE;
-    if (words != 0 && _rker == 0)
+    if (words != 0 && block >= disk.lsns())
         _rker |= ER_NXC;  // ran off the last cylinder
     _rkwc = -words;
     if ((_rkcs & CS_IBA) == 0) {

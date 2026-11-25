@@ -97,6 +97,18 @@ void DevsPdp11::write(uint32_t addr, uint16_t data) const {
     select(addr)->write(addr, data);
 }
 
+void DevsPdp11::writeByte(uint32_t addr, uint8_t data) const {
+    const auto dev = select(addr);
+    if (dev != _rk11) {
+        dev->write(addr, data);
+        return;
+    }
+    const uint32_t word = addr & ~1;
+    const uint16_t old = _rk11->peek(word);
+    _rk11->write(word, (addr & 1) ? (old & 0377) | (data << 8)
+                                  : (old & ~0377) | data);
+}
+
 uint16_t DevsPdp11::vector() const {
     return _dl11->acknowledge();
 }

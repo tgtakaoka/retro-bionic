@@ -3060,7 +3060,8 @@ on IRQ1: `DevsPdp11::vector(5)` asks each whether it requests, and the
 line is let go only when neither does. A transfer is done whole inside
 the register access that starts it, the RK11's GO write or the MSCP
 poll's service, so the kernel sees it complete as the interrupt comes;
-the DCJ11 is static and waits. `Mscp` is the controller without the
+the DCJ11 is static and waits, and the line clock drops the ticks it
+would have made meanwhile, so the kernel sees no time pass. `Mscp` is the controller without the
 board: it reads and writes the host's memory and drives through
 `MscpHost`, so `test/test_mscp` runs 2.11BSD's init handshakes and
 packets against arrays on the host, and a flash tests the bus, not the
@@ -3109,7 +3110,12 @@ User's Guide, Table 3-4), which picks the disk's vector or the
 console's. A transfer is done whole in the write that sets GO, with the
 CPU held in that cycle's stretch, between the image on the SD card and
 the memory at RKBA on the 18-bit bus; READY and the interrupt come at
-the next service. A disk comes with its bootstrap: `L` of a file from
+the next service. A byte write goes into its half of the register's
+word; the other devices' high bytes hold nothing a program writes, and
+a high byte reaches them at its odd address. A write check compares
+the memory with the disk and a read check only reads; a write lock
+holds until a drive reset or a bus reset. The sector counter steps on
+each read of RKDS. A disk comes with its bootstrap: `L` of a file from
 the card mounts the slots of the image of the same name with `.dsk`, as
 far as the file reaches, and nothing is mounted before, so no disk is
 written by chance. The drives are the shared disk layer's units, one
