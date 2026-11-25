@@ -1,0 +1,199 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; MS-DOS boot sector: loaded to 0000:7C00 by the ROM BIOS's INT 19H
+          0 :                    ;;; (or the MBR) with DL the drive, it reads IO.SYS and MSDOS.SYS, the
+          0 :                    ;;; first two root directory entries, each in one run of clusters as
+          0 :                    ;;; scripts/msdos-disk.py writes them, to 0070:0000 and the paragraph
+          0 :                    ;;; after, then enters IO.SYS with DL the drive and BX the paragraph
+          0 :                    ;;; MSDOS.SYS is at. The BPB is filled in for each disk by msdos-disk.py.
+          0 :                            cpu     8086
+          0 :
+          0 : =70                LOAD_SEG:       equ     0070H
+          0 : =200               SECTOR:         equ     512
+          0 : =7E00              DIR:            equ     7E00H           ; the root directory's first sector
+          0 : =7C00              BOOT:           equ     7C00H
+          0 :
+       7C00 :                            org     BOOT
+       7C00 : EB 1E                      jmp     start
+       7C02 : 90                         nop
+       7C03 : 42 49 4F 4E 49 43          db      'BIONIC  '              ; OEM name
+       7C09 : 20 20
+       7C0B :                    ;;; The BPB, DOS 2.0's then the sectors a track, heads and hidden sectors.
+       7C0B : 00 02              bytes_a_sector: dw      SECTOR
+       7C0D : 02                 cluster:        db      2               ; sectors
+       7C0E : 01 00              reserved:       dw      1
+       7C10 : 02                 fats:           db      2
+       7C11 : 70 00              root_entries:   dw      112
+       7C13 : D0 02              sectors:        dw      720
+       7C15 : FD                 media:          db      0FDH
+       7C16 : 02 00              fat_sectors:    dw      2
+       7C18 : 09 00              spt:            dw      9
+       7C1A : 02 00              heads:          dw      2
+       7C1C : 00 00 00 00        hidden:         dd      0
+       7C20 :
+       7C20 :                    start:
+       7C20 : FA                         cli
+       7C21 : 31 C0                      xor     ax, ax
+       7C23 : 8E D8                      mov     ds, ax
+       7C25 : 8E C0                      mov     es, ax
+       7C27 : 8E D0                      mov     ss, ax
+       7C29 : BC 00 7C                   mov     sp, BOOT
+       7C2C : FB                         sti
+       7C2D : FC                         cld
+       7C2E : 88 16 A3 7D                mov     [drive], dl
+       7C32 :                            ;; The root directory follows the FATs; the data the directory.
+       7C32 : A0 10 7C                   mov     al, [fats]
+       7C35 : B4 00                      mov     ah, 0
+       7C37 : F7 26 16 7C                mul     word ptr [fat_sectors]
+       7C3B : 03 06 0E 7C                add     ax, [reserved]
+       7C3F : A3 A4 7D                   mov     [root], ax
+       7C42 : 8B 1E 11 7C                mov     bx, [root_entries]
+       7C46 : B1 04                      mov     cl, 4
+       7C48 : D3 EB                      shr     bx, cl                  ; 16 entries a sector
+       7C4A : 01 C3                      add     bx, ax
+       7C4C : 89 1E A6 7D                mov     [data], bx
+       7C50 : BB 00 7E                   mov     bx, DIR
+       7C53 : E8 88 00                   call    read
+       7C56 : BE 00 7E                   mov     si, DIR
+       7C59 : BF 36 7D                   mov     di, io_sys
+       7C5C : B9 0B 00                   mov     cx, 11
+       7C5F : F3 A6                      repe    cmpsb
+       7C61 : 74 03                      je      check_dos
+       7C63 : E9 B7 00                   jmp     no_system
+       7C66 :                    check_dos:
+       7C66 : BE 20 7E                   mov     si, DIR+32
+       7C69 : BF 41 7D                   mov     di, msdos_sys
+       7C6C : B9 0B 00                   mov     cx, 11
+       7C6F : F3 A6                      repe    cmpsb
+       7C71 : 74 03                      je      load_system
+       7C73 : E9 A7 00                   jmp     no_system
+       7C76 :                    load_system:
+       7C76 :                            ;; IO.SYS to LOAD_SEG:0, MSDOS.SYS to the paragraph after it.
+       7C76 : BE 00 7E                   mov     si, DIR
+       7C79 : B8 70 00                   mov     ax, LOAD_SEG
+       7C7C : E8 13 00                   call    load
+       7C7F : BE 20 7E                   mov     si, DIR+32
+       7C82 : 8C C0                      mov     ax, es
+       7C84 : 50                         push    ax
+       7C85 : E8 0A 00                   call    load
+       7C88 : 5B                         pop     bx                      ; BX = MSDOS.SYS's paragraph
+       7C89 : 8A 16 A3 7D                mov     dl, [drive]
+       7C8D : EA 00 00 70 00             jmpf    LOAD_SEG:0000H
+       7C92 :
+       7C92 :                    ;;; Reads the file of the directory entry at SI to AX:0000; ES comes
+       7C92 :                    ;;; back as the paragraph after it.
+       7C92 :                    load:
+       7C92 : 8E C0                      mov     es, ax
+       7C94 : 8B 44 1A                   mov     ax, [si+1AH]            ; first cluster
+       7C97 : 48                         dec     ax
+       7C98 : 48                         dec     ax
+       7C99 : 8A 0E 0D 7C                mov     cl, [cluster]
+       7C9D : B5 00                      mov     ch, 0
+       7C9F : F7 E1                      mul     cx
+       7CA1 : 03 06 A6 7D                add     ax, [data]              ; its first sector
+       7CA5 : 8B 4C 1C                   mov     cx, [si+1CH]            ; size, low word
+       7CA8 : 8B 54 1E                   mov     dx, [si+1EH]
+       7CAB : 81 C1 FF 01                add     cx, SECTOR-1
+       7CAF : 83 D2 00                   adc     dx, 0
+       7CB2 : 89 CB                      mov     bx, cx
+       7CB4 : 81 E3 00 FE                and     bx, 0FE00H
+       7CB8 : B1 09                      mov     cl, 9
+       7CBA : D3 EB                      shr     bx, cl
+       7CBC : D1 E2                      shl     dx, 1
+       7CBE : D1 E2                      shl     dx, 1
+       7CC0 : D1 E2                      shl     dx, 1
+       7CC2 : D1 E2                      shl     dx, 1
+       7CC4 : D1 E2                      shl     dx, 1
+       7CC6 : D1 E2                      shl     dx, 1
+       7CC8 : D1 E2                      shl     dx, 1
+       7CCA : 09 D3                      or      bx, dx                  ; BX = sectors
+       7CCC : 89 D9                      mov     cx, bx
+       7CCE : 31 DB                      xor     bx, bx
+       7CD0 :                    load_sector:
+       7CD0 : E8 0B 00                   call    read
+       7CD3 : 40                         inc     ax
+       7CD4 : 8C C2                      mov     dx, es
+       7CD6 : 83 C2 20                   add     dx, SECTOR/16
+       7CD9 : 8E C2                      mov     es, dx
+       7CDB : E2 F3                      loop    load_sector
+       7CDD : C3                         ret
+       7CDE :
+       7CDE :                    ;;; Reads the volume's sector AX to ES:BX, through the BIOS.
+       7CDE :                    read:
+       7CDE : 50                         push    ax
+       7CDF : 53                         push    bx
+       7CE0 : 51                         push    cx
+       7CE1 : 52                         push    dx
+       7CE2 : 03 06 1C 7C                add     ax, [hidden]
+       7CE6 : 31 D2                      xor     dx, dx
+       7CE8 : F7 36 18 7C                div     word ptr [spt]          ; AX = track, DX = sector - 1
+       7CEC : FE C2                      inc     dl
+       7CEE : 88 D1                      mov     cl, dl
+       7CF0 : 31 D2                      xor     dx, dx
+       7CF2 : F7 36 1A 7C                div     word ptr [heads]        ; AX = cylinder, DX = head
+       7CF6 : 88 D6                      mov     dh, dl
+       7CF8 : 88 C5                      mov     ch, al
+       7CFA : D0 E4                      shl     ah, 1
+       7CFC : D0 E4                      shl     ah, 1
+       7CFE : D0 E4                      shl     ah, 1
+       7D00 : D0 E4                      shl     ah, 1
+       7D02 : D0 E4                      shl     ah, 1
+       7D04 : D0 E4                      shl     ah, 1
+       7D06 : 08 E1                      or      cl, ah
+       7D08 : 8A 16 A3 7D                mov     dl, [drive]
+       7D0C : B8 01 02                   mov     ax, 0201H
+       7D0F : CD 13                      int     13H
+       7D11 : 72 05                      jc      disk_error
+       7D13 : 5A                         pop     dx
+       7D14 : 59                         pop     cx
+       7D15 : 5B                         pop     bx
+       7D16 : 58                         pop     ax
+       7D17 : C3                         ret
+       7D18 :
+       7D18 :                    disk_error:
+       7D18 : BE 94 7D                   mov     si, error_msg
+       7D1B : EB 03                      jmp     fail
+       7D1D :                    no_system:
+       7D1D : BE 4C 7D                   mov     si, no_system_msg
+       7D20 :                    fail:
+       7D20 : 8A 04                      mov     al, [si]
+       7D22 : 46                         inc     si
+       7D23 : 08 C0                      or      al, al
+       7D25 : 74 09                      jz      fail_wait
+       7D27 : B4 0E                      mov     ah, 0EH
+       7D29 : BB 07 00                   mov     bx, 0007H
+       7D2C : CD 10                      int     10H
+       7D2E : EB F0                      jmp     fail
+       7D30 :                    fail_wait:
+       7D30 : B4 00                      mov     ah, 0
+       7D32 : CD 16                      int     16H
+       7D34 : CD 19                      int     19H
+       7D36 :
+       7D36 : 49 4F 20 20 20 20  io_sys:         db      'IO      SYS'
+       7D3C : 20 20 53 59 53
+       7D41 : 4D 53 44 4F 53 20  msdos_sys:      db      'MSDOS   SYS'
+       7D47 : 20 20 53 59 53
+       7D4C : 0D 0A 4E 6F 6E 2D  no_system_msg:  db      0DH, 0AH, 'Non-System disk or disk error', 0DH, 0AH
+       7D52 : 53 79 73 74 65 6D
+       7D58 : 20 64 69 73 6B 20
+       7D5E : 6F 72 20 64 69 73
+       7D64 : 6B 20 65 72 72 6F
+       7D6A : 72 0D 0A
+       7D6D : 52 65 70 6C 61 63                  db      'Replace and press any key when ready', 0DH, 0AH, 0
+       7D73 : 65 20 61 6E 64 20
+       7D79 : 70 72 65 73 73 20
+       7D7F : 61 6E 79 20 6B 65
+       7D85 : 79 20 77 68 65 6E
+       7D8B : 20 72 65 61 64 79
+       7D91 : 0D 0A 00
+       7D94 : 0D 0A 44 69 73 6B  error_msg:      db      0DH, 0AH, 'Disk error', 0DH, 0AH, 0
+       7D9A : 20 65 72 72 6F 72
+       7DA0 : 0D 0A 00
+       7DA3 :
+       7DA3 : 00                 drive:  db      0
+       7DA4 : 00 00              root:   dw      0
+       7DA6 : 00 00              data:   dw      0
+       7DA8 :
+       7DFE :                            org     BOOT+SECTOR-2
+       7DFE : 55 AA                      db      55H, 0AAH
+       7E00 :
+       7E00 :                            end

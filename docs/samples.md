@@ -177,6 +177,55 @@ boots; Aztec C builds `fmandel.c` for the 8087 and DRI's C builds `imandel.c`, a
 draws the set. [The same on the P80C86 alone](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86.cast)
 links `fmandel` with `M87S.LIB`, which falls back to software floating point.
 
+## MS-DOS 2.0 on the 8086
+
+[`samples/i8086/rombios.asm`](../samples/i8086/rombios.asm) is a PC-style ROM BIOS in
+segment F000H: INT 10H and 16H as a teletype on the USART, INT 13H on the sector disk
+with units A and B the floppies 0 and 1 and C and D the hard disks 80H and 81H, INT 1AH
+from the debugger's timer as INT 8, and INT 19H, which boots A: when it is mounted and
+the hard disk's MBR otherwise. The BIOS data area is 0040:0010 up: the debugger parks
+the CPU at 0400H-040FH.
+
+MS-DOS 2.0 runs on it from
+[github.com/microsoft/MS-DOS](https://github.com/microsoft/MS-DOS) (MIT), whose `v2.0/bin`
+has `MSDOS.SYS`, `COMMAND.COM` and the utilities but no IO.SYS, the OEM's half.
+[`msdosbio.asm`](../samples/i8086/msdosbio.asm) is that half: CON on INT 10H/16H, CLOCK on
+INT 1AH and the four disk units on INT 13H, modelled on the OEM kit's `SKELIO.ASM`; it
+is linked with Microsoft's `SYSINIT.OBJ` and `SYSIMES.OBJ` by
+`scripts/omf-link.py`, which also writes `sysinit.inc`, SYSINIT's variables.
+[`msdosboot.asm`](../samples/i8086/msdosboot.asm) is the boot sector, which loads IO.SYS
+and MSDOS.SYS, the first two directory entries, to 0070:0000 and after;
+[`mbr.asm`](../samples/i8086/mbr.asm) the master boot record. `scripts/msdos-disk.py`
+writes the FAT12 images, and lists, reads and adds to them.
+
+Microsoft's files stay out of the repository: `make` downloads them once with
+`debugger/i8086/tools/msdos-fetch.py` into `samples/i8086/msdos.fetch/`, pinned to a
+commit and checked by sha256, and builds `msdos200.hex` and the disks with them:
+
+```sh
+cd samples/i8086
+make
+```
+
+Copy those into an `i8086/` folder on the SD card. `msdos200.hex` is the ROM BIOS under
+the name whose disks `L` mounts: `msdos200a.dsk`, a 360K `fd360` boot floppy with the system,
+`COMMAND.COM` and the small utilities, as A:; `msdos200b.dsk`, a formatted blank floppy, as
+B:; and `msdos200c.dsk`, the 32 MB `hd32` hard disk with every utility, as C:.
+`L i8086/msdos200.hex`, `R`, then `G` boots A:, asks the date and time as a PC with no
+AUTOEXEC.BAT does, and prompts `A>`; `O A` first, unmounting the floppy, boots the hard
+disk to `C>`. `DATE` and `TIME` run on the tick; the clock starts at 1980-01-01 00:00.
+
+The hard disk is 65536 sectors of 512 bytes, which the BIOS addresses as 1024
+cylinders x 4 heads x 16 sectors, so its MBR's one partition runs from sector 16 through
+cylinder 1021: 65392 sectors, 16 a cluster, 512 root entries, 4083 clusters, within
+FAT12's 4084 and the BPB's 65535 sectors. `msdos-disk.py` lays it out on the host;
+DOS 2.0's FORMAT and FDISK are OEM utilities the kit leaves out.
+Demos on [the P80C86](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos200_80c86.cast)
+and [the P80C88](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos200_80c88.cast):
+`L` loads the BIOS and mounts the disks, DOS boots from A:, lists and
+checks A: and C:, copies to B: and keeps time; then, with A: unmounted, it boots from
+the hard disk.
+
 ## Unix V6 on the DCJ11
 
 [`samples/dcj11/unix_v6.asm`](../samples/dcj11/unix_v6.asm) is the RK05 bootstrap: it

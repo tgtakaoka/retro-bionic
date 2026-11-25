@@ -1,0 +1,87 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; Master boot record: loaded to 0000:7C00 by INT 19H with DL the hard
+          0 :                    ;;; disk, it moves itself to 0000:0600, reads the active partition's boot
+          0 :                    ;;; sector to 7C00 and enters it with DL the drive and DS:SI its
+          0 :                    ;;; partition entry. The partition table is filled in by
+          0 :                    ;;; scripts/msdos-disk.py. Up to the move the code is position
+          0 :                    ;;; independent, so the whole sector assembles at 0600H.
+          0 :                            cpu     8086
+          0 :
+          0 : =600               HOME:   equ     0600H
+          0 : =7C00              BOOT:   equ     7C00H
+          0 : =1BE               TABLE:  equ     1BEH
+          0 :
+        600 :                            org     HOME
+        600 : FA                         cli
+        601 : 31 C0                      xor     ax, ax
+        603 : 8E D0                      mov     ss, ax
+        605 : BC 00 7C                   mov     sp, BOOT
+        608 : 8E D8                      mov     ds, ax
+        60A : 8E C0                      mov     es, ax
+        60C : FB                         sti
+        60D : FC                         cld
+        60E : BE 00 7C                   mov     si, BOOT
+        611 : BF 00 06                   mov     di, HOME
+        614 : B9 00 01                   mov     cx, 256
+        617 : F3 A5                      rep     movsw
+        619 : EA 1E 06 00 00             jmpf    0000H:moved
+        61E :                    moved:
+        61E : BE BE 07                   mov     si, HOME+TABLE
+        621 : B9 04 00                   mov     cx, 4
+        624 :                    scan:
+        624 : 80 3C 80                   cmp     byte ptr [si], 80H
+        627 : 74 0A                      je      found
+        629 : 83 C6 10                   add     si, 16
+        62C : E2 F6                      loop    scan
+        62E : BE 6B 06                   mov     si, no_active
+        631 : EB 25                      jmp     fail
+        633 :                    found:
+        633 : 8A 74 01                   mov     dh, [si+1]              ; head
+        636 : 8B 4C 02                   mov     cx, [si+2]              ; sector, cylinder
+        639 : BB 00 7C                   mov     bx, BOOT
+        63C : B8 01 02                   mov     ax, 0201H
+        63F : CD 13                      int     13H
+        641 : 72 0D                      jc      read_error
+        643 : 81 3E FE 7D 55 AA          cmp     word ptr [BOOT+510], 0AA55H
+        649 : 75 0A                      jne     missing
+        64B : EA 00 7C 00 00             jmpf    0000H:BOOT
+        650 :
+        650 :                    read_error:
+        650 : BE 83 06                   mov     si, error_msg
+        653 : EB 03                      jmp     fail
+        655 :                    missing:
+        655 : BE A6 06                   mov     si, missing_msg
+        658 :                    fail:
+        658 : 8A 04                      mov     al, [si]
+        65A : 46                         inc     si
+        65B : 08 C0                      or      al, al
+        65D : 74 09                      jz      halt
+        65F : B4 0E                      mov     ah, 0EH
+        661 : BB 07 00                   mov     bx, 0007H
+        664 : CD 10                      int     10H
+        666 : EB F0                      jmp     fail
+        668 :                    halt:
+        668 : F4                         hlt
+        669 : EB FD                      jmp     halt
+        66B :
+        66B : 0D 0A 4E 6F 20 61  no_active:      db      0DH, 0AH, 'No active partition', 0DH, 0AH, 0
+        671 : 63 74 69 76 65 20
+        677 : 70 61 72 74 69 74
+        67D : 69 6F 6E 0D 0A 00
+        683 : 0D 0A 45 72 72 6F  error_msg:      db      0DH, 0AH, 'Error loading operating system', 0DH, 0AH, 0
+        689 : 72 20 6C 6F 61 64
+        68F : 69 6E 67 20 6F 70
+        695 : 65 72 61 74 69 6E
+        69B : 67 20 73 79 73 74
+        6A1 : 65 6D 0D 0A 00
+        6A6 : 0D 0A 4D 69 73 73  missing_msg:    db      0DH, 0AH, 'Missing operating system', 0DH, 0AH, 0
+        6AC : 69 6E 67 20 6F 70
+        6B2 : 65 72 61 74 69 6E
+        6B8 : 67 20 73 79 73 74
+        6BE : 65 6D 0D 0A 00
+        6C3 :
+        7BE :                            org     HOME+TABLE
+        7BE :                            ds      64                      ; the partition table
+        7FE : 55 AA                      db      55H, 0AAH
+        800 :
+        800 :                            end
