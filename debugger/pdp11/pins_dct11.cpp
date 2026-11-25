@@ -473,7 +473,7 @@ bool PinsDct11::parkAfterFrame(Signals *s, bool step) {
     const uint16_t at = (trap && !step) ? frame[0] - 2 : frame[0];
     // A trace trap pushed the T bit the step set.
     const uint16_t psw = frame[1] & ~InstPdp11::PSW_T;
-    regs<RegsPdp11>()->parkInTrap(at, psw, ORG_RESTART);
+    regs<RegsPdp11>()->parkInTrap(at, psw, ORG_RESTART, ORG_RESTART);
     return true;
 }
 

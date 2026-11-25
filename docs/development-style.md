@@ -3066,12 +3066,27 @@ the interrupt. **[doc][code]**
 **Entries and power-up.** The power-up configuration read is answered
 with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
 traps to 4. #PWRF halts through vector 24, BPT and the trace trap through
-14; the debugger answers either with 173004 and 340. A vector read has
+14; the debugger answers either with 017000 and 340. A vector read has
 no bus code of its own, and a program reads those words as data (the
 Unix boot block copies itself through them) or handles BPT itself. The
 vector at 14 is answered only in a step, for a BPT at a break point, or
 while it points at itself, as the MC6800's SWI vector does to halt to
-the debugger; the one at 24 only while #PWRF is held. HALT, the #EVENT and
+the debugger; the one at 24 only while #PWRF is held. The one at 4 is
+answered when a HALT's fetch comes just before it, past the
+configuration read the HALT makes; a kernel's HALT then
+stops there, and one in user or supervisor mode, which traps through 4
+too, goes on to the program's vector, the debugger pushing its PS and
+PC and running an RTI. 017000 is in kernel I page 0, which a kernel
+maps whole; page 7 would not do, as 2.11BSD maps its overlays there and
+some end below 173004. With the memory management on, the fetch lies
+wherever page 0 maps it, so the debugger parks on the first fetch after
+the frame, by its bus address, and its save sequence jumps back to
+017000. Each save reads
+MMR0 and MMR3, and with the mapping on the kernel data space's eight
+PARs (KDPAR when MMR3 enables kernel D space, else KIPAR), which carry
+the restore's RTT frame below SP and the FP11's loads from 177000 to
+their bus addresses; `test/test_pdp11_mmu` checks that translation.
+HALT, the #EVENT and
 IRQ lines and #MISS come from a 74HCT259 that shares the 153s' selects.
 `RegsPdp11` saves the FP11's FPS and AC0-AC5; its FD and FL bits pick
 how the disassembler spells FP11 instructions, as single and double (or

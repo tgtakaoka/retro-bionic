@@ -101,7 +101,9 @@ private:
             uint_fast8_t max, uint16_t &org, uint32_t exit,
             const uint16_t *stack, uint16_t stackAt, uint_fast8_t stackWords);
     bool breakTrap(const Signals *s) const;
-    bool parkAfterFrame(Signals *s, bool step, bool halting);
+    bool haltTrap(const Signals *s) const;
+    bool parkAfterFrame(Signals *&s, bool step, bool halting);
+    void passTrap(Signals *&s, uint16_t vector, uint16_t ps);
     bool suspend(Signals *s);
     bool rawStep();
     bool loop();

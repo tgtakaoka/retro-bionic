@@ -2,6 +2,7 @@
 #define __REGS_PDP11_H__
 
 #include "char_buffer.h"
+#include "mmu_pdp11.h"
 #include "regs.h"
 
 namespace debugger {
@@ -12,7 +13,9 @@ struct FpMode;
 
 struct RegsPdp11 final : Regs {
     // |fpu|: the FP11's FPS and AC0-AC5 are saved and restored too.
-    RegsPdp11(PinsPdp11 *pins, FpMode *mems, bool fpu = false);
+    // |mmu|: the memory management's mapping is read at each save.
+    RegsPdp11(PinsPdp11 *pins, FpMode *mems, bool fpu = false,
+            bool mmu = false);
 
     const char *cpu() const override { return cpuName(); }
 
@@ -26,14 +29,15 @@ struct RegsPdp11 final : Regs {
     // Parked in the program's fetch of |pc|, |addr| on the bus.
     void park(uint16_t pc, uint16_t addr) {
         _pc = pc;
-        _parkedAt = addr;
+        _parkedAt = _parkedVa = addr;
         _frame = false;
     }
-    // Parked after a trap the debugger took; the program's PC and PS are
-    // in the frame it pushed.
-    void parkInTrap(uint16_t pc, uint16_t ps, uint16_t addr) {
+    // Parked after a trap the debugger took, in the fetch of |va|, |addr|
+    // on the bus; the program's PC and PS are in the frame it pushed.
+    void parkInTrap(uint16_t pc, uint16_t ps, uint16_t va, uint16_t addr) {
         _pc = pc;
         _ps = ps;
+        _parkedVa = va;
         _parkedAt = addr;
         _frame = true;
     }
@@ -55,19 +59,26 @@ private:
     PinsPdp11 *const _pins;
     FpMode *const _mems;
     const bool _fpu;
+    const bool _mmu;
+    // The kernel data mapping at the last save.
+    MmuPdp11 _map;
 
     uint16_t _r[6];
     uint16_t _sp;
     uint16_t _pc;
     uint16_t _ps;
-    uint16_t _parkedAt;
+    uint16_t _parkedAt;  // on the bus
+    uint16_t _parkedVa;  // the same, as the CPU's code jumps to it
     bool _frame = false;  // a trap frame lies below SP
     bool _trace = false;
     uint16_t _fps;
     // Double precision, the most significant word first.
     uint16_t _ac[6][4];
 
+    void saveMap();
     void saveFpu();
+    // Where kernel data at |va| lies on the bus, as the debugger matches it.
+    uint16_t bus(uint16_t va) const { return _map.physical(va); }
     void restoreFpu();
 
     mutable CharBuffer _buffer1;
