@@ -1,0 +1,773 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; MS-DOS 2.0 IO.SYS for the PC BIOS of rombios.asm: the OEM half, with
+          0 :                    ;;; CON on INT 10H/16H, CLOCK on INT 1AH, and four disk units on INT 13H,
+          0 :                    ;;; A and B the floppies 0 and 1, C and D the hard disks 80H and 81H;
+          0 :                    ;;; AUX and PRN are absent. Microsoft's SYSINIT.OBJ and SYSIMES.OBJ
+          0 :                    ;;; follow it in the file, linked by scripts/omf-link.py, which also
+          0 :                    ;;; writes sysinit.inc, SYSINIT's variables. Modelled on the OEM kit's
+          0 :                    ;;; SKELIO.ASM.
+          0 :                    ;;;
+          0 :                    ;;; The boot sector loads IO.SYS at 0070:0000 and enters it with DL the
+          0 :                    ;;; BIOS drive and BX the paragraph MSDOS.SYS follows it at. SYSINIT then
+          0 :                    ;;; moves the DOS down over the init code.
+          0 :                            cpu     8086
+          0 :                            include "sysinit.inc"
+(1)       0 :                    ;;; SYSINIT.OBJ
+(1)       0 : =0                 SYSINIT:                equ     0000H
+(1)       0 : =5                 CURRENT_DOS_LOCATION:   equ     0005H
+(1)       0 : =9                 FINAL_DOS_LOCATION:     equ     0009H
+(1)       0 : =B                 DEVICE_LIST:            equ     000BH
+(1)       0 : =F                 MEMORY_SIZE:            equ     000FH
+(1)       0 : =11                DEFAULT_DRIVE:          equ     0011H
+(1)       0 : =12                BUFFERS:                equ     0012H
+(1)       0 : =13                FILES:                  equ     0013H
+          0 :
+          0 : =70                IOSEG:          equ     0070H
+          0 : =4                 UNITS:          equ     4
+          0 : =200               SECTOR:         equ     512
+          0 : =7E00              SCRATCH:        equ     7E00H           ; a sector's room during init
+          0 : =15                BPB_BYTES:      equ     21              ; from the boot sector's 0BH
+          0 :
+          0 :                    ;;; Request header offsets.
+          0 : =1                 RH_UNIT:        equ     1
+          0 : =2                 RH_CMD:         equ     2
+          0 : =3                 RH_STATUS:      equ     3
+          0 : =D                 RH_MEDIA:       equ     13              ; media, units for INIT
+          0 : =E                 RH_TRANS:       equ     14              ; transfer address; the media
+          0 :                                                            ; check's answer; INIT's break
+          0 : =12                RH_COUNT:       equ     18              ; count; the BPB (array) pointer
+          0 : =14                RH_START:       equ     20
+          0 :
+          0 :                    ;;; Driver errors.
+          0 : =0                 E_WRITE_PROTECT: equ    0
+          0 : =2                 E_NOT_READY:    equ     2
+          0 : =3                 E_BAD_CMD:      equ     3
+          0 : =6                 E_SEEK:         equ     6
+          0 : =7                 E_BAD_MEDIA:    equ     7
+          0 : =8                 E_NOT_FOUND:    equ     8
+          0 : =A                 E_WRITE:        equ     10
+          0 : =B                 E_READ:         equ     11
+          0 : =C                 E_GENERAL:      equ     12
+          0 :
+          0 :                            org     0000H
+          0 : E9 65 05                   jmp     init
+          3 :                    ;;; RE_INIT, called far by SYSINIT after the DOS is up: offset 3, which
+          3 :                    ;;; the Makefile's link defines.
+          3 :                    re_init:
+          3 : CB                         retf
+          4 :
+          4 :                    ;;; Device headers: the chain SYSINIT installs.
+          4 :                    con_dev:
+          4 : 16 00 70 00                dw      aux_dev, IOSEG
+          8 : 13 80                      dw      8013H                   ; input, output, INT 29H
+          A : E4 00 EF 00                dw      strategy, con_int
+          E : 43 4F 4E 20 20 20          db      'CON     '
+         14 : 20 20
+         16 :                    aux_dev:
+         16 : 28 00 70 00                dw      prn_dev, IOSEG
+         1A : 00 80                      dw      8000H
+         1C : E4 00 F5 00                dw      strategy, aux_int
+         20 : 41 55 58 20 20 20          db      'AUX     '
+         26 : 20 20
+         28 :                    prn_dev:
+         28 : 3A 00 70 00                dw      clk_dev, IOSEG
+         2C : 00 80                      dw      8000H
+         2E : E4 00 FB 00                dw      strategy, prn_int
+         32 : 50 52 4E 20 20 20          db      'PRN     '
+         38 : 20 20
+         3A :                    clk_dev:
+         3A : 4C 00 70 00                dw      dsk_dev, IOSEG
+         3E : 08 80                      dw      8008H                   ; the clock
+         40 : E4 00 01 01                dw      strategy, clk_int
+         44 : 43 4C 4F 43 4B 20          db      'CLOCK   '
+         4A : 20 20
+         4C :                    dsk_dev:
+         4C : FF FF FF FF                dw      0FFFFH, 0FFFFH
+         50 : 00 20                      dw      2000H                   ; block, the driver tells media
+         52 : E4 00 07 01                dw      strategy, dsk_int
+         56 : 04                         db      UNITS
+         57 : 00 00 00 00 00 00          db      0, 0, 0, 0, 0, 0, 0
+         5D : 00
+         5E :
+         5E :                    ;;; Dispatch tables: one word a command, 0 to 12.
+         5E :                    con_tbl:
+         5E : 5B 01                      dw      exit                    ; 0 init
+         60 : 5B 01                      dw      exit                    ; 1 media check
+         62 : 5B 01                      dw      exit                    ; 2 build BPB
+         64 : 51 01                      dw      bad_cmd                 ; 3 IOCTL input
+         66 : 7F 01                      dw      con_read                ; 4 input
+         68 : 8A 01                      dw      con_peek                ; 5 non-destructive input
+         6A : 9A 01                      dw      con_status              ; 6 input status
+         6C : A2 01                      dw      con_flush               ; 7 input flush
+         6E : B0 01                      dw      con_write               ; 8 output
+         70 : B0 01                      dw      con_write               ; 9 output with verify
+         72 : 5B 01                      dw      exit                    ; 10 output status
+         74 : 5B 01                      dw      exit                    ; 11 output flush
+         76 : 51 01                      dw      bad_cmd                 ; 12 IOCTL output
+         78 :                    aux_tbl:
+         78 : 5B 01 5B 01 5B 01          dw      exit, exit, exit, bad_cmd
+         7E : 51 01
+         80 : 55 01                      dw      no_device               ; input
+         82 : 4D 01                      dw      busy                    ; non-destructive input: nothing
+         84 : 4D 01                      dw      busy                    ; input status: nothing
+         86 : 5B 01 5B 01 5B 01          dw      exit, exit, exit, exit, exit, bad_cmd
+         8C : 5B 01 5B 01 51 01
+         92 :                    prn_tbl:
+         92 : 5B 01 5B 01 5B 01          dw      exit, exit, exit, bad_cmd
+         98 : 51 01
+         9A : 55 01 4D 01 4D 01          dw      no_device, busy, busy, exit
+         A0 : 5B 01
+         A2 : 5B 01 5B 01 5B 01          dw      exit, exit, exit, exit, bad_cmd
+         A8 : 5B 01 51 01
+         AC :                    clk_tbl:
+         AC : 5B 01 5B 01 5B 01          dw      exit, exit, exit, bad_cmd
+         B2 : 51 01
+         B4 : D1 01 51 01 5B 01          dw      clk_read, bad_cmd, exit, exit
+         BA : 5B 01
+         BC : 19 02 19 02 5B 01          dw      clk_write, clk_write, exit, exit, bad_cmd
+         C2 : 5B 01 51 01
+         C6 :                    dsk_tbl:
+         C6 : F7 02                      dw      dsk_init
+         C8 : 13 03                      dw      dsk_media
+         CA : 26 03                      dw      dsk_bpb
+         CC : 51 01                      dw      bad_cmd
+         CE : 93 03                      dw      dsk_read
+         D0 : 51 01                      dw      bad_cmd
+         D2 : 5B 01                      dw      exit
+         D4 : 5B 01                      dw      exit
+         D6 : 9A 03                      dw      dsk_write
+         D8 : 9A 03                      dw      dsk_write
+         DA : 5B 01                      dw      exit
+         DC : 5B 01                      dw      exit
+         DE : 51 01                      dw      bad_cmd
+         E0 :
+         E0 : 00 00 00 00        ptrsav: dd      0                       ; the request header
+         E4 :
+         E4 :                    strategy:
+         E4 : 2E 89 1E E0 00             mov     cs:[ptrsav], bx
+         E9 : 2E 8C 06 E2 00             mov     cs:[ptrsav+2], es
+         EE : CB                         retf
+         EF :
+         EF :                    con_int:
+         EF : 56                         push    si
+         F0 : BE 5E 00                   mov     si, con_tbl
+         F3 : EB 16                      jmp     entry
+         F5 :                    aux_int:
+         F5 : 56                         push    si
+         F6 : BE 78 00                   mov     si, aux_tbl
+         F9 : EB 10                      jmp     entry
+         FB :                    prn_int:
+         FB : 56                         push    si
+         FC : BE 92 00                   mov     si, prn_tbl
+         FF : EB 0A                      jmp     entry
+        101 :                    clk_int:
+        101 : 56                         push    si
+        102 : BE AC 00                   mov     si, clk_tbl
+        105 : EB 04                      jmp     entry
+        107 :                    dsk_int:
+        107 : 56                         push    si
+        108 : BE C6 00                   mov     si, dsk_tbl
+        10B :                    ;;; The common entry, on a stack of its own: the DOS's is too shallow
+        10B :                    ;;; for a driver, INT 13H and a tick on top. AL the unit, AH the media
+        10B :                    ;;; byte, CX the count, DX the first sector, ES:DI the transfer address,
+        10B :                    ;;; DS=CS; then the command's routine.
+        10B :                    entry:
+        10B : FA                         cli
+        10C : 2E 8C 16 7B 01             mov     cs:[dos_ss], ss
+        111 : 2E 89 26 7D 01             mov     cs:[dos_sp], sp
+        116 : 8C CC                      mov     sp, cs
+        118 : 8E D4                      mov     ss, sp
+        11A : BC 68 05                   mov     sp, stack_top
+        11D : FB                         sti
+        11E : 50                         push    ax
+        11F : 51                         push    cx
+        120 : 52                         push    dx
+        121 : 57                         push    di
+        122 : 55                         push    bp
+        123 : 1E                         push    ds
+        124 : 06                         push    es
+        125 : 53                         push    bx
+        126 : 2E C5 1E E0 00             lds     bx, cs:[ptrsav]
+        12B : 8A 47 01                   mov     al, [bx+RH_UNIT]
+        12E : 8A 67 0D                   mov     ah, [bx+RH_MEDIA]
+        131 : 8B 4F 12                   mov     cx, [bx+RH_COUNT]
+        134 : 8B 57 14                   mov     dx, [bx+RH_START]
+        137 : 97                         xchg    di, ax
+        138 : 8A 47 02                   mov     al, [bx+RH_CMD]
+        13B : 30 E4                      xor     ah, ah
+        13D : 3C 0C                      cmp     al, 12
+        13F : 77 10                      ja      bad_cmd
+        141 : 01 C6                      add     si, ax
+        143 : 01 C6                      add     si, ax
+        145 : 97                         xchg    ax, di
+        146 : C4 7F 0E                   les     di, [bx+RH_TRANS]
+        149 : 0E                         push    cs
+        14A : 1F                         pop     ds
+        14B : FF 24                      jmp     [si]
+        14D :
+        14D :                    ;;; Exits: done; busy and done; an error, AL its code.
+        14D :                    busy:
+        14D : B4 03                      mov     ah, 03H
+        14F : EB 0C                      jmp     exit1
+        151 :                    bad_cmd:
+        151 : B0 03                      mov     al, E_BAD_CMD
+        153 : EB 02                      jmp     err_exit
+        155 :                    no_device:
+        155 : B0 02                      mov     al, E_NOT_READY
+        157 :                    err_exit:
+        157 : B4 81                      mov     ah, 81H
+        159 : EB 02                      jmp     exit1
+        15B :                    exit:
+        15B : B4 01                      mov     ah, 01H
+        15D :                    exit1:
+        15D : 2E C5 1E E0 00             lds     bx, cs:[ptrsav]
+        162 : 89 47 03                   mov     [bx+RH_STATUS], ax
+        165 : 5B                         pop     bx
+        166 : 07                         pop     es
+        167 : 1F                         pop     ds
+        168 : 5D                         pop     bp
+        169 : 5F                         pop     di
+        16A : 5A                         pop     dx
+        16B : 59                         pop     cx
+        16C : 58                         pop     ax
+        16D : FA                         cli
+        16E : 2E 8E 16 7B 01             mov     ss, cs:[dos_ss]
+        173 : 2E 8B 26 7D 01             mov     sp, cs:[dos_sp]
+        178 : FB                         sti
+        179 : 5E                         pop     si
+        17A : CB                         retf
+        17B :
+        17B : 00 00              dos_ss: dw      0
+        17D : 00 00              dos_sp: dw      0
+        17F :
+        17F :                    ;;; CON: the keyboard and the teletype.
+        17F :                    con_read:
+        17F : E3 07                      jcxz    con_read_end
+        181 :                    con_read_loop:
+        181 : B4 00                      mov     ah, 0
+        183 : CD 16                      int     16H
+        185 : AA                         stosb
+        186 : E2 F9                      loop    con_read_loop
+        188 :                    con_read_end:
+        188 : EB D1                      jmp     exit
+        18A :
+        18A :                    con_peek:
+        18A : B4 01                      mov     ah, 1
+        18C : CD 16                      int     16H
+        18E : 74 BD                      jz      busy
+        190 : 2E C5 1E E0 00             lds     bx, cs:[ptrsav]
+        195 : 88 47 0D                   mov     [bx+RH_MEDIA], al
+        198 : EB C1                      jmp     exit
+        19A :
+        19A :                    con_status:
+        19A : B4 01                      mov     ah, 1
+        19C : CD 16                      int     16H
+        19E : 74 AD                      jz      busy
+        1A0 : EB B9                      jmp     exit
+        1A2 :
+        1A2 :                    con_flush:
+        1A2 : B4 01                      mov     ah, 1
+        1A4 : CD 16                      int     16H
+        1A6 : 74 06                      jz      con_flush_end
+        1A8 : B4 00                      mov     ah, 0
+        1AA : CD 16                      int     16H
+        1AC : EB F4                      jmp     con_flush
+        1AE :                    con_flush_end:
+        1AE : EB AB                      jmp     exit
+        1B0 :
+        1B0 :                    con_write:
+        1B0 : E3 09                      jcxz    con_write_end
+        1B2 :                    con_write_loop:
+        1B2 : 26 8A 05                   mov     al, es:[di]
+        1B5 : 47                         inc     di
+        1B6 : E8 04 00                   call    putc
+        1B9 : E2 F7                      loop    con_write_loop
+        1BB :                    con_write_end:
+        1BB : EB 9E                      jmp     exit
+        1BD :
+        1BD :                    ;;; Prints AL.
+        1BD :                    putc:
+        1BD : 53                         push    bx
+        1BE : B4 0E                      mov     ah, 0EH
+        1C0 : BB 07 00                   mov     bx, 0007H
+        1C3 : CD 10                      int     10H
+        1C5 : 5B                         pop     bx
+        1C6 : C3                         ret
+        1C7 :
+        1C7 :                    ;;; INT 29H, DOS's fast console output of AL.
+        1C7 :                    int29:
+        1C7 : 50                         push    ax
+        1C8 : 53                         push    bx
+        1C9 : E8 F1 FF                   call    putc
+        1CC : 5B                         pop     bx
+        1CD : 58                         pop     ax
+        1CE : CF                         iret
+        1CF :
+        1CF :                    ;;; CLOCK: 6 bytes, the days since 1980-01-01 then minutes, hours,
+        1CF :                    ;;; hundredths and seconds, from the BIOS tick count: 549 hundredths
+        1CF :                    ;;; per 100 ticks, and a day counted at each rollover.
+        1CF : =225               HUNDREDTHS:     equ     549
+        1CF : 00 00              days:   dw      0
+        1D1 :
+        1D1 :                    clk_read:
+        1D1 : B4 00                      mov     ah, 0
+        1D3 : CD 1A                      int     1AH                     ; CX:DX ticks, AL rollover
+        1D5 : 08 C0                      or      al, al
+        1D7 : 74 04                      jz      clk_read_day
+        1D9 : FF 06 CF 01                inc     word ptr [days]
+        1DD :                    clk_read_day:
+        1DD : A1 CF 01                   mov     ax, [days]
+        1E0 : AB                         stosw
+        1E1 :                            ;; DX:AX = ticks x 549 / 100, the day's hundredths.
+        1E1 : 89 D0                      mov     ax, dx
+        1E3 : BB 25 02                   mov     bx, HUNDREDTHS
+        1E6 : F7 E3                      mul     bx                      ; DX:AX = low word x 549
+        1E8 : 91                         xchg    ax, cx                  ; CX = its low word, AX = ticks' high
+        1E9 : 52                         push    dx
+        1EA : F7 E3                      mul     bx                      ; AX = high word x 549
+        1EC : 5A                         pop     dx
+        1ED : 01 C2                      add     dx, ax
+        1EF : 89 C8                      mov     ax, cx
+        1F1 : B9 64 00                   mov     cx, 100
+        1F4 : E8 6E 00                   call    div32
+        1F7 : B9 64 00                   mov     cx, 100
+        1FA : E8 68 00                   call    div32                   ; DX:AX seconds, BX hundredths
+        1FD : 53                         push    bx
+        1FE : B9 3C 00                   mov     cx, 60
+        201 : F7 F1                      div     cx                      ; AX minutes, DX seconds
+        203 : 88 D3                      mov     bl, dl
+        205 : 31 D2                      xor     dx, dx
+        207 : F7 F1                      div     cx                      ; AX hours, DX minutes
+        209 : 88 C7                      mov     bh, al
+        20B : 88 D0                      mov     al, dl
+        20D : AA                         stosb                           ; minutes
+        20E : 88 F8                      mov     al, bh
+        210 : AA                         stosb                           ; hours
+        211 : 58                         pop     ax
+        212 : AA                         stosb                           ; hundredths
+        213 : 88 D8                      mov     al, bl
+        215 : AA                         stosb                           ; seconds
+        216 : E9 42 FF                   jmp     exit
+        219 :
+        219 :                    clk_write:
+        219 : 26 8B 05                   mov     ax, es:[di]
+        21C : A3 CF 01                   mov     [days], ax
+        21F : 26 8A 45 03                mov     al, es:[di+3]           ; hours
+        223 : B4 00                      mov     ah, 0
+        225 : B9 3C 00                   mov     cx, 60
+        228 : F7 E1                      mul     cx
+        22A : 26 8A 5D 02                mov     bl, es:[di+2]           ; minutes
+        22E : B7 00                      mov     bh, 0
+        230 : 01 D8                      add     ax, bx
+        232 : F7 E1                      mul     cx                      ; DX:AX = minutes x 60
+        234 : 26 8A 5D 05                mov     bl, es:[di+5]           ; seconds
+        238 : 01 D8                      add     ax, bx
+        23A : 83 D2 00                   adc     dx, 0
+        23D : B9 64 00                   mov     cx, 100
+        240 : E8 31 00                   call    mul32
+        243 : 26 8A 5D 04                mov     bl, es:[di+4]           ; hundredths
+        247 : B7 00                      mov     bh, 0
+        249 : 01 D8                      add     ax, bx
+        24B : 83 D2 00                   adc     dx, 0
+        24E : B9 64 00                   mov     cx, 100
+        251 : E8 20 00                   call    mul32
+        254 : B9 25 02                   mov     cx, HUNDREDTHS
+        257 : E8 0B 00                   call    div32                   ; DX:AX ticks
+        25A : 89 D1                      mov     cx, dx
+        25C : 89 C2                      mov     dx, ax
+        25E : B4 01                      mov     ah, 1
+        260 : CD 1A                      int     1AH
+        262 : E9 F6 FE                   jmp     exit
+        265 :
+        265 :                    ;;; DX:AX / CX -> DX:AX, BX the remainder.
+        265 :                    div32:
+        265 : 50                         push    ax
+        266 : 89 D0                      mov     ax, dx
+        268 : 31 D2                      xor     dx, dx
+        26A : F7 F1                      div     cx
+        26C : 89 C3                      mov     bx, ax
+        26E : 58                         pop     ax
+        26F : F7 F1                      div     cx
+        271 : 87 D3                      xchg    bx, dx
+        273 : C3                         ret
+        274 :
+        274 :                    ;;; DX:AX x CX -> DX:AX, which must fit.
+        274 :                    mul32:
+        274 : 52                         push    dx
+        275 : F7 E1                      mul     cx                      ; DX:AX = low word x CX
+        277 : 5B                         pop     bx
+        278 : 52                         push    dx
+        279 : 93                         xchg    ax, bx                  ; AX = high word, BX = the low result
+        27A : F7 E1                      mul     cx
+        27C : 5A                         pop     dx
+        27D : 01 C2                      add     dx, ax
+        27F : 89 D8                      mov     ax, bx
+        281 : C3                         ret
+        282 :
+        282 :                    ;;; DISK: four units, each BIOS drive unit_drive[unit], its medium's
+        282 :                    ;;; BPB in unit_bpb as the boot sector holds it from 0BH: the 13 bytes
+        282 :                    ;;; DOS reads, then sectors a track, heads and the hidden sectors
+        282 :                    ;;; before the volume, the partition's start on a hard disk.
+        282 :                    unit_drive:
+        282 : 00 01 80 81                db      00H, 01H, 80H, 81H
+        286 :                    ;;; A 360K floppy's, until the medium is read.
+        286 :                    bpb_default:
+        286 : 00 02                      dw      SECTOR
+        288 : 02                         db      2
+        289 : 01 00                      dw      1
+        28B : 02                         db      2
+        28C : 70 00                      dw      112
+        28E : D0 02                      dw      720
+        290 : FD                         db      0FDH
+        291 : 02 00                      dw      2
+        293 : 09 00                      dw      9
+        295 : 02 00                      dw      2
+        297 : 00 00 00 00                dd      0
+        29B :                    unit_bpb:
+        29B :                            ds      BPB_BYTES*UNITS
+        2EF :                    bpb_table:
+        2EF : 9B 02                      dw      unit_bpb+BPB_BYTES*0
+        2F1 : B0 02                      dw      unit_bpb+BPB_BYTES*1
+        2F3 : C5 02                      dw      unit_bpb+BPB_BYTES*2
+        2F5 : DA 02                      dw      unit_bpb+BPB_BYTES*3
+        2F7 :
+        2F7 :                    ;;; INIT: the units and their BPBs, read by init below.
+        2F7 :                    dsk_init:
+        2F7 : 2E C5 1E E0 00             lds     bx, cs:[ptrsav]
+        2FC : C6 47 0D 04                mov     byte ptr [bx+RH_MEDIA], UNITS
+        300 : C7 47 0E 68 05             mov     word ptr [bx+RH_TRANS], resident_end
+        305 : 8C 4F 10                   mov     [bx+RH_TRANS+2], cs
+        308 : C7 47 12 EF 02             mov     word ptr [bx+RH_COUNT], bpb_table
+        30D : 8C 4F 14                   mov     [bx+RH_COUNT+2], cs
+        310 : E9 48 FE                   jmp     exit
+        313 :
+        313 :                    ;;; MEDIA CHECK: a floppy may have been changed (0: not known), a hard
+        313 :                    ;;; disk not (1).
+        313 :                    dsk_media:
+        313 : 3C 02                      cmp     al, 2
+        315 : B0 01                      mov     al, 1
+        317 : 73 02                      jae     dsk_media_end
+        319 : B0 00                      mov     al, 0
+        31B :                    dsk_media_end:
+        31B : 2E C5 1E E0 00             lds     bx, cs:[ptrsav]
+        320 : 88 47 0E                   mov     [bx+RH_TRANS], al
+        323 : E9 35 FE                   jmp     exit
+        326 :
+        326 :                    ;;; BUILD BPB: the unit's boot sector, read into the scratch buffer at
+        326 :                    ;;; ES:DI, gives its BPB.
+        326 :                    dsk_bpb:
+        326 : 50                         push    ax
+        327 : E8 5F 00                   call    bpb_of
+        32A : 89 C6                      mov     si, ax
+        32C : 58                         pop     ax
+        32D : B4 02                      mov     ah, 02H
+        32F : 31 D2                      xor     dx, dx                  ; its first sector
+        331 : B9 01 00                   mov     cx, 1
+        334 : E8 ED 00                   call    bios_disk
+        337 : 73 03                      jnc     dsk_bpb_read
+        339 : E9 B6 00                   jmp     dsk_error
+        33C :                    dsk_bpb_read:
+        33C : E8 1C 00                   call    bpb_copy
+        33F : 72 15                      jc      dsk_bpb_bad
+        341 : 2E C5 1E E0 00             lds     bx, cs:[ptrsav]
+        346 : 2E 8A 44 0A                mov     al, cs:[si+10]          ; media
+        34A : 88 47 0D                   mov     [bx+RH_MEDIA], al
+        34D : 89 77 12                   mov     [bx+RH_COUNT], si
+        350 : 8C 4F 14                   mov     [bx+RH_COUNT+2], cs
+        353 : E9 05 FE                   jmp     exit
+        356 :                    dsk_bpb_bad:
+        356 : B0 07                      mov     al, E_BAD_MEDIA
+        358 : E9 FC FD                   jmp     err_exit
+        35B :
+        35B :                    ;;; Copies the boot sector at ES:DI's BPB over the unit's at SI, keeping
+        35B :                    ;;; its hidden sectors; CF set when it is not a 512-byte-sector one.
+        35B :                    bpb_copy:
+        35B : 26 81 7D 0B 00 02          cmp     word ptr es:[di+0BH], SECTOR
+        361 : 75 24                      jne     bpb_copy_bad
+        363 : 57                         push    di
+        364 : 1E                         push    ds
+        365 : 06                         push    es
+        366 : 56                         push    si
+        367 : 8B 5C 11                   mov     bx, [si+17]             ; hidden
+        36A : 8B 54 13                   mov     dx, [si+19]
+        36D : 83 C7 0B                   add     di, 0BH
+        370 : 87 FE                      xchg    si, di
+        372 : B9 15 00                   mov     cx, BPB_BYTES
+        375 : 06                         push    es
+        376 : 1F                         pop     ds
+        377 : 0E                         push    cs
+        378 : 07                         pop     es
+        379 : F3 A4                      rep     movsb
+        37B : 5E                         pop     si
+        37C : 07                         pop     es
+        37D : 1F                         pop     ds
+        37E : 5F                         pop     di
+        37F : 89 5C 11                   mov     [si+17], bx
+        382 : 89 54 13                   mov     [si+19], dx
+        385 : F8                         clc
+        386 : C3                         ret
+        387 :                    bpb_copy_bad:
+        387 : F9                         stc
+        388 : C3                         ret
+        389 :
+        389 :                    ;;; AX=the BPB of unit AL.
+        389 :                    bpb_of:
+        389 : B4 00                      mov     ah, 0
+        38B : B3 15                      mov     bl, BPB_BYTES
+        38D : F6 E3                      mul     bl
+        38F : 05 9B 02                   add     ax, unit_bpb
+        392 : C3                         ret
+        393 :
+        393 :                    ;;; READ and WRITE: CX sectors from DX of unit AL to or from ES:DI, up
+        393 :                    ;;; to a track's end at a time.
+        393 :                    dsk_read:
+        393 : C6 06 F0 03 02             mov     byte ptr [dsk_cmd], 02H
+        398 : EB 05                      jmp     dsk_transfer
+        39A :                    dsk_write:
+        39A : C6 06 F0 03 03             mov     byte ptr [dsk_cmd], 03H
+        39F :                    dsk_transfer:
+        39F : A2 F1 03                   mov     [dsk_unit], al
+        3A2 : E8 E4 FF                   call    bpb_of
+        3A5 : 89 C6                      mov     si, ax
+        3A7 :                    dsk_transfer_loop:
+        3A7 : E3 44                      jcxz    dsk_transfer_end
+        3A9 : 51                         push    cx
+        3AA : 52                         push    dx
+        3AB : 89 D0                      mov     ax, dx
+        3AD : 03 44 11                   add     ax, [si+17]             ; hidden: the volume's start
+        3B0 : 31 D2                      xor     dx, dx
+        3B2 : F7 74 0D                   div     word ptr [si+13]        ; DX = sector - 1 on its track
+        3B5 : 8B 44 0D                   mov     ax, [si+13]
+        3B8 : 29 D0                      sub     ax, dx                  ; AX = sectors to the track's end
+        3BA : 5A                         pop     dx
+        3BB : 59                         pop     cx
+        3BC : 39 C8                      cmp     ax, cx
+        3BE : 76 02                      jbe     dsk_transfer_chunk
+        3C0 : 89 C8                      mov     ax, cx
+        3C2 :                    dsk_transfer_chunk:
+        3C2 : 51                         push    cx
+        3C3 : 50                         push    ax
+        3C4 : 52                         push    dx
+        3C5 : 89 C1                      mov     cx, ax
+        3C7 : 8A 26 F0 03                mov     ah, [dsk_cmd]
+        3CB : A0 F1 03                   mov     al, [dsk_unit]
+        3CE : E8 53 00                   call    bios_disk
+        3D1 : 5A                         pop     dx
+        3D2 : 73 05                      jnc     dsk_transfer_moved
+        3D4 : 83 C4 04                   add     sp, 4
+        3D7 : EB 19                      jmp     dsk_error
+        3D9 :                    dsk_transfer_moved:
+        3D9 : 58                         pop     ax
+        3DA : 59                         pop     cx
+        3DB : 01 C2                      add     dx, ax                  ; the next sector
+        3DD : 29 C1                      sub     cx, ax
+        3DF : 51                         push    cx
+        3E0 : B1 05                      mov     cl, 5
+        3E2 : D3 E0                      shl     ax, cl                  ; paragraphs moved
+        3E4 : 8C C3                      mov     bx, es
+        3E6 : 01 C3                      add     bx, ax
+        3E8 : 8E C3                      mov     es, bx
+        3EA : 59                         pop     cx
+        3EB : EB BA                      jmp     dsk_transfer_loop
+        3ED :                    dsk_transfer_end:
+        3ED : E9 6B FD                   jmp     exit
+        3F0 :                    dsk_cmd:
+        3F0 : 00                         db      0
+        3F1 :                    dsk_unit:
+        3F1 : 00                         db      0
+        3F2 :
+        3F2 :                    ;;; A BIOS error in AH to the driver's, with no sectors moved.
+        3F2 :                    dsk_error:
+        3F2 : 2E C5 1E E0 00             lds     bx, cs:[ptrsav]
+        3F7 : C7 47 12 00 00             mov     word ptr [bx+RH_COUNT], 0
+        3FC : BE 16 04                   mov     si, dsk_errors
+        3FF :                    dsk_error_scan:
+        3FF : 2E 8A 44 01                mov     al, cs:[si+1]
+        403 : 2E 3A 24                   cmp     ah, cs:[si]
+        406 : 74 0B                      je      dsk_error_found
+        408 : 2E 80 3C 00                cmp     byte ptr cs:[si], 0
+        40C : 74 05                      je      dsk_error_found
+        40E : 83 C6 02                   add     si, 2
+        411 : EB EC                      jmp     dsk_error_scan
+        413 :                    dsk_error_found:
+        413 : E9 41 FD                   jmp     err_exit
+        416 :
+        416 :                    ;;; BIOS status, driver error; 0 ends it with the error for the rest.
+        416 :                    dsk_errors:
+        416 : 80 02                      db      80H, E_NOT_READY
+        418 : AA 02                      db      0AAH, E_NOT_READY
+        41A : 03 00                      db      03H, E_WRITE_PROTECT
+        41C : 04 08                      db      04H, E_NOT_FOUND
+        41E : 40 06                      db      40H, E_SEEK
+        420 : CC 0A                      db      0CCH, E_WRITE
+        422 : 00 0B                      db      0, E_READ
+        424 :
+        424 :                    ;;; INT 13H function AH on unit AL: the sector DX of its volume, CX
+        424 :                    ;;; sectors, to ES:DI. CF and AH as the BIOS leaves them.
+        424 :                    bios_disk:
+        424 : 56                         push    si
+        425 : 50                         push    ax
+        426 : E8 60 FF                   call    bpb_of
+        429 : 89 C6                      mov     si, ax
+        42B : 58                         pop     ax
+        42C : 50                         push    ax
+        42D : 88 C3                      mov     bl, al
+        42F : B7 00                      mov     bh, 0
+        431 : 2E 8A 9F 82 02             mov     bl, cs:[bx+unit_drive]
+        436 : 88 C8                      mov     al, cl                  ; sectors
+        438 : 50                         push    ax
+        439 : 89 D0                      mov     ax, dx
+        43B : 03 44 11                   add     ax, [si+17]
+        43E : 31 D2                      xor     dx, dx
+        440 : F7 74 0D                   div     word ptr [si+13]
+        443 : FE C2                      inc     dl
+        445 : 88 D1                      mov     cl, dl
+        447 : 31 D2                      xor     dx, dx
+        449 : F7 74 0F                   div     word ptr [si+15]
+        44C : 88 D6                      mov     dh, dl
+        44E : 88 DA                      mov     dl, bl
+        450 : 88 C5                      mov     ch, al
+        452 : D0 E4                      shl     ah, 1
+        454 : D0 E4                      shl     ah, 1
+        456 : D0 E4                      shl     ah, 1
+        458 : D0 E4                      shl     ah, 1
+        45A : D0 E4                      shl     ah, 1
+        45C : D0 E4                      shl     ah, 1
+        45E : 08 E1                      or      cl, ah
+        460 : 58                         pop     ax
+        461 : 89 FB                      mov     bx, di
+        463 : CD 13                      int     13H
+        465 : 5B                         pop     bx
+        466 : 5E                         pop     si
+        467 : C3                         ret
+        468 :
+        468 :                            ds      256
+        568 :                    stack_top:
+        568 :
+        568 :                    resident_end:
+        568 : =57                RESIDENT_PARAS: equ     (resident_end+15)/16
+        568 :
+        568 :                    ;;; Init, which the DOS overlays: the units' BPBs, INT 29H, SYSINIT's
+        568 :                    ;;; variables, then SYSINIT itself, in the segment after this file's.
+        568 :                    init:
+        568 : FA                         cli
+        569 : 31 C0                      xor     ax, ax
+        56B : 8E D0                      mov     ss, ax
+        56D : BC FE 7D                   mov     sp, SCRATCH-2
+        570 : FB                         sti
+        571 : FC                         cld
+        572 : 0E                         push    cs
+        573 : 1F                         pop     ds
+        574 : 88 16 5C 06                mov     [boot_drive], dl
+        578 : 89 1E 5D 06                mov     [dos_seg], bx
+        57C : 31 C0                      xor     ax, ax
+        57E : 8E C0                      mov     es, ax
+        580 : 26 C7 06 A4 00 C7          mov     word ptr es:[29H*4], int29
+        586 : 01
+        587 : 26 8C 0E A6 00             mov     es:[29H*4+2], cs
+        58C :                            ;; Each unit's BPB: the default, then its medium's when it is
+        58C :                            ;; there; a hard disk's volume is where its MBR's active
+        58C :                            ;; partition starts.
+        58C : BF 9B 02                   mov     di, unit_bpb
+        58F : B9 04 00                   mov     cx, UNITS
+        592 :                    init_bpbs:
+        592 : 51                         push    cx
+        593 : BE 86 02                   mov     si, bpb_default
+        596 : B9 15 00                   mov     cx, BPB_BYTES
+        599 : 0E                         push    cs
+        59A : 07                         pop     es
+        59B : F3 A4                      rep     movsb
+        59D : 59                         pop     cx
+        59E : E2 F2                      loop    init_bpbs
+        5A0 : 31 C0                      xor     ax, ax
+        5A2 : 8E C0                      mov     es, ax
+        5A4 : B9 04 00                   mov     cx, UNITS
+        5A7 : 31 D2                      xor     dx, dx                  ; the unit
+        5A9 :                    init_units:
+        5A9 : 51                         push    cx
+        5AA : 52                         push    dx
+        5AB : 89 D3                      mov     bx, dx
+        5AD : 2E 8A 97 82 02             mov     dl, cs:[bx+unit_drive]
+        5B2 : BB 00 7E                   mov     bx, SCRATCH
+        5B5 : B8 01 02                   mov     ax, 0201H
+        5B8 : B9 01 00                   mov     cx, 0001H
+        5BB : B6 00                      mov     dh, 0
+        5BD : CD 13                      int     13H
+        5BF : 5A                         pop     dx
+        5C0 : 72 58                      jc      init_unit_next
+        5C2 : 88 D0                      mov     al, dl
+        5C4 : E8 C2 FD                   call    bpb_of
+        5C7 : 89 C6                      mov     si, ax
+        5C9 : 89 D3                      mov     bx, dx
+        5CB : BF 00 7E                   mov     di, SCRATCH
+        5CE : F6 87 82 02 80             test    byte ptr [bx+unit_drive], 80H
+        5D3 : 74 40                      jz      init_floppy
+        5D5 :                            ;; The MBR: the active partition's boot sector.
+        5D5 : 52                         push    dx
+        5D6 : BF BE 7F                   mov     di, SCRATCH+1BEH
+        5D9 : B9 04 00                   mov     cx, 4
+        5DC :                    init_partitions:
+        5DC : 26 80 3D 80                cmp     byte ptr es:[di], 80H
+        5E0 : 74 08                      je      init_partition
+        5E2 : 83 C7 10                   add     di, 16
+        5E5 : E2 F5                      loop    init_partitions
+        5E7 : 5A                         pop     dx
+        5E8 : EB 30                      jmp     init_unit_next
+        5EA :                    init_partition:
+        5EA : 26 8B 45 08                mov     ax, es:[di+8]           ; its first sector
+        5EE : 89 44 11                   mov     [si+17], ax
+        5F1 : 26 8B 45 0A                mov     ax, es:[di+10]
+        5F5 : 89 44 13                   mov     [si+19], ax
+        5F8 : 26 8A 75 01                mov     dh, es:[di+1]
+        5FC : 26 8B 4D 02                mov     cx, es:[di+2]
+        600 : 58                         pop     ax
+        601 : 2E 8A 97 82 02             mov     dl, cs:[bx+unit_drive]
+        606 : 50                         push    ax
+        607 : BB 00 7E                   mov     bx, SCRATCH
+        60A : B8 01 02                   mov     ax, 0201H
+        60D : CD 13                      int     13H
+        60F : 5A                         pop     dx
+        610 : 72 08                      jc      init_unit_next
+        612 : BF 00 7E                   mov     di, SCRATCH
+        615 :                    init_floppy:
+        615 : 52                         push    dx
+        616 : E8 42 FD                   call    bpb_copy
+        619 : 5A                         pop     dx
+        61A :                    init_unit_next:
+        61A : 42                         inc     dx
+        61B : 59                         pop     cx
+        61C : E2 8B                      loop    init_units
+        61E :                            ;; SYSINIT's variables, in its segment.
+        61E : 8C C8                      mov     ax, cs
+        620 : 83 C0 66                   add     ax, IO_PARAS
+        623 : 8E D8                      mov     ds, ax
+        625 : 2E A1 5D 06                mov     ax, cs:[dos_seg]
+        629 : A3 05 00                   mov     [CURRENT_DOS_LOCATION], ax
+        62C : CD 12                      int     12H
+        62E : B1 06                      mov     cl, 6
+        630 : D3 E0                      shl     ax, cl                  ; KB to paragraphs
+        632 : A3 0F 00                   mov     [MEMORY_SIZE], ax
+        635 : C7 06 0B 00 04 00          mov     word ptr [DEVICE_LIST], con_dev
+        63B : 8C 0E 0D 00                mov     [DEVICE_LIST+2], cs
+        63F : 8C C8                      mov     ax, cs
+        641 : 83 C0 57                   add     ax, RESIDENT_PARAS
+        644 : A3 09 00                   mov     [FINAL_DOS_LOCATION], ax
+        647 : B0 01                      mov     al, 1                   ; A:
+        649 : 2E F6 06 5C 06 80          test    byte ptr cs:[boot_drive], 80H
+        64F : 74 02                      jz      init_default
+        651 : B0 03                      mov     al, 3                   ; C:
+        653 :                    init_default:
+        653 : A2 11 00                   mov     [DEFAULT_DRIVE], al
+        656 : 1E                         push    ds
+        657 : B8 00 00                   mov     ax, SYSINIT
+        65A : 50                         push    ax
+        65B : CB                         retf
+        65C :
+        65C :                    boot_drive:
+        65C : 00                         db      0
+        65D :                    dos_seg:
+        65D : 00 00                      dw      0
+        65F :                    io_end:
+        65F : =66                IO_PARAS:       equ     (io_end+15)/16
+        65F :
+        65F :                            end

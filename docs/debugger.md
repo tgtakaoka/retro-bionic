@@ -162,12 +162,18 @@ alone; a reset clears only the device's own registers and pending interrupts.
   `DISK`, a paravirtual CP/M disk 10H above the USART: port 50H, or 0150H on the Z180,
   HD64180S, Z280 and Z380. A command moves one sector while the CPU waits; DMAX (+7)
   extends DMA past 64K. Four drives are image files on the SD card, in the target's formats:
-  `ibm-3740` (8" floppy, any image up to 256256 bytes) or `hd8` (exactly 8 MB). Other
-  sizes are refused. DRIVE reads back the drive's format in bits 4-7.
+  `ibm-3740` (8" floppy, any image up to 256256 bytes) or `hd8` (exactly 8 MB); the
+  8086 family adds the DOS floppies `fd360`, `fd720`, `fd1200` and `fd1440` and the
+  32 MB hard disk `hd32`, each an image of exactly its size. Other sizes are refused.
+  DRIVE reads back the drive's format in bits 4-7.
   `L i8080/cpm80.hex` mounts `cpm80a.dsk`-`cpm80d.dsk` beside it as
   A-D, those that exist; `O B work.dsk` mounts a single drive and `O B` unmounts it; `I DISK` turns the
   disk off and on. Each mount prints the drive's line as `O` lists it, such as
   `A    hd8       i8080/cpm80a.dsk`, and each drive dropped prints `B unmounted`.
+- **Timer** (8086 family) — `debugger/i8086/timer.cpp`: `TIMER`, the PC's 18.2 Hz
+  tick on four ports from 58H: CTRL (+0) bit 0 starts it, TYPE (+1) is the interrupt
+  type it raises INTR with, a write to EOI (+2) acknowledges a tick. `I TIMER` turns
+  it off and on. The PC BIOS (`samples/i8086/rombios.asm`) runs it as INT 8.
 - **8087 INT** (D8087 board) — `debugger/i8086/devs_d8087.cpp`: `NPX`, disabled at
   power-up, `I NPX` turns it on and off. While the 8087 holds INT high it requests
   interrupt type 2 by default, which raises NMI and stops the run in the debugger;

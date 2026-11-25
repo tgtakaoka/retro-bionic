@@ -1,0 +1,983 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; A PC-style ROM BIOS for the 8086 board, in segment F000H: the console
+          0 :                    ;;; on the i8251 USART, INT 10H and 16H as a teletype; the debugger's
+          0 :                    ;;; sector disk as INT 13H, units A and B the floppies 0 and 1, C and D
+          0 :                    ;;; the hard disks 80H and 81H; INT 1AH's clock from the debugger's
+          0 :                    ;;; timer, which interrupts as INT 8; INT 19H boots A: when it is
+          0 :                    ;;; mounted, else the hard disk's MBR. MS-DOS 2.0's IO.SYS (msdosbio.asm)
+          0 :                    ;;; runs on it.
+          0 :                    ;;;
+          0 :                    ;;; The BIOS data area is 0040:0010 up: the debugger parks the CPU at
+          0 :                    ;;; 0400H-040FH, so 0040:0000-000F is never written.
+          0 :                            cpu     8086
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =40                USART:          equ     40H
+(1)       0 : =40                USARTD:         equ     USART+0 ; Receive/Transmit data
+(1)       0 : =41                USARTS:         equ     USART+1 ; Status register
+(1)       0 : =41                USARTC:         equ     USART+1 ; Control register
+(1)       0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt type
+(1)       0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt type
+(1)       0 :                            include "../i8080/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(2)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(2)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+(1)       0 :
+(1)       0 :                    ;;; Interrupt types the USART answers INTA with; the debugger owns
+(1)       0 :                    ;;; types 1-3.
+(1)       0 : =20                VEC_RX:         equ     20H
+(1)       0 : =21                VEC_TX:         equ     21H
+          0 :
+          0 : =50                DISK:   equ     50H
+          0 :                            include "../i8080/sector_disk.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; The debugger's paravirtual sector disk (debugger/sector_disk.h).
+(1)       0 :                    ;;; DISK is its base port.
+(1)       0 : =50                DISK_DRIVE:     equ     DISK+0  ; 0-3
+(1)       0 : =51                DISK_TRACK:     equ     DISK+1  ; 0-76
+(1)       0 : =52                DISK_SECTOR:    equ     DISK+2  ; 1-26, physical
+(1)       0 : =53                DISK_DMAL:      equ     DISK+3  ; DMA address, low byte
+(1)       0 : =54                DISK_DMAH:      equ     DISK+4  ; high byte
+(1)       0 : =55                DISK_COMMAND:   equ     DISK+5  ; write a command, read its status
+(1)       0 : =56                DISK_MOUNTED:   equ     DISK+6  ; bit n: drive n has its image
+(1)       0 : =57                DISK_DMAX:      equ     DISK+7  ; DMA address bits 16-23
+(1)       0 : =1                 CMD_READ:       equ     1
+(1)       0 : =2                 CMD_WRITE:      equ     2
+          0 : =58                TIMER:  equ     58H
+          0 :                            include "timer.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; The debugger's paravirtual interval timer (debugger/i8086/timer.h):
+(1)       0 :                    ;;; the PC's 18.2 Hz tick, raised on INTR with its own type. TIMER is
+(1)       0 :                    ;;; its base port.
+(1)       0 : =58                TIMER_CTRL:     equ     TIMER+0 ; bit 0: run; read: bit 7 set while a
+(1)       0 :                                                    ; tick waits for its acknowledge
+(1)       0 : =59                TIMER_TYPE:     equ     TIMER+1 ; the interrupt type it answers INTA with
+(1)       0 : =5A                TIMER_EOI:      equ     TIMER+2 ; write: acknowledge the tick
+(1)       0 : =1                 TIMER_RUN:      equ     01H
+          0 :
+          0 : =F000              BIOSSEG:        equ     0F000H
+          0 :                    ;;; The sector disk's format indexes, debugger/i8086/pc_disk.cpp's
+          0 :                    ;;; order: CP/M's two first, then the DOS floppies, then the hard disk.
+          0 : =2                 FMT_FD360:      equ     2
+          0 : =5                 FMT_FD1440:     equ     5
+          0 : =6                 FMT_HD32:       equ     6
+          0 :                    ;;; Every hard disk is hd32: 65536 sectors, as 1024 x 4 x 16.
+          0 : =400               HD_CYLS:        equ     1024
+          0 : =4                 HD_HEADS:       equ     4
+          0 : =10                HD_SPT:         equ     16
+          0 : =8                 TICK_TYPE:      equ     8
+          0 :
+          0 :                    ;;; BIOS data area, offsets in segment 0040H.
+          0 : =40                BDA:            equ     0040H
+          0 : =10                BDA_EQUIP:      equ     10H     ; equipment word
+          0 : =13                BDA_MEMSIZE:    equ     13H     ; KB of memory
+          0 : =17                BDA_KBFLAGS:    equ     17H
+          0 : =1A                BDA_KBHEAD:     equ     1AH     ; the keyboard buffer's head, an offset
+          0 : =1C                BDA_KBTAIL:     equ     1CH     ; and tail
+          0 : =1E                BDA_KBBUF:      equ     1EH     ; 16 words
+          0 : =3E                BDA_KBEND:      equ     3EH
+          0 : =41                BDA_FDSTATUS:   equ     41H     ; the last floppy operation's status
+          0 : =49                BDA_VMODE:      equ     49H
+          0 : =4A                BDA_COLS:       equ     4AH
+          0 : =50                BDA_CURSOR:     equ     50H     ; page 0's cursor, column then row
+          0 : =6C                BDA_TICKS:      equ     6CH     ; dword, since midnight
+          0 : =70                BDA_ROLLOVER:   equ     70H     ; set once when TICKS passed a day
+          0 : =74                BDA_HDSTATUS:   equ     74H
+          0 : =75                BDA_HDCOUNT:    equ     75H
+          0 : =B0                TICKS_A_DAY_LO: equ     00B0H   ; 1800B0H ticks of 54.9254 ms
+          0 : =18                TICKS_A_DAY_HI: equ     0018H
+          0 :
+          0 : =0                 BOOT_SEG:       equ     0000H
+          0 : =7C00              BOOT_OFF:       equ     7C00H
+          0 :
+          0 :                    ;;; INT 13H errors
+          0 : =1                 ERR_BAD_CMD:    equ     01H
+          0 : =4                 ERR_BAD_SECTOR: equ     04H
+          0 : =CC                ERR_WRITE:      equ     0CCH
+          0 : =80                ERR_NO_MEDIA:   equ     80H     ; a floppy without its image
+          0 : =AA                ERR_NOT_READY:  equ     0AAH    ; a hard disk without its image
+          0 :
+       E000 :                            org     0E000H
+       E000 :
+       E000 :                    ;;; Floppy formats by index, FMT_FD360 first: heads, sectors a track,
+       E000 :                    ;;; cylinders - 1, the drive type INT 13H/08H reports.
+       E000 :                    fd_table:
+       E000 : 02 09 27 01                db      2, 9, 39, 1             ; fd360
+       E004 : 02 09 4F 03                db      2, 9, 79, 3             ; fd720
+       E008 : 02 0F 4F 02                db      2, 15, 79, 2            ; fd1200
+       E00C : 02 12 4F 04                db      2, 18, 79, 4            ; fd1440
+       E010 :
+       E010 :                    ;;; The floppy's diskette parameter table INT 13H/08H points at: the
+       E010 :                    ;;; 765's bytes mean nothing here but programs expect the pointer.
+       E010 : DF 02 25 02 12 1B  dbt:    db      0DFH, 02H, 25H, 02H, 18, 1BH, 0FFH, 54H, 0F6H, 0FH, 08H
+       E016 : FF 54 F6 0F 08
+       E01B :
+       E01B :                    ;;; INT 41H's fixed disk parameter table for hd32.
+       E01B : 00 04              fdpt:   dw      HD_CYLS
+       E01D : 04                         db      HD_HEADS
+       E01E : 00 00 00 00                dw      0, 0
+       E022 : FF FF                      dw      0FFFFH                  ; write precompensation: none
+       E024 : 00 00                      db      0, 0                    ; ECC burst, control
+       E026 : 00 00 00                   db      0, 0, 0                 ; timeouts
+       E029 : FF 03                      dw      HD_CYLS-1               ; landing zone
+       E02B : 10                         db      HD_SPT
+       E02C : 00                         db      0
+       E02D :
+       E02D :                    ;;; Interrupt vectors POST sets: type, handler.
+       E02D :                    vectors:
+       E02D : 08 00 9E E1                dw      08H, int08
+       E031 : 10 00 D6 E1                dw      10H, int10
+       E035 : 11 00 70 E2                dw      11H, int11
+       E039 : 12 00 7B E2                dw      12H, int12
+       E03D : 13 00 21 E3                dw      13H, int13
+       E041 : 14 00 86 E2                dw      14H, int14
+       E045 : 15 00 89 E2                dw      15H, int15
+       E049 : 16 00 91 E2                dw      16H, int16
+       E04D : 17 00 8E E2                dw      17H, int17
+       E051 : 19 00 6E E5                dw      19H, int19
+       E055 : 1A 00 9D E5                dw      1AH, int1a
+       E059 : 1C 00 D5 E1                dw      1CH, int1c
+       E05D : 41 00 1B E0                dw      41H, fdpt
+       E061 : =D                 VECTORS:        equ     ($-vectors)/4
+       E061 :
+       E061 : 0D 0A 50 43 20 42  banner: db      0DH, 0AH, 'PC BIOS 640K', 0
+       E067 : 49 4F 53 20 36 34
+       E06D : 30 4B 00
+       E070 : 20 41 3A 00 20 42  drives: db      ' A:', 0, ' B:', 0, ' C:', 0, ' D:', 0
+       E076 : 3A 00 20 43 3A 00
+       E07C : 20 44 3A 00
+       E080 : 0D 0A 00           crlf:   db      0DH, 0AH, 0
+       E083 : 4E 6F 20 62 6F 6F  noboot: db      'No boot disk', 0DH, 0AH, 0
+       E089 : 74 20 64 69 73 6B
+       E08F : 0D 0A 00
+       E092 :
+       E092 :                    ;;; Power-on: the USART polled with no interrupts, the data area and
+       E092 :                    ;;; vectors, the tick, then INT 19H.
+       E092 :                    post:
+       E092 : FA                         cli
+       E093 : FC                         cld
+       E094 : 31 C0                      xor     ax, ax
+       E096 : 8E D0                      mov     ss, ax
+       E098 : BC 00 7C                   mov     sp, BOOT_OFF
+       E09B : B4 37                      mov     ah, RX_EN_TX_EN
+       E09D : E8 BA 00                   call    init_usart
+       E0A0 : 30 C0                      xor     al, al
+       E0A2 : E6 42                      out     USARTRV, al             ; a CP/M-86 run leaves 20H and 21H
+       E0A4 : E6 43                      out     USARTTV, al
+       E0A6 : E6 58                      out     TIMER_CTRL, al
+       E0A8 : B0 08                      mov     al, TICK_TYPE
+       E0AA : E6 59                      out     TIMER_TYPE, al
+       E0AC : B8 40 00                   mov     ax, BDA
+       E0AF : 8E C0                      mov     es, ax
+       E0B1 : BF 10 00                   mov     di, BDA_EQUIP
+       E0B4 : B9 78 00                   mov     cx, (100H-BDA_EQUIP)/2
+       E0B7 : 31 C0                      xor     ax, ax
+       E0B9 : F3 AB                      rep     stosw
+       E0BB : 26 C7 06 13 00 80          mov     word ptr es:[BDA_MEMSIZE], 640
+       E0C1 : 02
+       E0C2 : 26 C6 06 49 00 03          mov     byte ptr es:[BDA_VMODE], 3
+       E0C8 : 26 C7 06 4A 00 50          mov     word ptr es:[BDA_COLS], 80
+       E0CE : 00
+       E0CF : 26 C7 06 1A 00 1E          mov     word ptr es:[BDA_KBHEAD], BDA_KBBUF
+       E0D5 : 00
+       E0D6 : 26 C7 06 1C 00 1E          mov     word ptr es:[BDA_KBTAIL], BDA_KBBUF
+       E0DC : 00
+       E0DD :                            ;; The equipment word: 80x25 color, and the floppies mounted.
+       E0DD : E4 56                      in      al, DISK_MOUNTED
+       E0DF : 88 C2                      mov     dl, al
+       E0E1 : B8 20 00                   mov     ax, 0020H
+       E0E4 : F6 C2 03                   test    dl, 3
+       E0E7 : 74 0E                      jz      post_equip
+       E0E9 : 0C 01                      or      al, 01H                 ; a floppy
+       E0EB : F6 C2 01                   test    dl, 1
+       E0EE : 74 07                      jz      post_equip
+       E0F0 : F6 C2 02                   test    dl, 2
+       E0F3 : 74 02                      jz      post_equip
+       E0F5 : 0C 40                      or      al, 40H                 ; two
+       E0F7 :                    post_equip:
+       E0F7 : 26 A3 10 00                mov     es:[BDA_EQUIP], ax
+       E0FB : 88 D0                      mov     al, dl
+       E0FD : D0 E8                      shr     al, 1
+       E0FF : D0 E8                      shr     al, 1
+       E101 : 24 03                      and     al, 3                   ; the hard disks mounted
+       E103 : B4 00                      mov     ah, 0
+       E105 : 3C 03                      cmp     al, 3
+       E107 : 75 02                      jne     post_hd
+       E109 : B0 02                      mov     al, 2
+       E10B :                    post_hd:
+       E10B : 26 A2 75 00                mov     es:[BDA_HDCOUNT], al
+       E10F :                            ;; Vectors.
+       E10F : 31 C0                      xor     ax, ax
+       E111 : 8E C0                      mov     es, ax
+       E113 : BE 2D E0                   mov     si, vectors
+       E116 : B9 0D 00                   mov     cx, VECTORS
+       E119 :                    post_vectors:
+       E119 : 2E 8B 1C                   mov     bx, cs:[si]
+       E11C : D1 E3                      shl     bx, 1
+       E11E : D1 E3                      shl     bx, 1
+       E120 : 2E 8B 44 02                mov     ax, cs:[si+2]
+       E124 : 26 89 07                   mov     es:[bx], ax
+       E127 : 26 8C 4F 02                mov     es:[bx+2], cs
+       E12B : 83 C6 04                   add     si, 4
+       E12E : E2 E9                      loop    post_vectors
+       E130 : B0 01                      mov     al, TIMER_RUN
+       E132 : E6 58                      out     TIMER_CTRL, al
+       E134 : FB                         sti
+       E135 : BE 61 E0                   mov     si, banner
+       E138 : E8 38 00                   call    puts
+       E13B : BE 70 E0                   mov     si, drives
+       E13E : B9 04 00                   mov     cx, 4
+       E141 :                    post_drives:
+       E141 : D0 EA                      shr     dl, 1
+       E143 : 72 05                      jc      post_drive_show
+       E145 : 83 C6 04                   add     si, 4
+       E148 : EB 03                      jmp     post_drive_next
+       E14A :                    post_drive_show:
+       E14A : E8 26 00                   call    puts
+       E14D :                    post_drive_next:
+       E14D : E2 F2                      loop    post_drives
+       E14F : BE 80 E0                   mov     si, crlf
+       E152 : E8 1E 00                   call    puts
+       E155 : CD 19                      int     19H
+       E157 :                    post_halt:
+       E157 : F4                         hlt
+       E158 : EB FD                      jmp     post_halt
+       E15A :
+       E15A :                            include "init_usart.inc"
+(1)    E15A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    E15A :                    ;;; Initialize the USART, interrupts not yet enabled
+(1)    E15A :                    ;;; @param AH the command, RX_EN_TX_EN or RX_EN_TX_DIS
+(1)    E15A :                    ;;; @clobber AL
+(1)    E15A :                    init_usart:
+(1)    E15A : 30 C0                      xor     al, al          ; clear AL
+(1)    E15C : E6 41                      out     USARTC, al
+(1)    E15E : E6 41                      out     USARTC, al
+(1)    E160 : E6 41                      out     USARTC, al      ; safest way to sync mode
+(1)    E162 : B0 40                      mov     al, CMD_IR_bm
+(1)    E164 : E6 41                      out     USARTC, al      ; reset
+(1)    E166 : 90                         nop
+(1)    E167 : 90                         nop
+(1)    E168 : B0 4E                      mov     al, ASYNC_MODE
+(1)    E16A : E6 41                      out     USARTC, al
+(1)    E16C : 90                         nop
+(1)    E16D : 90                         nop
+(1)    E16E : 88 E0                      mov     al, ah
+(1)    E170 : E6 41                      out     USARTC, al
+(1)    E172 : C3                         ret
+       E173 :
+       E173 :                    ;;; Prints the string at CS:SI, up to its 0; SI past it.
+       E173 :                    puts:
+       E173 : 2E 8A 04                   mov     al, cs:[si]
+       E176 : 46                         inc     si
+       E177 : 08 C0                      or      al, al
+       E179 : 74 05                      jz      puts_end
+       E17B : E8 03 00                   call    conout
+       E17E : EB F3                      jmp     puts
+       E180 :                    puts_end:
+       E180 : C3                         ret
+       E181 :
+       E181 :                    ;;; Sends AL.
+       E181 :                    conout:
+       E181 : 50                         push    ax
+       E182 :                    conout_wait:
+       E182 : E4 41                      in      al, USARTS
+       E184 : A8 01                      test    al, ST_TxRDY_bm
+       E186 : 74 FA                      jz      conout_wait
+       E188 : 58                         pop     ax
+       E189 : E6 40                      out     USARTD, al
+       E18B : C3                         ret
+       E18C :
+       E18C :                    ;;; Sets CF in the interrupted flags, then returns; clears it.
+       E18C :                    iret_cf:
+       E18C : 55                         push    bp
+       E18D : 89 E5                      mov     bp, sp
+       E18F : 80 4E 06 01                or      byte ptr [bp+6], 1
+       E193 : 5D                         pop     bp
+       E194 : CF                         iret
+       E195 :                    iret_nc:
+       E195 : 55                         push    bp
+       E196 : 89 E5                      mov     bp, sp
+       E198 : 80 66 06 FE                and     byte ptr [bp+6], 0FEH
+       E19C : 5D                         pop     bp
+       E19D : CF                         iret
+       E19E :
+       E19E :                    ;;; INT 08H: the tick. The count wraps at a day, noting it for INT 1AH.
+       E19E :                    int08:
+       E19E : 50                         push    ax
+       E19F : 1E                         push    ds
+       E1A0 : B8 40 00                   mov     ax, BDA
+       E1A3 : 8E D8                      mov     ds, ax
+       E1A5 : 83 06 6C 00 01             add     word ptr [BDA_TICKS], 1
+       E1AA : 83 16 6E 00 00             adc     word ptr [BDA_TICKS+2], 0
+       E1AF : 83 3E 6E 00 18             cmp     word ptr [BDA_TICKS+2], TICKS_A_DAY_HI
+       E1B4 : 75 19                      jne     int08_ack
+       E1B6 : 81 3E 6C 00 B0 00          cmp     word ptr [BDA_TICKS], TICKS_A_DAY_LO
+       E1BC : 75 11                      jne     int08_ack
+       E1BE : C7 06 6C 00 00 00          mov     word ptr [BDA_TICKS], 0
+       E1C4 : C7 06 6E 00 00 00          mov     word ptr [BDA_TICKS+2], 0
+       E1CA : C6 06 70 00 01             mov     byte ptr [BDA_ROLLOVER], 1
+       E1CF :                    int08_ack:
+       E1CF : E6 5A                      out     TIMER_EOI, al
+       E1D1 : CD 1C                      int     1CH
+       E1D3 : 1F                         pop     ds
+       E1D4 : 58                         pop     ax
+       E1D5 :                    int1c:
+       E1D5 : CF                         iret
+       E1D6 :
+       E1D6 :                    ;;; INT 10H: video, as a teletype. The cursor position is kept for 03H
+       E1D6 :                    ;;; but never moves the terminal; the rest of the screen functions do
+       E1D6 :                    ;;; nothing.
+       E1D6 :                    int10:
+       E1D6 : 80 FC 0E                   cmp     ah, 0EH
+       E1D9 : 74 29                      je      int10_tty
+       E1DB : 80 FC 0F                   cmp     ah, 0FH
+       E1DE : 74 28                      je      int10_mode
+       E1E0 : 80 FC 00                   cmp     ah, 00H
+       E1E3 : 74 34                      je      int10_setmode
+       E1E5 : 80 FC 02                   cmp     ah, 02H
+       E1E8 : 74 3E                      je      int10_setcur
+       E1EA : 80 FC 03                   cmp     ah, 03H
+       E1ED : 74 49                      je      int10_getcur
+       E1EF : 80 FC 08                   cmp     ah, 08H
+       E1F2 : 74 53                      je      int10_getch
+       E1F4 : 80 FC 09                   cmp     ah, 09H
+       E1F7 : 74 52                      je      int10_putch
+       E1F9 : 80 FC 0A                   cmp     ah, 0AH
+       E1FC : 74 4D                      je      int10_putch
+       E1FE : 80 FC 13                   cmp     ah, 13H
+       E201 : 74 52                      je      int10_puts
+       E203 : CF                         iret
+       E204 :                    int10_tty:
+       E204 : E8 7A FF                   call    conout
+       E207 : CF                         iret
+       E208 :                    int10_mode:
+       E208 : 1E                         push    ds
+       E209 : B8 40 00                   mov     ax, BDA
+       E20C : 8E D8                      mov     ds, ax
+       E20E : A0 49 00                   mov     al, [BDA_VMODE]
+       E211 : 8A 26 4A 00                mov     ah, [BDA_COLS]
+       E215 : 1F                         pop     ds
+       E216 : B7 00                      mov     bh, 0
+       E218 : CF                         iret
+       E219 :                    int10_setmode:
+       E219 : 1E                         push    ds
+       E21A : 50                         push    ax
+       E21B : B8 40 00                   mov     ax, BDA
+       E21E : 8E D8                      mov     ds, ax
+       E220 : 58                         pop     ax
+       E221 : 24 7F                      and     al, 7FH
+       E223 : A2 49 00                   mov     [BDA_VMODE], al
+       E226 : 1F                         pop     ds
+       E227 : CF                         iret
+       E228 :                    int10_setcur:
+       E228 : 1E                         push    ds
+       E229 : B8 40 00                   mov     ax, BDA
+       E22C : 8E D8                      mov     ds, ax
+       E22E : 08 FF                      or      bh, bh
+       E230 : 75 04                      jnz     int10_setcur_end
+       E232 : 89 16 50 00                mov     [BDA_CURSOR], dx
+       E236 :                    int10_setcur_end:
+       E236 : 1F                         pop     ds
+       E237 : CF                         iret
+       E238 :                    int10_getcur:
+       E238 : 1E                         push    ds
+       E239 : B8 40 00                   mov     ax, BDA
+       E23C : 8E D8                      mov     ds, ax
+       E23E : 8B 16 50 00                mov     dx, [BDA_CURSOR]
+       E242 : 1F                         pop     ds
+       E243 : B9 07 06                   mov     cx, 0607H
+       E246 : CF                         iret
+       E247 :                    int10_getch:
+       E247 : B8 20 07                   mov     ax, 0720H               ; a blank in white on black
+       E24A : CF                         iret
+       E24B :                    ;;; AL CX times.
+       E24B :                    int10_putch:
+       E24B : 51                         push    cx
+       E24C : E3 05                      jcxz    int10_putch_end
+       E24E :                    int10_putch_loop:
+       E24E : E8 30 FF                   call    conout
+       E251 : E2 FB                      loop    int10_putch_loop
+       E253 :                    int10_putch_end:
+       E253 : 59                         pop     cx
+       E254 : CF                         iret
+       E255 :                    ;;; CX characters at ES:BP, each followed by an attribute when AL bit 1
+       E255 :                    ;;; is set.
+       E255 :                    int10_puts:
+       E255 : 51                         push    cx
+       E256 : 55                         push    bp
+       E257 : 53                         push    bx
+       E258 : 88 C3                      mov     bl, al
+       E25A : E3 10                      jcxz    int10_puts_end
+       E25C :                    int10_puts_loop:
+       E25C : 26 8A 46 00                mov     al, es:[bp]
+       E260 : 45                         inc     bp
+       E261 : E8 1D FF                   call    conout
+       E264 : F6 C3 02                   test    bl, 2
+       E267 : 74 01                      jz      int10_puts_next
+       E269 : 45                         inc     bp
+       E26A :                    int10_puts_next:
+       E26A : E2 F0                      loop    int10_puts_loop
+       E26C :                    int10_puts_end:
+       E26C : 5B                         pop     bx
+       E26D : 5D                         pop     bp
+       E26E : 59                         pop     cx
+       E26F : CF                         iret
+       E270 :
+       E270 :                    ;;; INT 11H: the equipment word. INT 12H: KB of memory.
+       E270 :                    int11:
+       E270 : 1E                         push    ds
+       E271 : B8 40 00                   mov     ax, BDA
+       E274 : 8E D8                      mov     ds, ax
+       E276 : A1 10 00                   mov     ax, [BDA_EQUIP]
+       E279 : 1F                         pop     ds
+       E27A : CF                         iret
+       E27B :                    int12:
+       E27B : 1E                         push    ds
+       E27C : B8 40 00                   mov     ax, BDA
+       E27F : 8E D8                      mov     ds, ax
+       E281 : A1 13 00                   mov     ax, [BDA_MEMSIZE]
+       E284 : 1F                         pop     ds
+       E285 : CF                         iret
+       E286 :
+       E286 :                    ;;; INT 14H serial and INT 17H printer: no device; INT 15H: nothing
+       E286 :                    ;;; supported.
+       E286 :                    int14:
+       E286 : B4 80                      mov     ah, 80H                 ; time out
+       E288 : CF                         iret
+       E289 :                    int15:
+       E289 : B4 86                      mov     ah, 86H
+       E28B : E9 FE FE                   jmp     iret_cf
+       E28E :                    int17:
+       E28E : B4 90                      mov     ah, 90H                 ; selected, not busy
+       E290 : CF                         iret
+       E291 :
+       E291 :                    ;;; INT 16H: the keyboard, from the USART through the data area's buffer
+       E291 :                    ;;; so that 01H can leave a character waiting. DEL comes back as BS.
+       E291 :                    int16:
+       E291 : FB                         sti
+       E292 : 1E                         push    ds
+       E293 : 53                         push    bx
+       E294 : BB 40 00                   mov     bx, BDA
+       E297 : 8E DB                      mov     ds, bx
+       E299 : 80 E4 EF                   and     ah, 0EFH                ; 10H-12H as 00H-02H
+       E29C : 80 FC 00                   cmp     ah, 0
+       E29F : 74 13                      je      int16_read
+       E2A1 : 80 FC 01                   cmp     ah, 1
+       E2A4 : 74 2E                      je      int16_status
+       E2A6 : 80 FC 02                   cmp     ah, 2
+       E2A9 : 74 03                      je      int16_shift
+       E2AB : 5B                         pop     bx
+       E2AC : 1F                         pop     ds
+       E2AD : CF                         iret
+       E2AE :                    int16_shift:
+       E2AE : A0 17 00                   mov     al, [BDA_KBFLAGS]
+       E2B1 : 5B                         pop     bx
+       E2B2 : 1F                         pop     ds
+       E2B3 : CF                         iret
+       E2B4 :                    int16_read:
+       E2B4 : E8 3D 00                   call    kb_poll
+       E2B7 : 8B 1E 1A 00                mov     bx, [BDA_KBHEAD]
+       E2BB : 3B 1E 1C 00                cmp     bx, [BDA_KBTAIL]
+       E2BF : 74 F3                      je      int16_read
+       E2C1 : 8B 07                      mov     ax, [bx]
+       E2C3 : 43                         inc     bx
+       E2C4 : 43                         inc     bx
+       E2C5 : 83 FB 3E                   cmp     bx, BDA_KBEND
+       E2C8 : 75 03                      jne     int16_read_head
+       E2CA : BB 1E 00                   mov     bx, BDA_KBBUF
+       E2CD :                    int16_read_head:
+       E2CD : 89 1E 1A 00                mov     [BDA_KBHEAD], bx
+       E2D1 : 5B                         pop     bx
+       E2D2 : 1F                         pop     ds
+       E2D3 : CF                         iret
+       E2D4 :                    ;;; ZF set with nothing waiting, else AX the next character, kept.
+       E2D4 :                    int16_status:
+       E2D4 : E8 1D 00                   call    kb_poll
+       E2D7 : 8B 1E 1A 00                mov     bx, [BDA_KBHEAD]
+       E2DB : 8B 07                      mov     ax, [bx]
+       E2DD : 3B 1E 1C 00                cmp     bx, [BDA_KBTAIL]
+       E2E1 : 5B                         pop     bx
+       E2E2 : 1F                         pop     ds
+       E2E3 : 55                         push    bp
+       E2E4 : 89 E5                      mov     bp, sp
+       E2E6 : 74 06                      je      int16_status_none
+       E2E8 : 80 66 06 BF                and     byte ptr [bp+6], 0BFH
+       E2EC : 5D                         pop     bp
+       E2ED : CF                         iret
+       E2EE :                    int16_status_none:
+       E2EE : 80 4E 06 40                or      byte ptr [bp+6], 40H
+       E2F2 : 5D                         pop     bp
+       E2F3 : CF                         iret
+       E2F4 :                    ;;; Moves a received character into the buffer, if one waits and the
+       E2F4 :                    ;;; buffer has room. DS=BDA.
+       E2F4 :                    kb_poll:
+       E2F4 : E4 41                      in      al, USARTS
+       E2F6 : A8 02                      test    al, ST_RxRDY_bm
+       E2F8 : 74 26                      jz      kb_poll_end
+       E2FA : 8B 1E 1C 00                mov     bx, [BDA_KBTAIL]
+       E2FE : 43                         inc     bx
+       E2FF : 43                         inc     bx
+       E300 : 83 FB 3E                   cmp     bx, BDA_KBEND
+       E303 : 75 03                      jne     kb_poll_room
+       E305 : BB 1E 00                   mov     bx, BDA_KBBUF
+       E308 :                    kb_poll_room:
+       E308 : 3B 1E 1A 00                cmp     bx, [BDA_KBHEAD]
+       E30C : 74 12                      je      kb_poll_end             ; full: the character waits
+       E30E : E4 40                      in      al, USARTD
+       E310 : 24 7F                      and     al, 7FH
+       E312 : 3C 7F                      cmp     al, 7FH
+       E314 : 75 02                      jne     kb_poll_store
+       E316 : B0 08                      mov     al, 08H
+       E318 :                    kb_poll_store:
+       E318 : B4 00                      mov     ah, 0
+       E31A : 87 1E 1C 00                xchg    bx, [BDA_KBTAIL]
+       E31E : 89 07                      mov     [bx], ax
+       E320 :                    kb_poll_end:
+       E320 : C3                         ret
+       E321 :
+       E321 :                    ;;; INT 13H: the disks. DL 00H-01H are floppies on units 0-1, 80H-81H
+       E321 :                    ;;; hard disks on units 2-3. Each function is a routine returning AH as
+       E321 :                    ;;; the status, CF set when it is not 0; the other registers come back
+       E321 :                    ;;; from the frame.
+       E321 :                    ;;; Frame: BP -> ES DS BP DI SI DX CX BX, then IP CS FLAGS; locals below.
+       E321 : =0                 F_ES:           equ     0
+       E321 : =6                 F_DI:           equ     6
+       E321 : =A                 F_DX:           equ     10
+       E321 : =C                 F_CX:           equ     12
+       E321 : =E                 F_BX:           equ     14
+       E321 : =14                F_FLAGS:        equ     20
+       E321 : =FFFFFFFE          F_AL:           equ     -2              ; AL as it came
+       E321 : =FFFFFFFC          F_UNIT:         equ     -4
+       E321 : =FFFFFFFA          F_CMD:          equ     -6              ; the disk command
+       E321 : =FFFFFFF8          F_COUNT:        equ     -8              ; sectors left
+       E321 :                    int13:
+       E321 : FB                         sti
+       E322 : 53                         push    bx
+       E323 : 51                         push    cx
+       E324 : 52                         push    dx
+       E325 : 56                         push    si
+       E326 : 57                         push    di
+       E327 : 55                         push    bp
+       E328 : 1E                         push    ds
+       E329 : 06                         push    es
+       E32A : 89 E5                      mov     bp, sp
+       E32C : 83 EC 08                   sub     sp, 8
+       E32F : 89 46 FE                   mov     [bp+F_AL], ax
+       E332 : BE 40 00                   mov     si, BDA
+       E335 : 8E DE                      mov     ds, si
+       E337 : 89 D6                      mov     si, dx
+       E339 : 83 E6 7F                   and     si, 7FH
+       E33C : 83 FE 02                   cmp     si, 2
+       E33F : 73 1C                      jae     int13_bad_unit
+       E341 : F6 C2 80                   test    dl, 80H
+       E344 : 74 03                      jz      int13_unit
+       E346 : 83 C6 02                   add     si, 2
+       E349 :                    int13_unit:
+       E349 : 89 76 FC                   mov     [bp+F_UNIT], si
+       E34C : BE 8F E3                   mov     si, int13_table
+       E34F :                    int13_dispatch:
+       E34F : 2E 3A 24                   cmp     ah, cs:[si]
+       E352 : 74 10                      je      int13_call
+       E354 : 83 C6 03                   add     si, 3
+       E357 : 2E 80 3C FF                cmp     byte ptr cs:[si], 0FFH
+       E35B : 75 F2                      jne     int13_dispatch
+       E35D :                    int13_bad_unit:
+       E35D : 89 76 FC                   mov     [bp+F_UNIT], si         ; its status with the floppies'
+       E360 :                    int13_bad_cmd:
+       E360 : B4 01                      mov     ah, ERR_BAD_CMD
+       E362 : EB 04                      jmp     int13_done
+       E364 :                    int13_call:
+       E364 : 2E FF 54 01                call    word ptr cs:[si+1]
+       E368 :                    int13_done:
+       E368 : 80 7E FC 02                cmp     byte ptr [bp+F_UNIT], 2
+       E36C : 73 06                      jae     int13_done_hd
+       E36E : 88 26 41 00                mov     [BDA_FDSTATUS], ah
+       E372 : EB 04                      jmp     int13_done_cf
+       E374 :                    int13_done_hd:
+       E374 : 88 26 74 00                mov     [BDA_HDSTATUS], ah
+       E378 :                    int13_done_cf:
+       E378 : 80 66 14 FE                and     byte ptr [bp+F_FLAGS], 0FEH
+       E37C : 08 E4                      or      ah, ah
+       E37E : 74 04                      jz      int13_exit
+       E380 : 80 4E 14 01                or      byte ptr [bp+F_FLAGS], 1
+       E384 :                    int13_exit:
+       E384 : 89 EC                      mov     sp, bp
+       E386 : 07                         pop     es
+       E387 : 1F                         pop     ds
+       E388 : 5D                         pop     bp
+       E389 : 5F                         pop     di
+       E38A : 5E                         pop     si
+       E38B : 5A                         pop     dx
+       E38C : 59                         pop     cx
+       E38D : 5B                         pop     bx
+       E38E : CF                         iret
+       E38F :
+       E38F :                    ;;; Function, routine; those that only succeed share int13_ok.
+       E38F :                    int13_table:
+       E38F : 00                         db      00H                     ; reset
+       E390 : BA E3                      dw      int13_ok
+       E392 : 01                         db      01H
+       E393 : BD E3                      dw      int13_status
+       E395 : 02                         db      02H
+       E396 : 7A E4                      dw      int13_read
+       E398 : 03                         db      03H
+       E399 : 80 E4                      dw      int13_write
+       E39B : 04                         db      04H                     ; verify
+       E39C : EC E3                      dw      int13_check
+       E39E : 08                         db      08H
+       E39F : 09 E4                      dw      int13_params
+       E3A1 : 0C                         db      0CH                     ; seek
+       E3A2 : BA E3                      dw      int13_ok
+       E3A4 : 0D                         db      0DH                     ; reset hard disk
+       E3A5 : BA E3                      dw      int13_ok
+       E3A7 : 10                         db      10H                     ; test ready
+       E3A8 : EC E3                      dw      int13_check
+       E3AA : 11                         db      11H                     ; recalibrate
+       E3AB : BA E3                      dw      int13_ok
+       E3AD : 15                         db      15H
+       E3AE : 5A E4                      dw      int13_type
+       E3B0 : 16                         db      16H                     ; change line: no change
+       E3B1 : BA E3                      dw      int13_ok
+       E3B3 : 17                         db      17H                     ; set type
+       E3B4 : BA E3                      dw      int13_ok
+       E3B6 : 18                         db      18H
+       E3B7 : BA E3                      dw      int13_ok
+       E3B9 : FF                         db      0FFH
+       E3BA :
+       E3BA :                    int13_ok:
+       E3BA : B4 00                      mov     ah, 0
+       E3BC : C3                         ret
+       E3BD :
+       E3BD :                    int13_status:
+       E3BD : A0 41 00                   mov     al, [BDA_FDSTATUS]
+       E3C0 : 80 7E FC 02                cmp     byte ptr [bp+F_UNIT], 2
+       E3C4 : 72 F4                      jb      int13_ok
+       E3C6 : A0 74 00                   mov     al, [BDA_HDSTATUS]
+       E3C9 : EB EF                      jmp     int13_ok
+       E3CB :
+       E3CB :                    ;;; AH=the error for the unit's missing image, 0 when it is there,
+       E3CB :                    ;;; selected, with its format in AL bits 4-7.
+       E3CB :                    int13_select:
+       E3CB : B4 80                      mov     ah, ERR_NO_MEDIA
+       E3CD : 80 7E FC 02                cmp     byte ptr [bp+F_UNIT], 2
+       E3D1 : 72 02                      jb      int13_select_fd
+       E3D3 : B4 AA                      mov     ah, ERR_NOT_READY
+       E3D5 :                    int13_select_fd:
+       E3D5 : 51                         push    cx
+       E3D6 : E4 56                      in      al, DISK_MOUNTED
+       E3D8 : 8B 4E FC                   mov     cx, [bp+F_UNIT]
+       E3DB : D2 E8                      shr     al, cl
+       E3DD : 59                         pop     cx
+       E3DE : A8 01                      test    al, 1
+       E3E0 : 74 09                      jz      int13_select_end
+       E3E2 : 8A 46 FC                   mov     al, [bp+F_UNIT]
+       E3E5 : E6 50                      out     DISK_DRIVE, al
+       E3E7 : E4 50                      in      al, DISK_DRIVE
+       E3E9 : B4 00                      mov     ah, 0
+       E3EB :                    int13_select_end:
+       E3EB : C3                         ret
+       E3EC :
+       E3EC :                    int13_check:
+       E3EC : EB DD                      jmp     int13_select
+       E3EE :
+       E3EE :                    ;;; AH=0 and BX=the floppy's fd_table entry for the format in AL bits
+       E3EE :                    ;;; 4-7; AH=an error when the format is not a DOS floppy's.
+       E3EE :                    int13_fd_format:
+       E3EE : 24 F0                      and     al, 0F0H
+       E3F0 : 2C 20                      sub     al, FMT_FD360 << 4
+       E3F2 : 72 12                      jb      int13_fd_format_bad
+       E3F4 : 3C 30                      cmp     al, (FMT_FD1440-FMT_FD360) << 4
+       E3F6 : 77 0E                      ja      int13_fd_format_bad
+       E3F8 : D0 E8                      shr     al, 1
+       E3FA : D0 E8                      shr     al, 1                   ; 4 bytes an entry
+       E3FC : B4 00                      mov     ah, 0
+       E3FE : 05 00 E0                   add     ax, fd_table
+       E401 : 89 C3                      mov     bx, ax
+       E403 : B4 00                      mov     ah, 0
+       E405 : C3                         ret
+       E406 :                    int13_fd_format_bad:
+       E406 : B4 80                      mov     ah, ERR_NO_MEDIA
+       E408 : C3                         ret
+       E409 :
+       E409 :                    int13_params:
+       E409 : E8 BF FF                   call    int13_select
+       E40C : 08 E4                      or      ah, ah
+       E40E : 75 49                      jnz     int13_params_end
+       E410 : 80 7E FC 02                cmp     byte ptr [bp+F_UNIT], 2
+       E414 : 73 30                      jae     int13_params_hd
+       E416 : E8 D5 FF                   call    int13_fd_format
+       E419 : 08 E4                      or      ah, ah
+       E41B : 75 3C                      jnz     int13_params_end
+       E41D : 2E 8A 37                   mov     dh, cs:[bx]
+       E420 : FE CE                      dec     dh
+       E422 : B2 02                      mov     dl, 2                   ; drives
+       E424 : 2E 8A 4F 01                mov     cl, cs:[bx+1]
+       E428 : 2E 8A 6F 02                mov     ch, cs:[bx+2]
+       E42C : 2E 8A 5F 03                mov     bl, cs:[bx+3]
+       E430 : B7 00                      mov     bh, 0
+       E432 : 89 5E 0E                   mov     [bp+F_BX], bx
+       E435 : 89 4E 0C                   mov     [bp+F_CX], cx
+       E438 : 89 56 0A                   mov     [bp+F_DX], dx
+       E43B : 8C 4E 00                   mov     [bp+F_ES], cs
+       E43E : C7 46 06 10 E0             mov     word ptr [bp+F_DI], dbt
+       E443 : E9 74 FF                   jmp     int13_ok
+       E446 :                    int13_params_hd:
+       E446 : B5 FF                      mov     ch, (HD_CYLS-1) & 0FFH
+       E448 : B1 D0                      mov     cl, HD_SPT | (((HD_CYLS-1) >> 2) & 0C0H)
+       E44A : B6 03                      mov     dh, HD_HEADS-1
+       E44C : 8A 16 75 00                mov     dl, [BDA_HDCOUNT]
+       E450 : 89 4E 0C                   mov     [bp+F_CX], cx
+       E453 : 89 56 0A                   mov     [bp+F_DX], dx
+       E456 : E9 61 FF                   jmp     int13_ok
+       E459 :                    int13_params_end:
+       E459 : C3                         ret
+       E45A :
+       E45A :                    int13_type:
+       E45A : E8 6E FF                   call    int13_select
+       E45D : 08 E4                      or      ah, ah
+       E45F : 74 03                      jz      int13_type_there
+       E461 : B4 00                      mov     ah, 0                   ; no drive, no error
+       E463 : C3                         ret
+       E464 :                    int13_type_there:
+       E464 : 80 7E FC 02                cmp     byte ptr [bp+F_UNIT], 2
+       E468 : 73 03                      jae     int13_type_hd
+       E46A : B4 01                      mov     ah, 1                   ; a floppy without a change line
+       E46C : C3                         ret
+       E46D :                    int13_type_hd:
+       E46D : C7 46 0C 01 00             mov     word ptr [bp+F_CX], 1   ; CX:DX = 65536 sectors
+       E472 : C7 46 0A 00 00             mov     word ptr [bp+F_DX], 0
+       E477 : B4 03                      mov     ah, 3
+       E479 : C3                         ret
+       E47A :
+       E47A :                    ;;; Read or write AL sectors from CH/CL/DH to ES:BX. A floppy's track is
+       E47A :                    ;;; cylinder x heads + head and its sectors count from 1; the hard disk
+       E47A :                    ;;; is linear, the sector CHS's LBA from 0, 256 to a track.
+       E47A :                    int13_read:
+       E47A : C6 46 FA 01                mov     byte ptr [bp+F_CMD], CMD_READ
+       E47E : EB 04                      jmp     int13_transfer
+       E480 :                    int13_write:
+       E480 : C6 46 FA 02                mov     byte ptr [bp+F_CMD], CMD_WRITE
+       E484 :                    int13_transfer:
+       E484 : 88 46 F8                   mov     [bp+F_COUNT], al
+       E487 : E8 41 FF                   call    int13_select
+       E48A : 08 E4                      or      ah, ah
+       E48C : 75 2F                      jnz     int13_transfer_end
+       E48E : 89 DF                      mov     di, bx                  ; ES:DI the buffer
+       E490 : 80 7E FC 02                cmp     byte ptr [bp+F_UNIT], 2
+       E494 : 73 2B                      jae     int13_transfer_hd
+       E496 : E8 55 FF                   call    int13_fd_format
+       E499 : 08 E4                      or      ah, ah
+       E49B : 75 20                      jnz     int13_transfer_end
+       E49D : F6 C1 C0                   test    cl, 0C0H
+       E4A0 : 75 19                      jnz     int13_transfer_bad
+       E4A2 : 2E 3A 37                   cmp     dh, cs:[bx]
+       E4A5 : 73 14                      jae     int13_transfer_bad
+       E4A7 : 88 E8                      mov     al, ch
+       E4A9 : 2E F6 27                   mul     byte ptr cs:[bx]
+       E4AC : 00 F0                      add     al, dh
+       E4AE : 88 C6                      mov     dh, al                  ; DH = track
+       E4B0 : 88 CA                      mov     dl, cl
+       E4B2 : 80 E2 3F                   and     dl, 3FH                 ; DL = sector
+       E4B5 : 2E 8A 6F 01                mov     ch, cs:[bx+1]           ; CH = sectors a track
+       E4B9 : EB 44                      jmp     int13_transfer_loop
+       E4BB :                    int13_transfer_bad:
+       E4BB : B4 04                      mov     ah, ERR_BAD_SECTOR
+       E4BD :                    int13_transfer_end:
+       E4BD : C3                         ret
+       E4BE :                    int13_transfer_not_ready:
+       E4BE : B4 AA                      mov     ah, ERR_NOT_READY
+       E4C0 : C3                         ret
+       E4C1 :                    int13_transfer_hd:
+       E4C1 : 24 F0                      and     al, 0F0H
+       E4C3 : 3C 60                      cmp     al, FMT_HD32 << 4
+       E4C5 : 75 F7                      jne     int13_transfer_not_ready
+       E4C7 : 80 FE 04                   cmp     dh, HD_HEADS
+       E4CA : 73 EF                      jae     int13_transfer_bad
+       E4CC : 88 CA                      mov     dl, cl
+       E4CE : 80 E2 3F                   and     dl, 3FH
+       E4D1 : FE CA                      dec     dl
+       E4D3 : 80 FA 10                   cmp     dl, HD_SPT
+       E4D6 : 73 E3                      jae     int13_transfer_bad
+       E4D8 : 88 C8                      mov     al, cl
+       E4DA : 24 C0                      and     al, 0C0H
+       E4DC : B4 00                      mov     ah, 0
+       E4DE : D1 E0                      shl     ax, 1
+       E4E0 : D1 E0                      shl     ax, 1
+       E4E2 : 88 E8                      mov     al, ch                  ; AX = cylinder
+       E4E4 : 3D 00 04                   cmp     ax, HD_CYLS
+       E4E7 : 73 D2                      jae     int13_transfer_bad
+       E4E9 : D1 E0                      shl     ax, 1
+       E4EB : D1 E0                      shl     ax, 1
+       E4ED : 00 F0                      add     al, dh
+       E4EF : 80 D4 00                   adc     ah, 0                   ; AX = cylinder x 4 + head
+       E4F2 : B1 04                      mov     cl, 4
+       E4F4 : D3 E0                      shl     ax, cl
+       E4F6 : 00 D0                      add     al, dl
+       E4F8 : 80 D4 00                   adc     ah, 0                   ; AX = the LBA
+       E4FB : 89 C2                      mov     dx, ax                  ; DH:DL its track and sector
+       E4FD : B5 00                      mov     ch, 0                   ; linear: no track wrap
+       E4FF :                    int13_transfer_loop:
+       E4FF :                            ;; DH:DL the track and sector, CH the sectors a track or 0 when
+       E4FF :                            ;; linear, ES:DI the buffer.
+       E4FF : 80 7E F8 00                cmp     byte ptr [bp+F_COUNT], 0
+       E503 : 74 58                      je      int13_transfer_ok
+       E505 : FE 4E F8                   dec     byte ptr [bp+F_COUNT]
+       E508 : 88 F0                      mov     al, dh
+       E50A : E6 51                      out     DISK_TRACK, al
+       E50C : 88 D0                      mov     al, dl
+       E50E : E6 52                      out     DISK_SECTOR, al
+       E510 : 8C C0                      mov     ax, es                  ; DMA = ES x 16 + DI
+       E512 : B1 04                      mov     cl, 4
+       E514 : D3 C0                      rol     ax, cl
+       E516 : 89 C3                      mov     bx, ax
+       E518 : 25 F0 FF                   and     ax, 0FFF0H
+       E51B : 83 E3 0F                   and     bx, 000FH
+       E51E : 01 F8                      add     ax, di
+       E520 : 80 D3 00                   adc     bl, 0
+       E523 : E6 53                      out     DISK_DMAL, al
+       E525 : 88 E0                      mov     al, ah
+       E527 : E6 54                      out     DISK_DMAH, al
+       E529 : 88 D8                      mov     al, bl
+       E52B : E6 57                      out     DISK_DMAX, al
+       E52D : 8A 46 FA                   mov     al, [bp+F_CMD]
+       E530 : E6 55                      out     DISK_COMMAND, al
+       E532 : E4 55                      in      al, DISK_COMMAND
+       E534 : 08 C0                      or      al, al
+       E536 : 75 2B                      jnz     int13_transfer_err
+       E538 : 81 C7 00 02                add     di, 512
+       E53C : 73 07                      jnc     int13_transfer_next
+       E53E : 8C C0                      mov     ax, es
+       E540 : 05 00 10                   add     ax, 1000H
+       E543 : 8E C0                      mov     es, ax
+       E545 :                    int13_transfer_next:
+       E545 : FE C2                      inc     dl
+       E547 : 08 ED                      or      ch, ch
+       E549 : 74 0A                      jz      int13_transfer_linear
+       E54B : 38 EA                      cmp     dl, ch
+       E54D : 76 B0                      jbe     int13_transfer_loop
+       E54F : B2 01                      mov     dl, 1
+       E551 : FE C6                      inc     dh
+       E553 : EB AA                      jmp     int13_transfer_loop
+       E555 :                    int13_transfer_linear:
+       E555 : 08 D2                      or      dl, dl
+       E557 : 75 A6                      jnz     int13_transfer_loop
+       E559 : FE C6                      inc     dh
+       E55B : EB A2                      jmp     int13_transfer_loop
+       E55D :                    int13_transfer_ok:
+       E55D : 8A 46 FE                   mov     al, [bp+F_AL]           ; the sectors moved
+       E560 : E9 57 FE                   jmp     int13_ok
+       E563 :                    int13_transfer_err:
+       E563 : B4 04                      mov     ah, ERR_BAD_SECTOR
+       E565 : 80 7E FA 02                cmp     byte ptr [bp+F_CMD], CMD_WRITE
+       E569 : 75 02                      jne     int13_transfer_err_end
+       E56B : B4 CC                      mov     ah, ERR_WRITE
+       E56D :                    int13_transfer_err_end:
+       E56D : C3                         ret
+       E56E :
+       E56E :                    ;;; INT 19H: the boot sector of A: when it is mounted, else the MBR of
+       E56E :                    ;;; the first hard disk, to 0000:7C00, entered with DL its drive.
+       E56E :                    int19:
+       E56E : E4 56                      in      al, DISK_MOUNTED
+       E570 : B2 00                      mov     dl, 0
+       E572 : A8 01                      test    al, 1
+       E574 : 75 06                      jnz     int19_load
+       E576 : B2 80                      mov     dl, 80H
+       E578 : A8 04                      test    al, 4
+       E57A : 74 19                      jz      int19_none
+       E57C :                    int19_load:
+       E57C : B8 00 00                   mov     ax, BOOT_SEG
+       E57F : 8E C0                      mov     es, ax
+       E581 : BB 00 7C                   mov     bx, BOOT_OFF
+       E584 : B8 01 02                   mov     ax, 0201H               ; read 1 sector
+       E587 : B9 01 00                   mov     cx, 0001H               ; cylinder 0, sector 1
+       E58A : B6 00                      mov     dh, 0
+       E58C : CD 13                      int     13H
+       E58E : 72 05                      jc      int19_none
+       E590 : EA 00 7C 00 00             jmpf    BOOT_SEG:BOOT_OFF
+       E595 :                    int19_none:
+       E595 : BE 83 E0                   mov     si, noboot
+       E598 : E8 D8 FB                   call    puts
+       E59B : F4                         hlt
+       E59C : CF                         iret
+       E59D :
+       E59D :                    ;;; INT 1AH: the tick count, AL the rollover flag, cleared once read.
+       E59D :                    int1a:
+       E59D : 1E                         push    ds
+       E59E : 50                         push    ax
+       E59F : B8 40 00                   mov     ax, BDA
+       E5A2 : 8E D8                      mov     ds, ax
+       E5A4 : 58                         pop     ax
+       E5A5 : 80 FC 00                   cmp     ah, 0
+       E5A8 : 74 09                      je      int1a_get
+       E5AA : 80 FC 01                   cmp     ah, 1
+       E5AD : 74 1A                      je      int1a_set
+       E5AF : 1F                         pop     ds
+       E5B0 : E9 D9 FB                   jmp     iret_cf
+       E5B3 :                    int1a_get:
+       E5B3 : FA                         cli
+       E5B4 : 8B 0E 6E 00                mov     cx, [BDA_TICKS+2]
+       E5B8 : 8B 16 6C 00                mov     dx, [BDA_TICKS]
+       E5BC : A0 70 00                   mov     al, [BDA_ROLLOVER]
+       E5BF : C6 06 70 00 00             mov     byte ptr [BDA_ROLLOVER], 0
+       E5C4 : FB                         sti
+       E5C5 : 1F                         pop     ds
+       E5C6 : E9 CC FB                   jmp     iret_nc
+       E5C9 :                    int1a_set:
+       E5C9 : FA                         cli
+       E5CA : 89 0E 6E 00                mov     [BDA_TICKS+2], cx
+       E5CE : 89 16 6C 00                mov     [BDA_TICKS], dx
+       E5D2 : C6 06 70 00 00             mov     byte ptr [BDA_ROLLOVER], 0
+       E5D7 : FB                         sti
+       E5D8 : 1F                         pop     ds
+       E5D9 : E9 B9 FB                   jmp     iret_nc
+       E5DC :
+       FFF0 :                            org     0FFF0H
+       FFF0 : EA 92 E0 00 F0             jmpf    BIOSSEG:post
+       FFF5 :
+       FFF5 :                            end
