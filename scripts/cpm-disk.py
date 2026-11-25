@@ -2,8 +2,8 @@
 """Build and read CP/M 2.2 disk images for the debugger's sector disk.
 
     scripts/cpm-disk.py make OUT.dsk [--format NAME] [--system HEX...] [FILE...]
-    scripts/cpm-disk.py put IMAGE.dsk FILE...
-    scripts/cpm-disk.py era IMAGE.dsk NAME.TYP...
+    scripts/cpm-disk.py put IMAGE.dsk [--user N] FILE...
+    scripts/cpm-disk.py era IMAGE.dsk [--user N] NAME.TYP...
     scripts/cpm-disk.py sys IMAGE.dsk HEX...
     scripts/cpm-disk.py list IMAGE.dsk
     scripts/cpm-disk.py get IMAGE.dsk NAME.TYP [OUT]
@@ -30,8 +30,9 @@ the track and sector numbers samples/i8080/cpm80.asm and the BIOS's warm
 boot read: CCP and BDOS assembled for 64K, then samples/i8080/cpm80bios.hex.
 Bytes the HEX files leave out are E5.
 
-`put` copies FILE... into an image as user 0, replacing files of the
-same name; `era` erases files of user 0 from it, as CP/M's ERA does.
+`put` copies FILE... into an image as user 0, or user N with --user,
+replacing files of the same name there; `era` erases files of that user
+from it, as CP/M's ERA does.
 `sys` writes the HEX files' bytes over the system tracks as --system
 does, keeping the bytes they leave out: a new BIOS over an image's
 CCP and BDOS.
@@ -163,7 +164,7 @@ def entry_blocks(e, fmt):
     return list(e[16:32])
 
 
-def add_file(image, path, used, entries, fmt=None):
+def add_file(image, path, used, entries, fmt=None, user=0):
     fmt = fmt or format_of(len(image))
     name, typ = cpm_name(path)
     with open(path, 'rb') as f:
@@ -198,7 +199,7 @@ def add_file(image, path, used, entries, fmt=None):
         if not entries:
             sys.exit(f'{path}: directory full')
         at = entries.pop(0)
-        image[at:at + 32] = (bytes([0]) + name + typ
+        image[at:at + 32] = (bytes([user]) + name + typ
                              + bytes([extent & 0x1F, 0, extent >> 5, rc])
                              + pointers.ljust(16, b'\0'))
 
@@ -215,12 +216,12 @@ def make(out, hexes, files, fmt=IBM3740):
         f.write(image)
 
 
-def erase(image, path):
-    """Marks user 0's entries of |path|'s name erased; whether any were."""
+def erase(image, path, user=0):
+    """Marks |user|'s entries of |path|'s name erased; whether any were."""
     name, typ = cpm_name(path)
     found = False
     for _, at, e in directory(image):
-        if e[0] == 0 and e[1:9] == name and bytes(c & 0x7F for c in e[9:12]) == typ:
+        if e[0] == user and e[1:9] == name and bytes(c & 0x7F for c in e[9:12]) == typ:
             image[at] = 0xE5
             found = True
     return found
@@ -231,19 +232,19 @@ def save(path, image):
         f.write(image)
 
 
-def era(path, names):
+def era(path, names, user=0):
     image = load(path)
     for n in names:
-        if not erase(image, n):
+        if not erase(image, n, user):
             sys.exit(f'{n}: not found')
     save(path, image)
 
 
-def put(path, paths):
+def put(path, paths, user=0):
     image = load(path)
     fmt = format_of(len(image))
     for p in paths:
-        erase(image, p)
+        erase(image, p, user)
     used = set(range(fmt.dir_blocks))
     entries = []
     for _, at, e in directory(image, fmt):
@@ -252,7 +253,7 @@ def put(path, paths):
         else:
             used.update(b for b in entry_blocks(e, fmt) if b)
     for p in paths:
-        add_file(image, p, used, entries, fmt)
+        add_file(image, p, used, entries, fmt, user)
     save(path, image)
 
 
@@ -320,6 +321,15 @@ def ihex(kind, addr, data):
     return ':' + (record + bytes([-sum(record) & 0xFF])).hex().upper() + '\n'
 
 
+def user_of(rest):
+    """|rest| without a leading --user N, and N (0 without one)."""
+    if rest[:1] != ['--user']:
+        return rest, 0
+    if len(rest) < 2 or not rest[1].isdigit() or int(rest[1]) > 15:
+        sys.exit('--user needs 0-15')
+    return rest[2:], int(rest[1])
+
+
 def main(argv):
     if len(argv) >= 2 and argv[0] == 'make':
         out, rest = argv[1], argv[2:]
@@ -337,10 +347,11 @@ def main(argv):
             if not hexes:
                 sys.exit('--system needs HEX files')
         make(out, hexes, rest, fmt)
-    elif len(argv) >= 3 and argv[0] == 'put':
-        put(argv[1], argv[2:])
-    elif len(argv) >= 3 and argv[0] == 'era':
-        era(argv[1], argv[2:])
+    elif len(argv) >= 3 and argv[0] in ('put', 'era'):
+        rest, user = user_of(argv[2:])
+        if not rest:
+            sys.exit(__doc__)
+        (put if argv[0] == 'put' else era)(argv[1], rest, user)
     elif len(argv) >= 3 and argv[0] == 'sys':
         image = load(argv[1])
         put_system(image, argv[2:], get_system(image))
