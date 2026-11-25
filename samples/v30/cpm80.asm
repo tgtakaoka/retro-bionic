@@ -1,7 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; CP/M 2.2 on a V20/V30 in 8080 emulation mode. The Makefile appends
 ;;; ../i8080/cpm80.hex, the 8080 cold boot, to this image at
-;;; SEG_I8080:0000; L i8086/cpm80.hex loads both and mounts cpm80.dsk
+;;; SEG_I8080:0000; L v30/cpm80.hex loads both and mounts cpm80.dsk
 ;;; beside it, whose BIOS polls the USART and runs with interrupts off.
 ;;; The disk's DMAX puts the BIOS's 16-bit DMA addresses in SEG_I8080.
         include "../i8080/i8080.inc"

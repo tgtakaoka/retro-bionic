@@ -71,9 +71,9 @@ routines (0140H, 0150H, `OUT (C)`); `make cpm80.dsk` there puts that BIOS on a c
 the 8080's A:, and `L z180/cpm80.hex` boots it. That boot also writes 16 to the
 Z380's address mask register, so its memory wraps at 64K as CP/M's programs expect.
 
-On a V20 or V30, `L i8086/cpm80.hex` loads a native harness that enters 8080
-emulation at 1000:0000 with the 8080's cold boot, and mounts `i8086/cpm80.dsk`, a copy
-of the 8080's (`make cpm80.dsk cpm80b.dsk` in `samples/i8086`).
+On a V20 or V30, `L v30/cpm80.hex` loads a native harness that enters 8080
+emulation at 1000:0000 with the 8080's cold boot, and mounts `v30/cpm80.dsk`, a copy
+of the 8080's (`make cpm80.dsk cpm80b.dsk` in `samples/v30`).
 
 **BDS C** (public domain, [bdsoft.com](https://www.bdsoft.com/resources/bdsc.html))
 compiles on the 8080; A: has `bdsc160/`'s files from `bdsc-all.zip` and
