@@ -3,7 +3,7 @@ ASM=asm
 .PHONY: clean
 
 all: echo.hex echoir.hex echoitr.hex arith.hex mandelbrot.hex \
-	mandelbrot_i80186.hex cpm86bios.hex
+	mandelbrot_i80186.hex cpm86bios.hex cpm86.hex cpm86a.dsk cpm86b.dsk
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<
@@ -28,20 +28,25 @@ cpm86.hex: cpm86bios.hex $(CPM86)/.fetched
 	(grep -v '^:00000001FF' $@.tmp; cat cpm86bios.hex) > $@
 	rm -f $@.tmp
 
-# A: also takes the SUBMIT files, which compile from A:.
+# A: also takes the SUBMIT files, which compile from A:, and in user 1
+# Aztec C86, whose headers share names with DRI C's.
 CPM86A = cb.sub cc.sub
-cpm86.dsk: $(CPM86A) $(CPM86)/.fetched $(wildcard $(CPM86)/a/*)
+cpm86a.dsk: $(CPM86A) $(CPM86)/.fetched $(wildcard $(CPM86)/a/*) \
+	    $(wildcard $(CPM86)/a1/*)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM86A) $(CPM86)/a/*
+	../../scripts/cpm-disk.py put $@ --user 1 $(CPM86)/a1/*
 
 # B: holds BASIC, an 8 MB hd8: fmandel.bas in CBASIC, whose compiler
 # CB86 goes on A: with cb.sub, and the 8080's fmandel.bas as
 # fmandel.pb for DRI's Personal BASIC, BASIC.CMD in $(CPM86)/b/; and
 # fmandel.c and imandel.c for DRI's C compiler, which goes on A: with
 # cc.sub; imandel.c includes ../arith/imandel.c as imandel.inc, adding
-# the stdio.h DRI's putchar needs.
+# the stdio.h DRI's putchar needs. fmandel.c goes in user 1 too, for
+# Aztec C with its 8087 library.
 CPM86B = fmandel.bas fmandel.pb fmandel.c imandel.c imandel.inc fmandel.a86
 cpm86b.dsk: $(CPM86B) $(CPM86)/.fetched $(wildcard $(CPM86)/b/*)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM86B) $(CPM86)/b/*
+	../../scripts/cpm-disk.py put $@ --user 1 fmandel.c
 
 fmandel.pb: ../i8080/fmandel.bas
 	cp $< $@
@@ -50,6 +55,6 @@ imandel.inc: ../arith/imandel.c
 	cp $< $@
 
 clean:
-	-rm -f *.lst *.hex
+	-rm -f *.lst *.hex *.dsk fmandel.pb imandel.inc
 
 include ../deps.mk

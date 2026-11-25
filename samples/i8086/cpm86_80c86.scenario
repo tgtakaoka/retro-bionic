@@ -1,0 +1,77 @@
+# Scenario for scripts/record-scenario.py: CP/M-86 1.1 on the P80C86 on
+# the P8086 board: the system uploaded, its disks mounted from the SD
+# card, then fmandel.c with Aztec C86 and its sensing math library, in
+# user 1, and imandel.c with DRI's C.
+#
+# Needs a fresh samples/i8086/cpm86.hex, and the SD card's
+# i8086/cpm86a.dsk and cpm86b.dsk (docs/samples.md).
+
+key ?
+pace 2.0
+
+key R
+upload samples/i8086/cpm86.hex
+
+# The disks: A: the system and tools, B: the sources.
+type O
+wait Disk?
+command A i8086/cpm86a.dsk
+type O
+wait Disk?
+command B i8086/cpm86b.dsk
+type O
+wait Disk?
+command
+pace 2.0
+
+# A short backtrace for the halt at the end.
+key R
+type G
+wait backtrace?
+type 5\r
+waitfor 20 A>
+type \r
+wait A>
+pace 1.5
+
+type DIR\r
+wait A>
+pace 2.0
+
+type DIR B:\r
+wait A>
+pace 2.0
+
+# fmandel.c in Aztec C86, in user 1 with its headers (-I1/A:), linked
+# with M87S.LIB, which uses an 8087 when there is one and software
+# floating point here.
+type USER 1\r
+wait A>
+type DIR B:\r
+wait A>
+pace 1.5
+type CC -I1/A: B:FMANDEL.C\r
+waitfor 120 A>
+pace 1.5
+type LN -O B:FMANDEL.CMD B:FMANDEL.O M87S.LIB C.LIB\r
+waitfor 60 A>
+pace 1.5
+type B:FMANDEL\r
+waitfor 600 A>
+pace 2.0
+type USER 0\r
+wait A>
+
+# imandel.c, the integer mandelbrot, in DRI's C: preprocessor, two
+# code passes, then the link with DRI's library.
+type DRC B:IMANDEL\r
+waitfor 120 A>
+pace 1.5
+type LINK86 B:IMANDEL=IMANDEL\r
+waitfor 120 A>
+pace 1.5
+type B:IMANDEL\r
+waitfor 120 A>
+pace 2.0
+
+halt

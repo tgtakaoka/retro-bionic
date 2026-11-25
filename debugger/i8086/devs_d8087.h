@@ -34,7 +34,7 @@ private:
     void negate();
 };
 
-struct DevsD8087 final : DevsI8080 {
+struct DevsD8087 final : DevsI8086 {
     DevsD8087(const Mems *mems);
     ~DevsD8087();
 

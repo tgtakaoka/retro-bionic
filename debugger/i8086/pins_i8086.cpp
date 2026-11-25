@@ -353,7 +353,7 @@ bool atPark(const Signals *s) {
 PinsI8086::PinsI8086(bool fpu)
     : _fpu(fpu), _clock(cmos.high_min_ns, clock_min_hz) {
     _mems = new MemsI8086(fpu);
-    _devs = fpu ? new DevsD8087(_mems) : new DevsI8080(_mems);
+    _devs = fpu ? new DevsD8087(_mems) : new DevsI8086(_mems);
     _regs = new RegsI8086(this);
 #ifdef TUNE_CLOCK
     _clockInput = reset_hz;
