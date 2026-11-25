@@ -1,31 +1,40 @@
 ASM=asm
 
-.PHONY: clean
+.PHONY: clean distclean
 
-all: mandelbrot.hex fmandel.hex dmandel.hex clock.hex rk11.hex unix_v6.hex bsd211.hex
+all: mandelbrot.hex fmandel.hex dmandel.hex clock.hex rk11.hex unix_v6.hex bsd211.hex \
+	unix_v6.dsk bsd211.dsk
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<
 
-# Unix V6's disks for L unix_v6.hex, before the install: the root,
-# /usr/source and /usr/doc from the V6 distribution tape, which
-# v6-fetch.py downloads once into $(V6)/, in the slots the RK11 reads:
-# 1024 blocks for a drum, then 6144 blocks a drive from rk0.
+# The simulator both systems install on, open-simh's PDP-11, which
+# simh-fetch.py builds once into $(SIMH)/.
+SIMH ?= simh.fetch
+SIMHFETCH = ../../debugger/pdp11/tools/simh-fetch.py
+PDP11 = $(SIMH)/open-simh/BIN/pdp11
+$(SIMH)/.fetched: $(SIMHFETCH)
+	$(SIMHFETCH) $(SIMH)
+
+# Unix V6's disks for L unix_v6.hex: the root, /usr/source and /usr/doc
+# from the V6 distribution tape, which v6-fetch.py downloads once into
+# $(V6)/, installed by v6-install.py typing V6's setup at the
+# simulator's console, in the slots the RK11 reads: 1024 blocks for a
+# drum, then 6144 blocks a drive from rk0.
 V6 ?= unix_v6.fetch
 V6FETCH = ../../debugger/pdp11/tools/v6-fetch.py
+V6INSTALL = ../../debugger/pdp11/tools/v6-install.py
 $(V6)/.fetched: $(V6FETCH)
 	$(V6FETCH) $(V6)
 
-unix_v6.dsk: $(V6)/.fetched
-	dd if=/dev/zero of=$@.new bs=512 count=19456 status=none
-	dd if=$(V6)/rk0.dsk of=$@.new bs=512 seek=1024 conv=notrunc status=none
-	dd if=$(V6)/rk1.dsk of=$@.new bs=512 seek=7168 conv=notrunc status=none
-	dd if=$(V6)/rk2.dsk of=$@.new bs=512 seek=13312 conv=notrunc status=none
-	mv $@.new $@
+# /usr/mandel holds the DCJ11 samples for V6's as and cc.
+V6FILES = v6/fmandel.s v6/mandelbrot.s ../arith/fmandel.c ../arith/dmandel.c
+unix_v6.dsk: $(V6)/.fetched $(SIMH)/.fetched $(V6INSTALL) $(V6FILES)
+	$(V6INSTALL) $(PDP11) $(V6) $@ $(V6FILES)
 
-# 2.11BSD's disk for L bsd211.hex: the installation runs once under
-# open-simh, which bsd211-fetch.py builds along with fetching the tape
-# into $(BSD)/, and bsd211-install.py types it at the simulator's console.
+# 2.11BSD's disk for L bsd211.hex: bsd211-fetch.py fetches the tape once
+# into $(BSD)/, and bsd211-install.py types the installation at the
+# simulator's console.
 BSD ?= bsd211.fetch
 BSDFETCH = ../../debugger/pdp11/tools/bsd211-fetch.py
 BSDINSTALL = ../../debugger/pdp11/tools/bsd211-install.py
@@ -34,10 +43,14 @@ $(BSD)/.fetched: $(BSDFETCH)
 
 # /usr/root holds the DCJ11 samples for 2.11BSD's as and cc.
 BSDFILES = bsd211/fmandel.s ../arith/fmandel.c
-bsd211.dsk: $(BSD)/.fetched $(BSDINSTALL) $(BSDFILES)
-	$(BSDINSTALL) $(BSD)/open-simh/BIN/pdp11 $(BSD)/PL500.tap $@ $(BSDFILES)
+bsd211.dsk: $(BSD)/.fetched $(SIMH)/.fetched $(BSDINSTALL) $(BSDFILES)
+	$(BSDINSTALL) $(PDP11) $(BSD)/PL500.tap $@ $(BSDFILES)
 
 clean:
-	-rm -f *.lst *.hex
+	-rm -f *.lst *.hex unix_v6.dsk bsd211.dsk *.dsk.*
+
+# Also the tapes and the simulator the fetch tools downloaded and built.
+distclean: clean
+	-rm -rf $(SIMH) $(V6) $(BSD)
 
 include ../deps.mk

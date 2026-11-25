@@ -749,34 +749,32 @@ sector disk and USART:
   name with any type; `BASIC FMANDEL` starts it without loading one.
   CB86 opens its overlays on the current drive.
 
-### Unix V6 installs itself over the console **[hw]**
+### Unix V6 installs itself under simh **[code]**
 
-`debugger/pdp11/tools/v6-install.py` types V6's setup at the DCJ11's
-console, from the tape's disks `v6-fetch.py` cut, and checks each step's
-output. What the console taught it:
+`debugger/pdp11/tools/v6-install.py` types V6's setup at the console of
+open-simh's PDP-11, an 11/40 with the tape's disks `v6-fetch.py` cut on
+an RK11, checks each step's output, and puts the disks in the board's
+image slots. It first ran on the board, which took seven minutes; under
+the simulator it takes seconds. What V6's console taught it:
 
-- V6 drops keys typed faster than 50 ms apart, and its `kl` driver sends
-  every character with a parity bit, with DEL as the fill after a
-  newline, so the script strips bit 7 and DEL before matching; a scenario
-  masks the line to 7 bits instead, `I DL11 177`, as the terminal of the
-  time did, since the recorder matches and records the bytes as they come;
-  the setting is a mask, not a count, since 8 is no octal digit. Until
-  `stty -lcase` the shell echoes in upper case; `#` erases and `@` kills,
-  so a file typed in with `cat` may hold neither.
-- A typed line resets what the script has seen, so the `^D` that ends a
-  `cat` goes in the same typing as the text, or the prompt it provokes
-  is lost. `mkconf` reads device names up to `done`.
-- `?#ABORT W` lines during `cc` are the MMU's stack-growth aborts, which
-  the debugger reports and V6 handles; the script drops them.
-- At 10 MHz from the PWM, `cc mkconf.c` failed about half the runs with
-  compiler errors that moved from boot to boot (`No code table for op 0`,
-  `s redeclared`), while the raw disk compared equal to itself and
-  `icheck` was clean: the CPU's bus catch, not the disk, which the
-  bit-banged clock fixed.
-- The disk goes to and from the card with `Y`: `sd sync` before the boot
-  sends only the chunks that differ from the tape cut, so every run starts
-  from the same image, and `--save` reads the installed disk back,
-  checked chunk by chunk against `Y crc`.
+- The switch register must hold 173030, the board's default, for V6 to
+  boot single-user; the simulator's starts at 0, which goes multi-user.
+- V6's `kl` driver sends every character with a parity bit, with DEL as
+  the fill after a newline: the simulator's console strips bit 7 and the
+  script's prompt match skips DEL. A scenario on the board masks the line
+  to 7 bits, `I DL11 177`, as the terminal of the time did; the setting
+  is a mask, not a count, since 8 is no octal digit. Until `stty -lcase`
+  the shell echoes in upper case; `#` erases and `@` kills, so a file
+  typed in with `cat` may hold neither. `mkconf` reads device names up
+  to `done`.
+- On the board V6 drops keys typed faster than 50 ms apart, so a
+  scenario types at that pace; the simulator feeds its console a key at
+  a time and takes them at full speed.
+- On the board at 10 MHz from the PWM, `cc mkconf.c` failed about half
+  the runs with compiler errors that moved from boot to boot (`No code
+  table for op 0`, `s redeclared`), while the raw disk compared equal to
+  itself and `icheck` was clean: the CPU's bus catch, not the disk,
+  which the bit-banged clock fixed.
 
 ### Reset keeps the board's wiring **[code]**
 
