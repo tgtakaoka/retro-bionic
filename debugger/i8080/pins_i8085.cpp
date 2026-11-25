@@ -268,9 +268,9 @@ uint32_t PinsI8085::x1Cycles() const {
 }
 
 // Serves the cycle the CPU waits in, raises READY, and latches the next
-// cycle once the strobe ends. Write data is valid by the strobe; read
-// data is driven once the strobe has floated AD and released once it
-// rises (tRDH 0).
+// cycle at its ALE. Write data is valid by the strobe; read data is
+// driven once the strobe has floated AD and released once it rises
+// (tRDH 0).
 Signals *PinsI8085::completeCycle(Signals *s) const {
     if (s->readEnable()) {
         if (s->memory()) {  // Memory access
@@ -302,9 +302,15 @@ Signals *PinsI8085::completeCycle(Signals *s) const {
     // An interrupt from here to the next ALE could miss its address.
     noInterrupts();
     assert_ready();
-    wait_strobe(false, strobe_cycles);
-    Signals::inputMode();
+    // The strobe ends a CLK after READY rises.
     Cycles::next();
+    // ALE is high for half a CLK, and comes half a CLK after a write
+    // strobe ends: a write goes straight to watching for it, as AD stays
+    // the CPU's.
+    if (!s->writeEnable()) {
+        wait_strobe(false, strobe_cycles);
+        Signals::inputMode();
+    }
     latchCycle();
     interrupts();
     return s;
