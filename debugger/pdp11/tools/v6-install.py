@@ -146,10 +146,6 @@ def boot(board, con, kernel):
     if b'not found' in reply:
         fail('dcj11/unix_v6.hex not on the SD card')
     board.send(b'R')
-    # A reset keeps SP, which after power-up may point into the I/O
-    # page, where the go's PC and PS can't be stacked.
-    board.send(b'=')
-    board.send(b'SP 1000\r')
     board.send(b'G', idle=0.2)
     con.type('\r')
     con.until(['@'], 10)

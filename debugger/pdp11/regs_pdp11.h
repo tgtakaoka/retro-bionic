@@ -43,6 +43,9 @@ struct RegsPdp11 final : Regs {
     // A kernel stack below 400, where the DCJ11's push of a trap frame
     // takes a yellow stack trap (DCJ11 User's Guide, 1.8).
     bool kernelStackLow() const { return (_ps & 0140000) == 0 && _sp < 0400; }
+    // A stack in the I/O page, where the DCJ11 cannot push a frame.
+    bool stackInIoPage() const { return _sp >= 0160000; }
+    void setSp(uint16_t sp) { _sp = sp; }
 
     void helpRegisters() const override;
     const RegList *listRegisters(uint_fast8_t n) const override;

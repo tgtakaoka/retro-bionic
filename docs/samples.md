@@ -214,8 +214,7 @@ files named into `/usr/mandel`, checks the root with `icheck` and `dcheck`, and
 reads the installed disk back to `--save`'s file. About seven minutes, as V6's
 console takes a keystroke every 50 ms. A run that stops starts over from the image.
 
-`L dcj11/unix_v6.hex`, `R`, `= SP 1000` (the power-up SP may point into the I/O
-page), `G`, Enter, then `unix` at the bootstrap's `@` boots single-user to `#`; `stty
+`L dcj11/unix_v6.hex`, `R`, `G`, Enter, then `unix` at the bootstrap's `@` boots single-user to `#`; `stty
 -lcase` makes the console lower-case. `/usr/mandel` holds
 [`fmandel.s`](../samples/dcj11/v6/fmandel.s) and
 [`mandelbrot.s`](../samples/dcj11/v6/mandelbrot.s), the DCJ11 samples in V6's
@@ -261,8 +260,7 @@ does both in a few minutes, and the image goes to the card over the console
 (`scripts/bionic-control.py sd put bsd211.dsk dcj11/bsd211.dsk`, and `bsd211.hex`
 to `dcj11/bsd211.hex` beside it).
 
-`L dcj11/bsd211.hex`, `R`, `= SP 1000` (the power-up SP may point into the I/O
-page), `I DL11 177` (the console sends each character with a parity bit, as V6's
+`L dcj11/bsd211.hex`, `R`, `I DL11 177` (the console sends each character with a parity bit, as V6's
 does), `G`: the bootstrap reads block 0, rauboot prints
 `73Boot from ra(0,0,0) at 0172150` and its `: ` prompt, and Enter loads
 `ra(0,0,0)unix`, the GENERIC kernel, which comes up single-user at `#`. From `#`,

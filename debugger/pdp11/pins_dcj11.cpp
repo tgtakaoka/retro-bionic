@@ -330,6 +330,11 @@ void PinsDcj11::resetPins() {
     }
     _regs->setIp(ORG_START);
     _regs->save();
+    // A reset keeps SP, which after power-up may lie where G's frame and
+    // a program's first push would trap.
+    const auto regs = this->regs<RegsPdp11>();
+    if (regs->kernelStackLow() || regs->stackInIoPage())
+        regs->setSp(ORG_START);
 }
 
 // From a fall, e0 of the next cycle at the earliest, to e1 of the next
