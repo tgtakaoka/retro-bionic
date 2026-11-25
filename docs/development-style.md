@@ -766,9 +766,6 @@ output. What the console taught it:
 - A typed line resets what the script has seen, so the `^D` that ends a
   `cat` goes in the same typing as the text, or the prompt it provokes
   is lost. `mkconf` reads device names up to `done`.
-- After power-up SP may sit in the I/O page, where `G`'s restore cannot
-  stack the PC and PS, and the CPU ends in a HALT loop at 1730xx:
-  `= SP 1000` before the first `G`.
 - `?#ABORT W` lines during `cc` are the MMU's stack-growth aborts, which
   the debugger reports and V6 handles; the script drops them.
 - At 10 MHz from the PWM, `cc mkconf.c` failed about half the runs with
@@ -3124,8 +3121,10 @@ file handle among them, flushed once a transfer. **[doc][code]**
 **Stack limit.** A kernel stack reference below 400, a trap's push
 among them, takes a yellow stack trap through vector 4 (DCJ11 User's
 Guide, 1.8), and a reset keeps SP (Figure 8-2), so after power-up SP may
-lie below it. A step's trace frame would trap there, so the step refuses
-while SP is below 400. **[doc][bench]**
+lie below it, or in the I/O page, where `G`'s restore cannot stack the
+PC and PS and the CPU ends in a HALT loop at 1730xx. So `R` moves such
+an SP to 1000, and a step's trace frame, which would trap there, is
+refused while SP is below 400. **[doc][bench]**
 
 ### CP1600
 
