@@ -54,6 +54,7 @@ struct DevsZ380 final : Devs {
 
     Device *parseDevice(const char *name) const override;
     void enableDevice(Device *dev) override;
+    void disableDevice(Device *dev) override;
     void printDevices() const override;
     Disk *disk() const override { return _devs->disk(); }
 

@@ -60,10 +60,10 @@ Device *DevsI8086::parseDevice(const char *name) const {
     return DevsI8080::parseDevice(name);
 }
 
-// I TIMER toggles the timer; the others as the 8080 has them.
+// I TIMER turns the timer on; the others as the 8080 has them.
 void DevsI8086::enableDevice(Device *dev) {
     if (dev == _timer) {
-        _timer->enable(!_timer->isEnabled());
+        _timer->enable(true);
         return;
     }
     DevsI8080::enableDevice(dev);

@@ -88,11 +88,12 @@ Device *DevsD8087::parseDevice(const char *name) const {
     return DevsI8086::parseDevice(name);
 }
 
-// NPX goes on and off by itself; the console stays as it is.
+// NPX turns on by itself, when the 8087 is there; the console stays as
+// it is.
 void DevsD8087::enableDevice(Device *dev) {
     if (dev == _npx) {
         if (_npx->present())
-            _npx->enable(!_npx->isEnabled());
+            _npx->enable(true);
         return;
     }
     DevsI8086::enableDevice(dev);

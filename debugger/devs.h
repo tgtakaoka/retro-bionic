@@ -37,7 +37,9 @@ struct Devs {
     virtual uint16_t vector() const { return 0; }
 
     virtual Device *parseDevice(const char *word) const { return nullDevice(); }
+    // I dev selects or turns on |dev|; I -dev turns it off.
     virtual void enableDevice(Device *dev) {}
+    virtual void disableDevice(Device *dev) { dev->enable(false); }
     virtual void printDevices() const {}
     // |path| was loaded from the SD card: the disk mounts the images
     // that go with it.

@@ -68,11 +68,11 @@ Device *DevsI8080::parseDevice(const char *name) const {
     return Devs::nullDevice();
 }
 
-// The disk turns on as its images mount, and I DISK turns it off and on;
-// the console stays as it is.
+// The disk turns on as its images mount, and I DISK turns it on; the
+// console stays as it is.
 void DevsI8080::enableDevice(Device *dev) {
     if (_disk && dev == _disk) {
-        _disk->enable(!_disk->isEnabled());
+        _disk->enable(true);
         return;
     }
     _usart->enable(dev == _usart);
