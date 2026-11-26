@@ -47,7 +47,8 @@ ignored.
     type TEXT        type TEXT with no Enter and no wait, to open a
                       sub-prompt (e.g. 'D') without answering it yet; a
                       \\r in TEXT is Enter, e.g. 'G\\r' starts a run and
-                      leaves it running for the next directives
+                      leaves it running for the next directives; \\xNN
+                      is that character, e.g. '\\x04' for ^D
     wait TEXT        block until TEXT appears in what the board sent
                       since the last typed input, up to 5 seconds
     waitfor S TEXT   the same, up to S seconds, for a slow program
@@ -69,6 +70,7 @@ ignored.
 """
 import argparse
 import os
+import re
 import select
 import shlex
 import subprocess
@@ -290,7 +292,9 @@ def run_scenario(con, path):
         elif word == 'key':
             do_key(con, rest)
         elif word == 'type':
-            con.type_line(rest.replace('\\r', '\r'), cr=False)
+            text = re.sub(r'\\x([0-9a-fA-F]{2})',
+                          lambda m: chr(int(m.group(1), 16)), rest)
+            con.type_line(text.replace('\\r', '\r'), cr=False)
         elif word in ('wait', 'waitfor'):
             timeout = 5.0
             if word == 'waitfor':
