@@ -70,6 +70,11 @@ void DevsZ380::enableDevice(Device *dev) {
         _devs->enableDevice(dev);
 }
 
+void DevsZ380::disableDevice(Device *dev) {
+    if (dev != _mask)
+        _devs->disableDevice(dev);
+}
+
 void DevsZ380::printDevices() const {
     _devs->printDevices();
     printDevice(_mask);

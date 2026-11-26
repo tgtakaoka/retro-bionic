@@ -71,6 +71,7 @@ struct Target {
     Disk *disk() const;
     Device *parseDevice(const char *word) const;
     void enableDevice(Device *dev) const;
+    void disableDevice(Device *dev) const;
 
 private:
     // After run() or step() returns, before the prompt.

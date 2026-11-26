@@ -23,7 +23,7 @@
  *  O - mount/unmount disk image
  *  Y - YMODEM a file to/from the SD card, delete one
  *  U - upload Intel Hex/Motorola S-record
- *  I - show/select I/O device
+ *  I - show/select I/O device, turn one off
  *  W - write identity EEPROM
  *  V - toggle verbose bus cycle printing
  *  ? - print help
@@ -103,7 +103,9 @@ constexpr char HELP2[] =
         "  A addr         : assemble, one line at a time until empty\r\n"
 #endif
         "\r\n"
-        "  I dev [addr]   : select an I/O device, optionally its base\r\n"
+        "  I              : list the I/O devices; Enter at which? changes none\r\n"
+        "  I dev [addr]   : select or turn on an I/O device, optionally its base\r\n"
+        "  I -dev         : turn an I/O device off\r\n"
         "  I dev addr rx [tx]\r\n"
         "                 : likewise, and its Rx and Tx interrupt vectors\r\n"
         "                   (0: none; tx defaults to rx)\r\n"
@@ -1141,8 +1143,9 @@ void handleIoBase(uint32_t val, uintptr_t extra, State state) {
 void handleIo(char *line, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         const auto nulldev = Devs::nullDevice();
-        auto dev = Debugger.target().parseDevice(line);
-        if (state == State::CLI_SPACE) {
+        const auto off = line[0] == '-';
+        auto dev = Debugger.target().parseDevice(off ? line + 1 : line);
+        if (state == State::CLI_SPACE && !off) {
             if (dev != nulldev) {
                 // A base of any width, so the listing's digits read back.
                 const auto radix = Debugger.target().inputRadix();
@@ -1153,7 +1156,11 @@ void handleIo(char *line, uintptr_t extra, State state) {
         }
         cli.println();
         if (dev != nulldev) {
-            Debugger.target().enableDevice(dev);
+            if (off) {
+                Debugger.target().disableDevice(dev);
+            } else {
+                Debugger.target().enableDevice(dev);
+            }
             Debugger.target().printDevices();
         }
     }

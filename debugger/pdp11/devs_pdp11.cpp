@@ -145,11 +145,11 @@ Device *DevsPdp11::parseDevice(const char *name) const {
     return Devs::nullDevice();
 }
 
-// The line clock and the disks go on and off by themselves; the console
-// stays as it is.
+// I dev turns the line clock, a disk or the switches on, and the console
+// stays as it is; the DL11 is the only console.
 void DevsPdp11::enableDevice(Device *dev) {
     if (dev == _kw11l || dev == _rk11 || dev == _rq || dev == _swr) {
-        dev->enable(!dev->isEnabled());
+        dev->enable(true);
         return;
     }
     _dl11->enable(dev == _dl11);

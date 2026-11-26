@@ -37,7 +37,7 @@ From the header of `debugger/debugger.cpp`:
 | `F` | List files on SD card |
 | `O` | Mount a disk image — `drive file` mounts it on that drive, `drive` unmounts, Enter lists; `sync` and `cache [on\|off\|through\|back]` drive the [disk cache](#disk-cache) |
 | `Y` | YMODEM a file onto or off the SD card — `put [file [offset [size]]]`, `get file [offset [len]]`; `crc file [chunk]` lists its CRC-32s, `rm file` deletes |
-| `I` | Show/select I/O device — `dev [addr [vec]]` also sets its base and interrupt vector |
+| `I` | Show I/O devices, Enter changing none; `dev` selects or turns one on, `-dev` turns it off, `dev addr [vec]` also sets its base and interrupt vector |
 | `W` | Write identity EEPROM |
 | `V` | Toggle verbose mode |
 | `?` | Print version and usage |
@@ -134,9 +134,9 @@ alone; a reset clears only the device's own registers and pending interrupts.
   bits, as a console terminal's line was: Unix sends each character with a parity
   bit, which the terminal would have ignored. `I DL11 377` passes all 8 again.
 - **KW11-L** (DCJ11) — `debugger/pdp11/kw11l.cpp`: `KW11L`, the 60 Hz line clock at
-  177546, which `I KW11L` turns off and on. Its interrupt is the CPU's #EVENT.
+  177546, which `I -KW11L` turns off and `I KW11L` on. Its interrupt is the CPU's #EVENT.
 - **RK11** (DCJ11) — `debugger/pdp11/rk11.cpp`: `RK11`, a disk controller at 177400
-  with eight RK05 drives, vector 220, which `I RK11` turns off and on. The drives are
+  with eight RK05 drives, vector 220, which `I -RK11` turns off and `I RK11` on. The drives are
   image files on the Teensy's SD card. `L dcj11/unix_v6.hex` loads a bootstrap and
   mounts the slots of `unix_v6.dsk` beside it as rk0 up: 1024 blocks of 512 bytes for
   a drum, then 6144 blocks a drive, the layout of TangConsoleDCJ11MEM's disk images,
@@ -144,7 +144,7 @@ alone; a reset clears only the device's own registers and pending interrupts.
   RK05 pack's file, up to 2494464 bytes, on a drive and `O rk1` unmounts it. [Unix V6](samples.md#unix-v6-on-the-dcj11) is
   installed on that disk under a simulator.
 - **MSCP** (DCJ11) — `debugger/pdp11/rq.cpp`: `MSCP`, an RQDX3 disk controller at
-  172150, vector 154, which `I MSCP` turns off and on; `debugger/pdp11/mscp.cpp` is
+  172150, vector 154, which `I -MSCP` turns off and `I MSCP` on; `debugger/pdp11/mscp.cpp` is
   the controller itself, which `test/test_mscp` runs on the host. Its four units,
   ra0-ra3, are image files on the SD card, each as large as its file, which the
   controller reports as the unit's size; `O ra0 disk.dsk` mounts one and `O ra0`
@@ -167,15 +167,15 @@ alone; a reset clears only the device's own registers and pending interrupts.
   32 MB hard disk `hd32`, each an image of exactly its size. Other sizes are refused.
   DRIVE reads back the drive's format in bits 4-7.
   `L i8080/cpm80.hex` mounts `cpm80a.dsk`-`cpm80d.dsk` beside it as
-  A-D, those that exist; `O B work.dsk` mounts a single drive and `O B` unmounts it; `I DISK` turns the
-  disk off and on. Each mount prints the drive's line as `O` lists it, such as
+  A-D, those that exist; `O B work.dsk` mounts a single drive and `O B` unmounts it; `I -DISK` turns the
+  disk off and `I DISK` on. Each mount prints the drive's line as `O` lists it, such as
   `A    hd8       i8080/cpm80a.dsk`, and each drive dropped prints `B unmounted`.
 - **Timer** (8086 family) — `debugger/i8086/timer.cpp`: `TIMER`, the PC's 18.2 Hz
   tick on four ports from 58H: CTRL (+0) bit 0 starts it, TYPE (+1) is the interrupt
-  type it raises INTR with, a write to EOI (+2) acknowledges a tick. `I TIMER` turns
-  it off and on. The PC BIOS (`samples/i8086/rombios.asm`) runs it as INT 8.
+  type it raises INTR with, a write to EOI (+2) acknowledges a tick. `I -TIMER` turns
+  it off and `I TIMER` on. The PC BIOS (`samples/i8086/rombios.asm`) runs it as INT 8.
 - **8087 INT** (D8087 board) — `debugger/i8086/devs_d8087.cpp`: `NPX`, disabled at
-  power-up, `I NPX` turns it on and off. While the 8087 holds INT high it requests
+  power-up, `I NPX` turns it on and `I -NPX` off. While the 8087 holds INT high it requests
   interrupt type 2 by default, which raises NMI and stops the run in the debugger;
   `I NPX 0 type` makes it raise INTR with that type instead.
 

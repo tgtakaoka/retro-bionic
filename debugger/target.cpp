@@ -194,6 +194,10 @@ void Target::enableDevice(Device *dev) const {
     _devs->enableDevice(dev);
 }
 
+void Target::disableDevice(Device *dev) const {
+    _devs->disableDevice(dev);
+}
+
 }  // namespace debugger
 
 // Local Variables:
