@@ -243,19 +243,23 @@ SYSIMES.OBJ the board assembled.
 
 ```sh
 cd samples/i8086
-make bld211.dsk          # the build disk: MS-DOS 2.0, the tools, sources, BUILD.BAT
+make bld211.hex bld211c.dsk  # the ROM BIOS and the build disk: MS-DOS 2.0, tools, sources
 ../../scripts/bionic-bench.py lock bench1
 ../../debugger/i8086/tools/msdos-build.py bench 2.11 msdos211.built
 make msdos211.hex msdos211a.dsk msdos211c.dsk
 ```
 
-`make bld211.dsk` fetches the sources first, pinned and checked by sha256
+`make bld211c.dsk` fetches the sources first, pinned and checked by sha256
 (`msdos-fetch.py --source`). `msdos-build.py bench` turns the debugger's disk cache off,
-copies the build disk to the SD card, boots it as C: with A: unmounted, types `BUILD`
+copies the BIOS and the build disk to the SD card, boots the disk as C:, the only drive
+`L bld211.hex` mounts, types `BUILD`
 ([`msdos211_build.scenario`](../samples/i8086/msdos211_build.scenario)), copies the disk
 back, turns the cache on again and takes MSDOS.SYS, COMMAND.COM, SYSINIT.OBJ, SYSIMES.OBJ
 and the utilities off it into `msdos211.built/`: half an hour on the P80C86, and the
-same bytes each time, whose sha256 the script checks. BUILD skips
+same bytes each time, whose sha256 the script checks.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos211_build_80c86.cast) on the P80C86, with the
+long silences cut, lists the build disk and runs BUILD, which echoes each MASM and LINK
+step. BUILD skips
 a module whose object is already on the disk, so a build that stopped picks up where it
 left off. Copy `msdos211.hex`, `msdos211a.dsk` and `msdos211c.dsk` into the card's
 `i8086/`; `L i8086/msdos211.hex` then boots 2.11 as `L i8086/msdos200.hex` boots 2.0. C:
@@ -273,10 +277,11 @@ libraries, and `fmandel.c` and `imandel.c`. After `MSC`, which sets the compiler
 one and emulates it otherwise. Its `CONFIG.SYS` sets `FILES=20`: with DOS's default of 8,
 the compiler stops with fatal error C1015, unable to open a file.
 
-`bld200.dsk` and `msdos-build.py bench 2.00 msdos200.built` do the same for 2.0's
+`bld200c.dsk` and `msdos-build.py bench 2.00 msdos200.built` do the same for 2.0's
 kernel, from Elliott's 2.00 tree, which gives the release's MSDOS.SYS with MASM 4.00.
 MASM 5.10 makes it 3 bytes shorter: it encodes three `AND reg,imm16` whose immediates
-fit in a byte in the short form, and everything else only moves. The 2.0 disks themselves need no board: `make` builds them on the host.
+fit in a byte in the short form, and everything else only moves.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos200_build_80c86.cast) on the P80C86, with the long silences cut. The 2.0 disks themselves need no board: `make` builds them on the host.
 
 ## Unix V6 on the DCJ11
 

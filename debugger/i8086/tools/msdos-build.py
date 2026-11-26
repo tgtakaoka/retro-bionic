@@ -2,7 +2,7 @@
 """Assemble MS-DOS from source on the 8086 board.
 
     debugger/i8086/tools/msdos-build.py tree VERSION FETCHED OUT
-    debugger/i8086/tools/msdos-build.py bench VERSION OUT
+    debugger/i8086/tools/msdos-build.py bench VERSION OUT [CAST]
     debugger/i8086/tools/msdos-build.py check VERSION OUT
 
 VERSION is 2.11 or 2.00. FETCHED is the folder msdos-fetch.py --source
@@ -11,17 +11,19 @@ filled (samples/i8086/msdos.fetch).
 `tree` writes into OUT/ the files of a build disk: the sources, patched
 as below, MASM 5.10, LINK 3.65 and the 2.0 EXE2BIN, BUILD.BAT, and a
 CONFIG.SYS and AUTOEXEC.BAT. samples/i8086/Makefile puts them on
-bld211.dsk or bld200.dsk, a 32 MB hard disk that boots MS-DOS 2.0.
+bld211c.dsk or bld200c.dsk, a 32 MB hard disk that boots MS-DOS 2.0.
 
 `bench` builds on the board the session holds (scripts/bionic-bench.py
 lock first): with the block cache off, it copies
-samples/i8086/bldVER.dsk to the SD card, boots it as C: and runs BUILD
-there (samples/i8086/msdosVER_build.scenario), copies the disk back,
-turns the cache on and mounts C: and A: as L does, and puts what BUILD
-made into OUT/: MSDOS.SYS, and for 2.11 COMMAND.COM, SYSINIT.OBJ,
-SYSIMES.OBJ and the utilities in OUT/bin/, for the Makefile's
-msdos211*.dsk. It needs the card's i8086/msdos200.hex, msdos200a.dsk
-and msdos200c.dsk (docs/samples.md), and takes half an hour.
+samples/i8086/bldVERc.dsk and bldVER.hex, the ROM BIOS, to the SD card;
+L bldVER.hex mounts the disk alone, as C:, and BUILD runs there
+(samples/i8086/msdosVER_build.scenario). Then it copies the disk back,
+turns the cache on and mounts C: and A: as L msdos200.hex does, and
+puts what BUILD made into OUT/: MSDOS.SYS, and for 2.11 COMMAND.COM,
+SYSINIT.OBJ, SYSIMES.OBJ and the utilities in OUT/bin/, for the
+Makefile's msdos211*.dsk. It needs the card's msdos200a.dsk and
+msdos200c.dsk (docs/samples.md), and takes half an hour. With CAST, it
+also records the build there.
 
 `check` prints what `bench` put in OUT/ and compares it, as `bench`
 does at its end, with the known 2.11 build or the 2.0 release.
@@ -44,6 +46,7 @@ needs, which the 2.0 one lacks.
 `bench` reports.
 """
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -170,6 +173,13 @@ def patch(data, old, new, name, count=1, flags=0):
     return b'\r\n'.join(lines)
 
 
+def cast_text(path):
+    """What an asciinema cast printed, its output events joined."""
+    with open(path) as f:
+        return ''.join(e[2] for e in map(json.loads, f.read().splitlines()[1:])
+                       if e[1] == 'o')
+
+
 def read(path):
     with open(path, 'rb') as f:
         return f.read()
@@ -221,10 +231,11 @@ def utility_steps():
 
 def build_bat(steps):
     """BUILD.BAT: its last line, either way, is "BUILD END", which the
-    build scenario waits for."""
-    return batch(['ECHO OFF'] + steps + [
-        'ECHO BUILD OK', 'GOTO END', ':FAIL', 'ECHO BUILD FAILED', ':END',
-        'ECHO BUILD END'])
+    build scenario waits for. The steps echo; the result lines do not, so
+    their text appears only once they run."""
+    return batch(steps + [
+        'ECHO OFF', 'ECHO BUILD OK', 'GOTO END', ':FAIL', 'ECHO OFF',
+        'ECHO BUILD FAILED', ':END', 'ECHO BUILD END'])
 
 
 def tree(version, fetched, out):
@@ -334,37 +345,41 @@ def console(lines):
         run(os.path.join(SCRIPTS, 'record-scenario.py'), f.name, '--nopace')
 
 
-def bench(version, out):
+def bench(version, out, cast=None):
     tag = {'2.11': '211', '2.00': '200'}.get(version)
     if tag is None:
         sys.exit(f'{version}: 2.11 or 2.00')
-    disk = os.path.join(SAMPLES, f'bld{tag}.dsk')
-    if not os.path.exists(disk):
-        sys.exit(f'{disk}: make bld{tag}.dsk first')
+    disk = os.path.join(SAMPLES, f'bld{tag}c.dsk')
+    rom = os.path.join(SAMPLES, f'bld{tag}.hex')
+    for path in (disk, rom):
+        if not os.path.exists(path):
+            sys.exit(f'{path}: make bld{tag}.hex bld{tag}c.dsk first')
     control = os.path.join(SCRIPTS, 'bionic-control.py')
-    card = f'i8086/bld{tag}.dsk'
+    card = f'i8086/bld{tag}c.dsk'
     # The block cache stays off from before the copy to the card until
     # the copy back: with it on, the board's writes and the copies have
     # been seen to miss the card (2026-11-25).
-    console(['type O', 'wait Disk?', 'command C',
-             'type O', 'wait Disk?', 'command cache off'])
+    console([line for d in 'ABCD'
+             for line in ('type O', 'wait Disk?', f'command {d}')] +
+            ['type O', 'wait Disk?', 'command cache off'])
+    run(control, 'sd', 'put', rom, f'i8086/bld{tag}.hex')
     run(control, 'sd', 'put', disk, card)
     scenario = os.path.join(SAMPLES, f'msdos{tag}_build.scenario')
+    if cast:
+        run(os.path.join(SCRIPTS, 'record-scenario.py'), scenario,
+            '--save', cast)
+        printed = cast_text(cast)
+    else:
+        p = subprocess.run([os.path.join(SCRIPTS, 'record-scenario.py'),
+                            scenario], stdout=subprocess.PIPE)
+        sys.stdout.buffer.write(p.stdout)
+        if p.returncode:
+            sys.exit(f'{scenario}: failed')
+        printed = p.stdout.decode(errors='replace')
+    if 'BUILD OK' not in printed:
+        sys.exit('BUILD failed')
     os.makedirs(out, exist_ok=True)
-    log = os.path.join(out, 'build.log')
-    with open(log, 'wb') as f:
-        p = subprocess.Popen([os.path.join(SCRIPTS, 'record-scenario.py'),
-                              scenario], stdout=subprocess.PIPE)
-        for chunk in iter(lambda: p.stdout.read1(4096), b''):
-            sys.stdout.buffer.write(chunk)
-            sys.stdout.buffer.flush()
-            f.write(chunk)
-            f.flush()
-        if p.wait():
-            sys.exit(f'{scenario}: failed, see {log}')
-    if b'BUILD OK' not in read(log):
-        sys.exit(f'BUILD failed, see {log}')
-    built = os.path.join(out, f'bld{tag}.dsk')
+    built = os.path.join(out, f'bld{tag}c.dsk')
     run(control, 'sd', 'get', card, built)
     console(['type O', 'wait Disk?', 'command cache on',
              'type O', 'wait Disk?', 'command C i8086/msdos200c.dsk',
@@ -416,7 +431,7 @@ def check(version, out):
 def main(argv):
     if len(argv) == 4 and argv[0] == 'tree':
         tree(*argv[1:])
-    elif len(argv) == 3 and argv[0] == 'bench':
+    elif len(argv) in (3, 4) and argv[0] == 'bench':
         bench(*argv[1:])
     elif len(argv) == 3 and argv[0] == 'check' and argv[1] in ('2.11', '2.00'):
         check(*argv[1:])
