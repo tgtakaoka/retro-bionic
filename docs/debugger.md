@@ -220,8 +220,11 @@ of `EXTMEM` the target's memory does not use (`debugger/disk_cache.cpp`, behind
 `debugger/disk_image.cpp`): 15 MB on a 1 MB target such as the 8086 or Z180,
 12 MB on the DCJ11, all 16 MB on the 8080 and 8085, whose memory is elsewhere.
 The Z380 decodes all 16 MB but lends its upper half, 800000-FFFFFF, which reads 0
-and drops writes; its 64K mode never reaches it. A target that keeps all 16 MB, such as
-the 68000 or Z280, lends nothing and reads and writes the card directly. Drives sharing an
+and drops writes; its 64K mode never reaches it. The 68000 boards with 24 address
+lines lend 800000-FF7FFF, below their I/O area, which reads 0 and drops writes too, and
+a bus cycle there is a bus error, which stops the run with the address; the MC68008
+boards lend what lies above their 20 or 22 lines. A target that keeps all 16 MB, such as
+the Z280, lends nothing and reads and writes the card directly. Drives sharing an
 image file share its blocks. A sector read that hits costs no card access; a
 miss reads the block in. A mount reads the image into the cache as far as the
 free blocks go, about a second for 10 MB: the drive's line then ends in `cached`

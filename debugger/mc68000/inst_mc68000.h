@@ -17,6 +17,7 @@ struct InstMc68000 {
     // PC, and is read as supervisor program at 0; the others as supervisor
     // data.
     static constexpr uint32_t VEC_RESET = 0x000000;
+    static constexpr uint8_t VECNUM_BUSERR = 2;
     static constexpr uint8_t VECNUM_ILLEGAL = 4;
     static constexpr uint8_t VECNUM_TRACE = 9;
     static constexpr uint32_t vecAddr(uint8_t vecNum) { return vecNum * 4; }
