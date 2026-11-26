@@ -45,8 +45,9 @@ scripts/cut-cast.py samples/dcj11/bsd211.cast bsd211_cut.cast \
     --note "20.3=the bootstrap loads /unix from the disk"
 ```
 
-The repository keeps the full cast, whose timing the tables come from;
-the cut copy is only for sharing.
+A cast may be committed cut, as `samples/dcj11/bsd211.cast` is: the cuts
+shorten only silences, never a frame's drawing, so `mandelbrot-timing.py`
+reads the same rows from it.
 
 ## Logic analyzer
 
