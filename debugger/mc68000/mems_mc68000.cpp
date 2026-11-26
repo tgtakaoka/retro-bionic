@@ -6,7 +6,9 @@ namespace debugger {
 namespace mc68000 {
 
 MemsMc68000::MemsMc68000(uint32_t addrMask)
-    : ExtMemory(Endian::ENDIAN_BIG, true), _addrMask(addrMask) {
+    : ExtMemory(Endian::ENDIAN_BIG, true),
+      _addrMask(addrMask),
+      _holeSize(addrMask == MEM_SIZE - 1 ? HOLE_END - HOLE_BASE : 0) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::mc68000::AsmMc68000();
 #endif

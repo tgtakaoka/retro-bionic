@@ -35,7 +35,8 @@ constexpr auto irq_ack_cycles = 1024;
 // ATTENTION: unverified. Cycles before an exception's vector read that may
 // hold its frame: up to eight byte writes, an interrupt's acknowledge
 // between them, and the reads between.
-constexpr auto frame_lookback = 16;
+// Enough for the MC68010's 29-word bus error frame.
+constexpr auto frame_lookback = 32;
 // #RESET and #HALT are open drain both ways, with no pull-up on the board:
 // drive them low or let the level shifters' pull-ups have them, never
 // drive them high.
@@ -363,9 +364,15 @@ bool PinsMc68000Base::answerVector(uint32_t vecAddr, uint32_t handler) {
 // among them (6.3.2), and no other read: the first one back ends the
 // frame, so a push of the program's own, or the frame of a TRAP stepped
 // before a trace, is never taken for it. |from| becomes the first of them.
+// A bus error's frame is longer: the MC68000 stacks the instruction, the
+// access address and its function code below SR and PC (Figure 6-6), 14
+// bytes; the MC68010 its 29-word format 8 frame with SR and PC on top.
 bool PinsMc68000Base::findFrame(const Signals *s, RegsMc68000::Frame &frame,
-        const Signals *&from) const {
-    const auto size = regs<RegsMc68000>()->frameBytes();
+        const Signals *&from, bool busError) const {
+    const auto mc68010 = regs<RegsMc68000>()->frameBytes() == 8;
+    const auto size = busError ? (mc68010 ? 58 : 14)
+                               : regs<RegsMc68000>()->frameBytes();
+    const auto srAt = busError && !mc68010 ? 8 : 0;
     uint_fast8_t bytes = 0;
     uint32_t low = UINT32_MAX;
     for (auto i = 1; i <= frame_lookback && bytes < size; ++i) {
@@ -383,9 +390,26 @@ bool PinsMc68000Base::findFrame(const Signals *s, RegsMc68000::Frame &frame,
     if (bytes < size)
         return false;
     const auto mems = this->mems<MemsMc68000>();
-    frame.sr = mems->read16(low);
-    frame.pc = wrap(mems->read32(low + 2));
+    frame.sr = mems->read16(low + srAt);
+    frame.pc = wrap(mems->read32(low + srAt + 2));
     frame.ssp = wrap(low + size);
+    return true;
+}
+
+bool PinsMc68000Base::stopInVector(
+        Signals *s, uint32_t vecAddr, bool busError, bool trace) {
+    RegsMc68000::Frame frame;
+    const Signals *from = nullptr;
+    if (!findFrame(s, frame, from, busError))
+        return false;
+    if (trace)
+        frame.sr &= ~InstMc68000::SR_T;
+    regs<RegsMc68000>()->parkInVector(vecAddr, frame);
+    Cycles::discard(from);
+    if (busError) {
+        cli.print("?bus error at ");
+        cli.printlnHex(_busError, 6);
+    }
     return true;
 }
 
@@ -455,6 +479,8 @@ bool PinsMc68000Base::step(bool show) {
         Cycles::reset();
     const auto vecAddr =
             regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_TRACE);
+    const auto berrAddr =
+            regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_BUSERR);
     auto s = resumeCycle();
     auto parked = false;
     for (auto guard = Cycles::MAX_CYCLES; guard && !parked; --guard) {
@@ -473,6 +499,14 @@ bool PinsMc68000Base::step(bool show) {
                 frame.sr &= ~InstMc68000::SR_T;
                 regs<RegsMc68000>()->parkInVector(vecAddr, frame);
                 Cycles::discard(from);
+                parked = true;
+                break;
+            }
+        }
+        if (memRead(s) && s->dataSpace() &&
+                (s->addr & ~1) == berrAddr) {
+            // The instruction never completed: T is still in its SR.
+            if (stopInVector(s, berrAddr, true, true)) {
                 parked = true;
                 break;
             }

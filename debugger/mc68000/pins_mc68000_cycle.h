@@ -42,6 +42,14 @@ inline void negate_dtack() {
     digitalWriteFast(PIN_DTACK, HIGH);
 }
 
+inline void assert_berr() {
+    digitalWriteFast(PIN_BERR, LOW);
+}
+
+inline void negate_berr() {
+    digitalWriteFast(PIN_BERR, HIGH);
+}
+
 inline bool memRead(const Signals *s) {
     return s->read() && !s->iack();
 }
@@ -80,6 +88,8 @@ Signals *PinsMc68000Base::completeCycleOf(Signals *s) {
         board->inputMode();
         return s;
     }
+    if (!s->iack() && this->mems<MemsMc68000>()->inHole(s->addr))
+        return busErrorOf<BOARD>(s);
     const uint32_t limit = dtack_hold_clocks * clock_cycles;
 #ifdef PROFILE_CYCLES
     assert_debug();  // the cycle served
@@ -175,6 +185,28 @@ Signals *PinsMc68000Base::completeTasWrite(const Signals *r, uint8_t cntl) {
     return s;
 }
 
+// A cycle in the memory lent to the disk cache: #BERR instead of #DTACK
+// ends it (M68000UM 5.5.1), and the CPU takes the bus error exception,
+// whose vector read stops the run with the address. Nothing is moved.
+template <typename BOARD>
+Signals *PinsMc68000Base::busErrorOf(Signals *s) {
+    const auto board = static_cast<const BOARD *>(this);
+    const uint32_t limit = dtack_hold_clocks * clock_cycles;
+    _busError = s->addr;
+    noInterrupts();
+    assert_berr();
+    Cycles::next();
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while ((busRead(CNTL) & Signals::AS) == 0) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            break;
+    }
+    negate_berr();
+    interrupts();
+    board->inputMode();
+    return s;
+}
+
 // The ring is left holding the program's cycles only.
 template <typename BOARD>
 bool PinsMc68000Base::loopOf() {
@@ -182,6 +214,8 @@ bool PinsMc68000Base::loopOf() {
     // the debugger until the next stop.
     const auto vecAddr =
             regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_ILLEGAL);
+    const auto berrAddr =
+            regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_BUSERR);
     auto s = resumeCycle();
     while (true) {
         // First: a slot that timed out holds the status and address of
@@ -195,14 +229,13 @@ bool PinsMc68000Base::loopOf() {
         }
         // The address first: it rules out nearly every cycle.
         if ((s->addr & ~1) == vecAddr && memRead(s) && s->dataSpace()) {
-            RegsMc68000::Frame frame;
-            const Signals *from = nullptr;
-            if (findFrame(s, frame, from)) {
-                // ILLEGAL stacks its own address.
-                regs<RegsMc68000>()->parkInVector(vecAddr, frame);
-                Cycles::discard(from);
+            // ILLEGAL stacks its own address.
+            if (stopInVector(s, vecAddr, false, false))
                 return true;
-            }
+        }
+        if ((s->addr & ~1) == berrAddr && memRead(s) && s->dataSpace()) {
+            if (stopInVector(s, berrAddr, true, false))
+                return true;
         }
         completeCycleOf<BOARD>(s);
         const auto serviced = _devs->loop();

@@ -118,6 +118,8 @@ protected:
     bool loopOf();
     template <typename BOARD>
     Signals *completeTasWrite(const Signals *r, uint8_t cntl);
+    template <typename BOARD>
+    Signals *busErrorOf(Signals *s);
 
 private:
     PwmClock<PIN_CLK> _clock;
@@ -148,8 +150,13 @@ private:
             uint32_t *addrs, uint_fast8_t max, uint32_t &org, uint32_t exit);
     uint_fast8_t frameBytes();
     bool findFrame(const Signals *s, RegsMc68000::Frame &frame,
-            const Signals *&from) const;
+            const Signals *&from, bool busError = false) const;
+    // Stopped at a vector read with the frame found: the CPU parks there,
+    // without the T a step set.
+    bool stopInVector(Signals *s, uint32_t vecAddr, bool busError, bool trace);
     bool suspend(Signals *s);
+    // The address of the cycle #BERR ended, for the stop's message.
+    uint32_t _busError = 0;
 };
 
 }  // namespace mc68000
