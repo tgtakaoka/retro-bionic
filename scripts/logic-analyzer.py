@@ -96,8 +96,10 @@ def load_capture(path, name):
     a dict of start_capture() arguments or None, and its Simple Parallel
     decoders as [(data channels, clock channel, edge)]. Settings name
     signals; a trigger's `when` holds other signals "high" or "low", its
-    `before`/`after` keep that many seconds around it, and `glitch` drops
-    the trigger channel's pulses shorter than that many seconds."""
+    `before`/`after` keep that many seconds around it, `glitch` drops
+    the trigger channel's pulses shorter than that many seconds, and
+    `rate = { digital = ..., analog = ... }` caps the sample rates (S/s)
+    when the fastest pair overruns the USB link."""
     with open(path, 'rb') as f:
         table = tomllib.load(f).get(name, {})
     index = {v['signal']: int(k) for k, v in table.items() if k.isdigit()}
@@ -110,6 +112,8 @@ def load_capture(path, name):
         trigger.update({k: t[k] for k in ('before', 'after', 'glitch') if k in t})
         if t.get('long'):
             trigger['limit'] = LONG_WINDOW
+        if 'rate' in t:
+            trigger['rates'] = (t['rate'].get('digital'), t['rate'].get('analog'))
         trigger['analog'] = sorted(load_analog(path, name))
         trigger['dual'] = sorted(load_dual(path, name))
     parallel = [([index[d] for d in p['data']], index[p['clock']], p.get('edge', 'rise'))
@@ -262,10 +266,17 @@ class SaleaeLogicPro16(LogicAnalyzer):
             raise RuntimeError('start_capture: no sample rates in %s' % text[:300])
         return pairs
 
-    def _fastest(self, device):
+    def _fastest(self, device, rates=None):
         """Set device's fastest sample rates: the analog one first when it
-        has analog channels, then the digital one beside it."""
+        has analog channels, then the digital one beside it; |rates| =
+        (digital, analog) caps either, None for no cap."""
         pairs = self._rates(device)
+        if rates:
+            cap_d, cap_a = rates
+            pairs = [(d, a) for d, a in pairs
+                     if (cap_d is None or d <= cap_d) and (cap_a is None or a <= cap_a)]
+            if not pairs:
+                raise RuntimeError('start_capture: no sample rates under %s' % (rates,))
         if 'analogChannels' in device['logicChannels']:
             device['analogSampleRate'], device['digitalSampleRate'] = max(
                     (a, d) for d, a in pairs)
@@ -274,7 +285,8 @@ class SaleaeLogicPro16(LogicAnalyzer):
 
     def start_capture(self, channels, trigger, edge='rise', before=20e-6,
                       after=200e-6, glitch=None, linked=(), min_width=None,
-                      max_width=None, limit=MAX_WINDOW, analog=(), dual=()):
+                      max_width=None, limit=MAX_WINDOW, analog=(), dual=(),
+                      rates=None):
         analyzer()
         if before + after > min(limit, LONG_WINDOW):
             raise RuntimeError('start_capture: %g s window over the %g s limit'
@@ -287,7 +299,7 @@ class SaleaeLogicPro16(LogicAnalyzer):
                   'logicChannels': {'digitalChannels': sorted(digital)}}
         if analog:
             device['logicChannels']['analogChannels'] = sorted(analog)
-        self._fastest(device)
+        self._fastest(device, rates)
         if glitch:
             device['glitchFilters'] = [{'channelIndex': trigger, 'pulseWidthSeconds': glitch}]
         mode = {'triggerChannelIndex': trigger,
