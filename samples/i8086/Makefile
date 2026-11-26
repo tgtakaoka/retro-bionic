@@ -113,10 +113,11 @@ msdos200c.dsk: msdosboot.hex mbr.hex io.sys $(MSDOS)/.fetched $(DISK)
 # its disks are msdos211a.dsk, a 360K boot floppy, and msdos211c.dsk,
 # the hard disk, with 2.11's IO.SYS, MSDOS.SYS, COMMAND.COM and
 # utilities; C: also has MASM 5.10 and LINK 3.65, which BUILD ran, and
-# 2.0's CREF. bld211.dsk is the disk the board builds on, which
-# boots MS-DOS 2.0; after `make bld211.dsk`, with the board locked,
+# 2.0's CREF. bld211c.dsk is the disk the board builds on, which
+# boots MS-DOS 2.0, and L bld211.hex mounts it alone; after
+# `make bld211.hex bld211c.dsk`, with the board locked,
 #     ../../debugger/i8086/tools/msdos-build.py bench 2.11 msdos211.built
-# assembles on it and puts the results in $(MSDOS211)/. bld200.dsk and
+# assembles on it and puts the results in $(MSDOS211)/. bld200c.dsk and
 # `bench 2.00` rebuild the 2.0 kernel and check it is the release's.
 MSDOS211 ?= msdos211.built
 MSDOS_BUILD = ../../debugger/i8086/tools/msdos-build.py
@@ -127,7 +128,10 @@ bld211/.tree bld200/.tree: $(MSDOS)/.fetched-source $(MSDOS)/.fetched \
 	    $(MSDOS_BUILD)
 	$(MSDOS_BUILD) tree $(patsubst bld2%,2.%,$(@D)) $(MSDOS) $(@D)
 
-bld211.dsk bld200.dsk: %.dsk: %/.tree msdosboot.hex mbr.hex io.sys $(DISK)
+bld211.hex bld200.hex: rombios.hex
+	cp $< $@
+
+bld211c.dsk bld200c.dsk: %c.dsk: %/.tree msdosboot.hex mbr.hex io.sys $(DISK)
 	$(DISK) make $@ --format hd32 --boot msdosboot.hex --mbr mbr.hex \
 	    --system io.sys $(MSDOS)/MSDOS.SYS $(MSDOS)/COMMAND.COM $*/*
 
