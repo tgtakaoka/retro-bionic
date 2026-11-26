@@ -7,8 +7,8 @@ Each claim is marked **[hw]** when it was verified on the bench, **[doc]** when 
 comes from a datasheet or manual, and **[code]** when it is a property of this
 codebase.
 
-The General part holds what applies to every target. Each section under
-Per architecture opens with that chip's pitfalls; read them before touching
+The General part holds what applies to every target. Each file under
+`docs/arch/` opens with that chip's pitfalls; read them before touching
 its code.
 
 ---
@@ -17,11 +17,10 @@ its code.
 
 ### Injection models: sequential cursor vs address-keyed
 
-There are two ways to answer a CPU's reads from an injected byte stream, and they
-are not interchangeable:
+Two models answer a CPU's reads from an injected byte stream, and they are not
+interchangeable:
 
 - **Sequential cursor** — every read consumes the next byte(s) of the stream.
-  Works when the CPU reads exactly what it consumes, one byte at a time.
 - **Address-keyed** — a read at address *A* is answered from `inst[A - origin]`,
   like memory would.
 
@@ -37,9 +36,9 @@ memory and point SP at it.
 ### Terminating an injected sequence
 
 Do not count bytes handed over: one word read can deliver two single-byte
-instructions, and the CPU's next read is then answered from memory, handing
-it an opcode that is not in the sequence. **[hw]**
-Terminate on *the CPU having read past the window* instead.
+instructions, and the CPU's next read is then answered from memory with an
+opcode that is not in the sequence. **[hw]** Terminate on *the CPU having read
+past the window* instead.
 
 The CPU prefetches past the end of a window before it takes a trailing jump,
 and that prefetch looks exactly like a forward exit. If a sequence must end by
@@ -58,13 +57,13 @@ for it. **[hw]**
 
 ### Resume from an explicit origin, never from the ring **[code]**
 
-A CPU parked mid-transaction is resumed at the address it was parked at. That
-address cannot always be re-read from the pins (a multiplexed bus carries data
-by then), and it cannot live in the ring: `Cycles::reset()` and
-`Cycles::discard()` both clear the head slot, and a dump or an exit is exactly
-when they run. Follow the i8080/i8085 shape: `resumeCycle(addr)` takes the
-address, the caller keeps it, and `_regs->nextIp()` is where the CPU is parked
-between operations.
+A CPU parked mid-transaction resumes at the address it was parked at, which
+cannot always be re-read from the pins (a multiplexed bus carries data by
+then) and cannot live in the ring: `Cycles::reset()` and `Cycles::discard()`
+both clear the head slot, and a dump or an exit is exactly when they run.
+Follow the i8080/i8085 shape: `resumeCycle(addr)` takes the address, the
+caller keeps it, and `_regs->nextIp()` is where the CPU is parked between
+operations.
 
 **The ring holds one fewer cycle than it has slots.** The head slot is the
 transaction in progress. **[code]**
@@ -98,63 +97,61 @@ The RTWDOG backs this up: the prompt, every completed bus cycle and every halt
 switch poll feed it, so a loop that does none of them reboots the Teensy after
 4 s, and the banner reports the watchdog reset. A reboot still loses
 breakpoints and the target's state, and a loop that keeps completing bus
-cycles is not caught, so bound the loop anyway. The profile image's `X`
-command hangs on purpose, to test it. **[code]**
+cycles is not caught. The profile image's `X` command hangs on purpose, to
+test it. **[code]**
 
 ### The halt port **[hw]**
 
-The Teensy builds with `USB_DUAL_SERIAL`. `/dev/ttyACM0` is the debugger
-console; **any byte written to `/dev/ttyACM1` aborts a running CPU**
-(`serialEventUSB1()` → `Pins::isrHaltSwitch()` → `_halted`, polled by `loop()`).
-It is the only way to stop a run that does not end on its own — provided the
-wait loops are bounded.
+The Teensy builds with `USB_DUAL_SERIAL`: `/dev/ttyACM0` is the debugger
+console, and **any byte written to `/dev/ttyACM1` aborts a running CPU**
+(`serialEventUSB1()` → `Pins::isrHaltSwitch()` → `_halted`, polled by
+`loop()`). It is the only way to stop a run that does not end on its own,
+provided the wait loops are bounded.
 
-**It is serviced only from `yield()`.** **[code]** A run reaches `yield()`
-otherwise only through console I/O, so `Pins::haltSwitch()` calls `yield()`
-itself; without it a program that never enables the console device cannot be
-halted. Its `yield()` stretches the cycle it runs in, so a bus loop takes it only
-when `_devs->loop()` returns true: once in 10 µs, the cycle on which it services
-the devices. Every other cycle costs only that time check, plus the call of a
-device that counts bus cycles, such as a bit-banged serial clock. A loop that
-skips it pads the clock phase it used to fill.
-**[code]** A halt that never returns the CLI looks exactly like a wedged board, so
-try a program that uses the console before suspecting the board. **[hw]**
+**It is serviced only from `yield()`.** **[code]** A run otherwise reaches
+`yield()` only through console I/O, so `Pins::haltSwitch()` calls it itself;
+without that, a program that never enables the console device cannot be
+halted. The `yield()` stretches the cycle it runs in, so a bus loop takes it
+only when `_devs->loop()` returns true, once in 10 µs on the cycle that
+services the devices; every other cycle pays only the time check, plus the
+call of a device that counts bus cycles, such as a bit-banged serial clock.
+A loop that skips it pads the clock phase it used to fill. **[code]** A halt
+that never returns the CLI looks exactly like a wedged board, so try a
+program that uses the console before suspecting the board. **[hw]**
 
-**The handler must drain the byte.** The core re-calls `serialEventUSB1()` from
-every `yield()` while the port holds data, so an undrained byte also aborts
-every following run. The symptom is every `G` returning at once with a
-register dump. **[hw]**
+**The handler must drain the byte.** The core re-calls `serialEventUSB1()`
+from every `yield()` while the port holds data, so an undrained byte aborts
+every following run too: every `G` returns at once with a register dump.
+**[hw]**
 
-**An abort leaves the emulated USART repeating.** After a run is stopped
-mid-cycle, the USART keeps re-delivering its last received character, which
-floods `ttyACM0` and buries the CLI prompt. A harness drains the console after
-any abort, and stops an interactive sample the way the sample expects (NUL for
-`samples/z280`) rather than aborting it. **[hw]**
+**An abort leaves the emulated USART repeating** its last received
+character, which floods `ttyACM0` and buries the CLI prompt. A harness drains
+the console after any abort, and stops an interactive sample the way the
+sample expects (NUL for `samples/z280`) rather than aborting it. **[hw]**
 
-Recovery order for an unresponsive board, in increasing violence: Ctrl-C
-(`0x03`), Ctrl-Space (`0x00`), then the halt port. If none draws a reply, the
-firmware is stuck in a wait: the watchdog reboots it within 4 s if the wait
-feeds nothing, and otherwise only a reflash brings it back.
+Recovery for an unresponsive board, in increasing violence: Ctrl-C (`0x03`),
+Ctrl-Space (`0x00`), then the halt port. If none draws a reply the firmware is
+stuck in a wait: the watchdog reboots it if the wait feeds nothing (see
+"Bound every wait loop"); otherwise only a reflash brings it back.
 
 ### Lock a bench before using it **[hw]**
 
 Several benches can be on USB at once, each a Teensy named `bench1`,
 `bench2`, ... in the order first seen (`scripts/bionic-bench.py rename` gives
-a clearer name), so several sessions work side by side, one bench each. A
-session takes one with `scripts/bionic-bench.py lock NAME`, or queues with
-`reserve`; `bionic-control.py`, and every tool built on it, then talks to the
-bench the session holds, and refuses one another session holds. The bench's
-two USB serials, console and halt port, follow from its Teensy's serial
-number.
+a clearer name), one bench per session. A session takes one with
+`scripts/bionic-bench.py lock NAME`, or queues with `reserve`;
+`bionic-control.py`, and every tool built on it, then talks to the bench the
+session holds and refuses one another session holds. The bench's two USB
+serials, console and halt port, follow from its Teensy's serial number.
 
-A logic analyzer is locked the same way. Each is a resource added with
+A logic analyzer is locked the same way: a resource added with
 `scripts/bionic-bench.py add NAME kind=logic mcp=URL`, its Logic 2 MCP
-server; `logic-analyzer.py` captures on the one the session holds (or
-`BIONIC_LOGIC`, or the only one) and refuses one another session holds.
-Logic 2's MCP tools called directly cannot check: lock the analyzer first.
-A capture it starts keeps at most 10 ms and stays open for a look until
-the next start closes it; one that never triggers is stopped, not
-exported, and an export takes only that capture's channels.
+server. `logic-analyzer.py` captures on the one the session holds (or
+`BIONIC_LOGIC`, or the only one) and refuses one another session holds;
+Logic 2's MCP tools called directly cannot check, so lock the analyzer first.
+A capture it starts keeps at most 10 ms and stays open for a look until the
+next start closes it; one that never triggers is stopped, not exported, and
+an export takes only that capture's channels.
 
 Powering a board off drops its Teensy off USB; a flash passes through the
 HalfKay bootloader and a firmware crash re-enumerates within a second or two.
@@ -232,9 +229,9 @@ the TMS9980 and TMS9981 have passed only the plain regress.
 ### Compare a pin read against `LOW`, never `HIGH` **[code]**
 
 `digitalReadFast()` may return the masked register bit, `1 << bit`, rather
-than 1. That is truthy but **not equal to `HIGH`**, so `read() == HIGH` fails
-on pins whose bit position is not 0. `LOW` is 0, so `== LOW` and `!= LOW` are
-exact. Write the test that way even where the current expansion is safe.
+than 1: truthy but **not equal to `HIGH`**, so `read() == HIGH` fails on pins
+whose bit position is not 0. `LOW` is 0, so `== LOW` and `!= LOW` are exact.
+Write the test that way even where the current expansion is safe.
 
 ### Change a coded input through a neutral code **[code]**
 
@@ -275,8 +272,7 @@ On the i8096 at 100 MS/s:
 | `hi(); delayNanoseconds(10);` plus one pin read, then `lo();` | 38 ns |
 
 - To meet a datasheet minimum, size `n` from a capture, not from the minimum
-  itself: asking for the minimum overshoots it, and every overshoot is lost on
-  each bus cycle.
+  itself: every overshoot is lost on each bus cycle.
 - Write the measured phase next to the constant (`= 5;  // 30 ns`), and
   re-measure when the code around it changes.
 - Work done inside the phase (a pin read, a port read, a bus drive) counts
@@ -308,12 +304,12 @@ The S80296SA's went this way:
 
 1. Capture XTAL1 with the bus strobes and time each phase from one bus state
    to the next. The phases the software stretches stand out against the
-   ones the delays make; there each bus cycle lost about 650 ns twice.
+   ones the delays make.
 2. Stamp the suspects with `ARM_DWT_CYCCNT` into a scratch buffer, print it
    after the run, and drop the stamps afterwards. A stamp costs about 50 ns,
    so subtract it.
 3. A `yield()` on every cycle, from the halt switch's poll, cost about
-   160 ns: poll it every 16 bus cycles instead.
+   160 ns (see "The halt port" for where the poll runs).
 4. A memory read through the virtual chain (`Mems::read`, the arch's
    `read`, `Devs::isSelected`, each device's `isSelected`, `read_byte`)
    cost about 350 ns, twice for a word: check the devices once for the
@@ -338,13 +334,12 @@ The S80296SA's went this way:
 A CPU whose clock may stop can run from a free-running FlexPWM output
 instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
-injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
-sequence from it on CKIN (pin 5), the TMS370Cx5x on CLKIN (pin 5), and
-the INS8060 and INS8070 on XIN (pin 5), the 8085 on X1 (pin 6), and
-the P8086 and D8087 boards' x86 and 8087 on CLK (pin 29), since their
-clock must not stop. The SCN2650
-is static, but runs from it on CLOCK (pin 5) too: the timer paces the
-cycles, where bit-banged edges needed a tuned delay for each.
+injected sequences stay bit-banged. CPUs whose clock must not stop run
+every sequence from it: the TMS9980 and TMS9981 on CKIN (pin 5), the
+TMS370Cx5x on CLKIN (pin 5), the INS8060 and INS8070 on XIN (pin 5), the
+8085 on X1 (pin 6), and the P8086 and D8087 boards' x86 and 8087 on CLK
+(pin 29). The static SCN2650 runs from it on CLOCK (pin 5) too: the timer
+paces the cycles, where bit-banged edges needed a tuned delay for each.
 
 - Hold a bus cycle with the CPU's wait input (`#DSACK`, READY, `#OPACK`,
   `#HOLD`) instead of stopping the clock: withhold it until the cycle is
@@ -391,22 +386,27 @@ cycles, where bit-banged edges needed a tuned delay for each.
 - After raising the wait input, wait for the CPU's own sign that the wait
   is over (the 8086's status going passive) before counting edges to the
   data hold: the V20/V30 take READY an edge earlier than the 8086 does.
-- Never poll the FlexPWM counter in a wait: a peripheral read, it came
-  back late by up to a period now and then, and the 8086 board went from
-  failing above 5 MHz to passing at 6.8 MHz once the waits ran from the
-  CPU's cycle counter. Both count from one PLL, so read the PWM counter
-  once when the rate is set (the quickest of many reads: its latency
-  varies) and take every phase from the cycle counter after.
+- Never poll the FlexPWM counter in a wait: a peripheral read, it comes
+  back late by up to a period now and then. It and the CPU's cycle
+  counter count from one PLL, so read the PWM counter once when the rate
+  is set (the quickest of many reads: its latency varies) and take every
+  phase from the cycle counter after.
 - The phase that calibration gives is off by a constant the parts take
   differently: the 8086s need READY and the T1 address read a few counts
   later than the V20/V30 do. Reset at a slow, safe rate, tell the part,
   then switch to its own rate and phase from a table; `K` overrides both
   for a sweep.
 - Read the next cycle's address in the masked stretch that ends the
-  current one: an interrupt taken after it, before T1, makes the read
-  miss the address. Keep it out of the ring until the caller asks for
-  the cycle: while the ring is held, the head slot is still the cycle the
-  caller is finishing.
+  current one: an interrupt taken after the release, before the address
+  is in, makes the read miss it (before T1 on the 8086; the HD641016
+  drops its address at T2 for the write data, and a USB interrupt on
+  unmasking took a push's data for its address). A held cycle holds only
+  after the address phase, so where the address shares pins with write
+  data nothing may run between serving one cycle and reading the next
+  address: service the devices while the cycle is still held, and keep
+  interrupts masked from the release until the next address is in. Keep
+  the new cycle out of the ring until the caller asks for it: while the
+  ring is held, the head slot is still the cycle the caller is finishing.
 - A CPU that synchronises its bus grant to its clock (the INS8060's
   `#ENIN`) waits up to a clock more for a grant that comes after its
   request, and at some rates the Teensy's fixed reaction just misses the
@@ -425,10 +425,9 @@ cycles, where bit-banged edges needed a tuned delay for each.
   clock or so; a cycle with none is recorded, and the next one latched.
 - The speed is a staircase, not a slope: the CPU samples its wait input
   once a clock, so a fixed Teensy service time costs a whole extra wait
-  state wherever it misses an edge. The 8085 ran slower at 10 MHz X1
-  than at 9.375 MHz until the halt switch, whose `yield()` took about
-  120 ns before every fetch, was polled once in 10 us instead. Measure
-  each phase of a cycle in a capture before blaming the rate.
+  state wherever it misses an edge; a `yield()` before every fetch made
+  the 8085 slower at 10 MHz X1 than at 9.375 MHz. Measure each phase of
+  a cycle in a capture before blaming the rate.
 - Holding every cycle costs a wait state each. In a run, a plain memory
   read can go without one: decide from the status as soon as it is valid,
   leave the wait input released, stage the data in the port while it is
@@ -442,17 +441,13 @@ cycles, where bit-banged edges needed a tuned delay for each.
 - Measure the bit-banged machine cycle against the CPU's rated clock
   before moving it to a timer. The CDP1802's bit-banged clock already
   ran near its 5 MHz, a 1.73 us machine cycle against 1.60 us, so a timer
-  could gain at most that gap; holding each cycle with `#WAIT` made it
-  2.39 us. Squeeze the bit-banged cycle instead. The CDP1802 pauses on any
-  falling clock edge with `#WAIT` low, ignoring that edge; the CDP1804A
-  family pauses only as TPA or TPB rises.
-- A held cycle costs a wait state wherever the Teensy's service overruns
-  the CPU's first wait sample. The Z8400A at 4.05 MHz samples `#WAIT`
-  about 160 ns after `#MREQ`, and the Teensy needed about 300 ns from the
-  strobe to the release, so every cycle took one more state and the Z80
-  stays bit-banged. A DWT profile of the run loop's phases (address read,
-  lookup, data out, bookkeeping) shows where the time goes without a
-  capture.
+  could gain at most that gap, and holding each cycle with `#WAIT` cost
+  more than that. Squeeze the bit-banged cycle instead. The CDP1802
+  pauses on any falling clock edge with `#WAIT` low, ignoring that edge;
+  the CDP1804A family pauses only as TPA or TPB rises.
+- The Z8400A at 4.05 MHz samples `#WAIT` about 160 ns after `#MREQ`, and
+  the Teensy needed about 300 ns from the strobe to the release, so every
+  cycle took one more state and the Z80 stays bit-banged.
 - A strobe can trail its request by part of a clock: the HD64180S drops
   `#WR` 50-60 ns after `#ME`. Wait about a clock for it before deciding a
   cycle has none; deciding at once released a write unheld, and it was
@@ -460,7 +455,9 @@ cycles, where bit-banged edges needed a tuned delay for each.
 - Keep bookkeeping off the release: poll the strobe's end straight from
   the port, and advance the cycle ring once the wait input holds again.
   With the ring advanced first, a Z8018010 at 16.67 MHz EXTAL let an NMI's
-  push run unheld in 4 of 6 steps, and every Z180-family chip ran slower.
+  push run unheld, and every Z180-family chip ran slower. Nothing slow
+  runs between the release and the next hold either: a lookup that may
+  miss the cache goes before the release.
 - On an ALE bus the next ALE may follow a strobe by tCL, 50 ns on the
   NSC800, so slow work after the strobe misses it and the next cycle
   waits for an ALE that has passed. A write held before `#WR` already has
@@ -472,14 +469,6 @@ cycles, where bit-banged edges needed a tuned delay for each.
 - A multiplexed address needs its settle time even on a held cycle: the
   KL5C80A12's A16-A19 come through the ASEL mux about 20 ns after it
   switches, and read sooner they sent CALL operands to the wrong page.
-- A held cycle holds only after the address phase. When the address
-  shares pins with write data, nothing may run between serving one cycle
-  and reading the next address: service the devices while the cycle is
-  still held, and keep interrupts masked from its release until the next
-  address is in. The HD641016 drops its address at T2; a USB interrupt
-  fired on unmasking took a push's data 12B9H for its address 002572H.
-  Nothing slow runs between the release and the next hold either: a
-  lookup that may miss the cache goes before the release.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
@@ -489,7 +478,7 @@ cycles, where bit-banged edges needed a tuned delay for each.
 
 The 8086's queue status (QS1, QS0) says which fetched byte the CPU takes
 and when its queue empties; `debugger/i8086/qs_i8086.cpp` keeps it in a
-ring, one sample per CLK, by DMA, so the bus loop never reads it.
+ring, one DMA sample per CLK, so the bus loop never reads it.
 
 - DMA can't read the fast ports (GPIO6-9). Move the pad to its slow port
   (clear its bit in `IOMUXC_GPR_GPR26`-`29`); nothing else may read it
@@ -548,11 +537,10 @@ phases must never overlap.
   edges (17 ns typical, 27 ns max) and matched between channels within
   2 ns, so the phases keep their widths and gaps; the UCC27444 delays a
   falling input 12 ns more than a rising one, and the UCC27324 10 ns
-  (25/35 ns typical), which narrows every gap between phases by as much.
-  The P8080 rev 3 board fits a UCC27324 from stock, with pins 1 and 8
-  tied to VDD so a UCC27624 drops in.
-  For four phases use two, and pair in one chip the phases whose gap is
-  tightest.
+  (25/35 ns typical), narrowing every gap between phases by as much. The
+  P8080 rev 3 board fits a UCC27324 from stock, with pins 1 and 8 tied to
+  VDD so a UCC27624 drops in. For four phases use two, and pair in one
+  chip the phases whose gap is tightest.
 
 ### A logic analyser on the bus can break the board **[hw]**
 
@@ -580,6 +568,26 @@ The data bus never floats across the turnaround: a CPU still sampling between
 - A read of a pin in that range shows what is *held* there, not that the CPU is
   driving it. Do not infer bus ownership from a level.
 
+### Open-drain reset lines are driven low or released, never high **[doc]**
+
+A reset line the CPU drives too (the MC68000's `#RESET` and `#HALT`, the
+MC68HC16's `#RESET`) is open drain both ways. Its pull-up sits on the Teensy
+side of the level shifter and the boards carry none, so the Teensy drives
+such a line low or releases it to `INPUT_PULLUP`, never high: driven high it
+would fight the chip's own assertion and hide it. Each chip's notes say what
+the chip asserts the line for.
+
+### Walk the address mux selects in Gray order **[code]**
+
+Boards that multiplex the address, size and function-code lines through
+74HCS153s onto one GPIO port (the MC68000 and MC68HC16 boards among them)
+read them one select code at a time, once per bus cycle. The selects are
+walked in Gray order, so each step changes one select line and the mux
+settles once per step, one port read each. The bus holds still meanwhile:
+the CPU waits on its wait input, or on a stopped clock, until the walk is
+done. A multiplexed address still needs its settle time on a held cycle
+(see Clocking a run from a timer).
+
 ### Verify opcodes with the assembler, not by hand
 
 libasm ships a CLI assembler (`asm`, built from libasm's `cli/`); use it rather
@@ -598,7 +606,7 @@ Opcode questions are settled from the tables (`libasm/src/table_<cpu>.cpp`).
 - `M`/`m` (program/data memory) accept at most **16 bytes per line**. A longer
   program truncates silently and the untouched tail executes as whatever was
   there, which reads as "the CPU got that instruction wrong". Split the load
-  across several `M` commands and dump it back before drawing any conclusion.
+  across several `M` commands and dump it back before concluding anything.
 - `M`/`m` always *write*; `p`/`d` dump. `M<addr>` followed by an empty line still
   writes, so a mistyped dump can corrupt the byte you meant to inspect.
 - `b` (list breakpoints) prompts "clear?" and swallows the next command.
@@ -620,9 +628,9 @@ target), in memory filled with the target's trap so any transfer stops at once,
 and compares what the chip did with the tables. Everything target-specific
 lives in a plugin, `debugger/<arch>/tools/cycles_<chip>.py`, named on the
 command line with the recording and the channels file. The profile loop prints
-every cycle without consulting the tables; where a matcher segments cycles into
-instructions, it also prints the matcher's verdict, so one run checks the
-table, the matcher and the chip together.
+every cycle without consulting the tables, plus the matcher's verdict where
+one segments cycles into instructions, so one run checks the table, the
+matcher and the chip together.
 
 The profile loop holds the debug pin active for the run, so `--capture` can
 check the firmware's view of each cycle against a logic analyser triggered on
@@ -669,7 +677,7 @@ within 20 seconds), so each go runs a whole row instead of one pixel.
 
 To time a redrawing sample by hand, count the blank lines it prints between
 frames: `bionic-control.py run <cap> <n>` stops after n of them and prints each
-interval. A run that ends on its own has exited early and is a failure, not a
+interval. A run that ends on its own has exited early: a failure, not a
 timing. **[hw]**
 
 ### Word-align a sample's variables on a 16-bit bus **[hw]**
@@ -677,13 +685,13 @@ timing. **[hw]**
 A word at an odd address takes two bus cycles on a 16-bit bus. Shortening
 code above a workspace can move every variable to an odd address: the V30
 then ran `samples/i80186/mandelbrot.inc` slower than the 8086 code, while
-the V20 on its 8-bit bus showed no difference. Code moved the same way pays
-too: the first fetch after a jump to an odd address is a single byte, so
-interrupt handlers and the routines called per character start at even
+the V20 on its 8-bit bus showed no difference. Code moved the same way
+pays too: the first fetch after a jump to an odd address is a single byte,
+so interrupt handlers and the routines called per character start at even
 addresses as well. `align` leaves its gap unwritten, so nothing may fall
-through into an aligned label. Put `align 2` before word
-variables, and compare the two variants' frame times on a 16-bit bus part
-before trusting either.
+through into an aligned label. Put `align 2` before word variables, and
+compare the two variants' frame times on a 16-bit bus part before trusting
+either.
 
 ### Samples on another console device **[code]**
 
@@ -718,56 +726,6 @@ mode (`samples/v30/mandelbrot_8080emu.asm`):
 - CP/M runs the same way (`samples/v30/cpm80.asm`) at 1000:0000; its
   BIOS polls, so no native handlers. The harness sets DMAX to 1 so the
   BIOS's 16-bit DMA addresses land in that segment.
-
-### CP/M-86 on the 8086 **[code]**
-
-`samples/i8086/cpm86bios.asm` is a CP/M-86 1.1 BIOS on the 8080's
-sector disk and USART:
-
-- CCP, BDOS and the BIOS share one segment, F000H, at the top of memory,
-  so the reset vector at FFFF0H is F000:FFF0 in the BIOS's own source.
-  The BIOS assembles at segment offsets and the Makefile adds a type 04
-  record. The TPA runs from 0041H, past the debugger's park at
-  0400H-040FH, up to F000H.
-- `L` loads CCP, BDOS and the BIOS from one HEX file, and no system
-  tracks are read: warm boot jumps to CCP+6, as CP/M-86 never overlays
-  them.
-- asm makes a JMP in reach short, so the jump table's 3-byte entries are
-  spelled out with `db 0E9H` and `dw`.
-- SELDSK reads the selected drive's format back from DRIVE, bits 4-7,
-  and sets its DPH's XLT and DPB: the 8" disk, or hd8 with no skew.
-  Firmware without format bits reads 0 there, the 8" disk.
-- The debugger owns INT 1-3, so DDT86's breakpoints and trace stop in
-  the debugger instead.
-- The USART interrupts, on types 20H and 21H, while a character waits
-  and while it can take one with the transmitter on. CP/M polls with
-  interrupts off, but a program may turn them on, as CB86 does, and
-  take a vector the BIOS had left unset. The BIOS's handlers keep the
-  character and turn the transmitter off, which CONOUT turns on to
-  send.
-- Personal BASIC loads a program with `OLD`, not `LOAD`, and takes a
-  name with any type; `BASIC FMANDEL` starts it without loading one.
-  CB86 opens its overlays on the current drive.
-
-### MS-DOS on the 8086 **[code]**
-
-`rombios.asm`, `msdosboot.asm`, `mbr.asm` and `msdosbio.asm` serve both
-2.0 and 2.11:
-
-- SYSINIT 2.11 keeps 2.0's variable offsets, so one `msdosbio.hex`
-  links against either; `omf-link.py --check sysinit.inc` fails the
-  build if a SYSINIT ever moves them.
-- IO.SYS's drivers switch to a private 256-byte stack: DOS calls them
-  on its own 160 bytes, which a driver plus an interrupt overran.
-- MASM 5.10 is not the assembler Microsoft used. `msdos-build.py`
-  patches the sources it rejects or assembles differently, and pins the
-  sha256 of every output; the 2.0 kernel it makes is 3 bytes shorter,
-  from shorter `AND reg,imm` encodings, and boots.
-- `msdos-build.py bench` turns the disk cache off around its run:
-  `sd put` to a mounted image loses writes.
-- Microsoft C 5.10 opens more files than DOS's default 8, so the 2.11
-  hard disk's `CONFIG.SYS` sets `FILES=20`; without it CL stops with
-  fatal error C1015.
 
 ### Unix V6 installs itself under simh **[code]**
 
@@ -807,25 +765,20 @@ behind, the regress applies `[devices]` before each program it loads, and
 `record-scenario.py` puts back any device a scenario moved.
 
 A vector write moves a pending request to the new vector, as `I` does:
-left on the old one, a vector of 0 can never negate it. Mandelbrot left
-the 8085's Tx wired to RST 6, so echoir's command write raised it there,
-its write of 0 to the Tx vector kept INTR high, and its `EI` took RST 6
-into the stale handler.
+left on the old one, a vector of 0 can never negate it.
 
 What a command lists must read back through it as printed, since the tools
-save the listing and restore it. `I` once read the base with `maxData()`'s
-four digits while the i8096's listing printed six, so restoring `000400`
-typed `0004` and set 000000, and every recording after that started with
-the USART off. libcli caps a number's digits at its limit's, so a field
-that echoes a listing takes the widest limit.
+save the listing and restore it. libcli caps a number's digits at its
+limit's, so a field that echoes a listing takes the widest limit (the
+i8096's base prints six digits where `maxData()` has four).
 
 ### Reset after uploading, not only before **[hw]**
 
-`R` before an upload stops the CPU, but resets from the vector already in
-memory -- the *previous* program's; uploading does not touch the PC. This shows
+`R` before an upload stops the CPU but resets from the vector already in
+memory, the *previous* program's; uploading does not touch the PC. It shows
 when samples start at different addresses (on the MC6800, `mc68xx` starts at
-9000, the others at 0100): `G` then runs the stale program.
-`bionic-regress.py`'s `load()` resets again after the upload.
+9000, the others at 0100): `G` runs the stale program. `bionic-regress.py`'s
+`load()` resets again after the upload.
 
 For a CPU that fetches its PC from a reset vector, `[reset]` names the
 vector's bytes, most significant first -- `PC = "[FFFE FFFF]"`, or
@@ -844,37 +797,36 @@ on an undecodable PC.
 ### A damaged record is rejected, not loaded **[hw]**
 
 The loader takes a record's length from its count field, so a line cut short
-on the way used to load whatever an earlier, longer line left in the buffer:
-an MC6809E ran into code from another record, with nothing reported. Each
-record's length and checksum are checked now; a bad one prints `?bad record`
-and loads nothing, as does a line that lost its `S` or `:`. A record lost
-whole shows only in the byte count, so `upload_file()` also checks the
-reported `bytes uploaded` against the file, and uploads again on either.
+would load whatever an earlier, longer line left in the buffer. Each
+record's length and checksum are checked; a bad one, or a line that lost
+its `S` or `:`, prints `?bad record` and loads nothing. A record lost whole
+shows only in the byte count, so `upload_file()` also checks the reported
+`bytes uploaded` against the file, and uploads again on either.
 
 ### YMODEM over the console lives with lrzsz's habits **[hw]**
 
 `Y` moves files with YMODEM (`debugger/ymodem.cpp`, host-tested against
 lrzsz's `sb` and `rb` in `test/test_ymodem`), CRC mode and 1K blocks, as
-minicom drives it. lrzsz's habits shape the code. Its receiver flushes its
-input right after every `C` and every ACK it sends, so the sender lets the
-line settle before answering one (`SETTLE_MS` after a `C`, `GAP_MS` after
-an ACK, `RETRY_MS` after a NAK, since lrzsz then takes a second of quiet
-to clear the line; the host tests on a pseudo terminal hit the flush every
-time, USB would now and then), and the gap must not follow the header's
-ACK, whose `C` comes at once and would be eaten. It doubts the first EOT and now and
-then the second, so EOT repeats until acknowledged. It flushes its output
-as it exits, which can take the ACK of the closing empty header with it, so
-a silence there counts as success (the file was acknowledged before), and
-the board waits half a second of quiet (`ConsoleLink::drain()`) before
-printing its report, which a flush would otherwise eat too; nothing lrzsz
-sends after the session reaches the prompt as a command. And it stamps a
-file without a modification time with garbage, so the header carries a `0`.
-The block number wraps past 255: a file over 256 KB is where a `seq == 0`
+minicom drives it. lrzsz's receiver flushes its input right after every `C`
+and every ACK it sends, so the sender lets the line settle before answering
+one: `SETTLE_MS` after a `C`, `GAP_MS` after an ACK, `RETRY_MS` after a
+NAK, since lrzsz then takes a second of quiet to clear the line (the host
+tests on a pseudo terminal hit the flush every time, USB now and then).
+The gap must not follow the header's ACK,
+whose `C` comes at once and would be eaten. It doubts the first EOT and now
+and then the second, so EOT repeats until acknowledged. It flushes its
+output as it exits, which can take the ACK of the closing empty header with
+it, so a silence there counts as success (the file was acknowledged
+before), and the board waits half a second of quiet (`ConsoleLink::drain()`)
+before printing its report, which the flush would eat too; nothing lrzsz
+sends after the session reaches the prompt as a command. It stamps a file
+without a modification time with garbage, so the header carries a `0`. The
+block number wraps past 255: a file over 256 KB is where a `seq == 0`
 shortcut breaks. The script waits for the whole ready line before starting
-lrzsz, since its tail would reach `rb` as line noise and cost a retry round.
-A block that lost a byte on the way would otherwise be answered byte by
-byte, each a NAK and a retry spent: the receiver lets the line go quiet
-before its one NAK.
+lrzsz, since its tail would reach `rb` as line noise and cost a retry
+round. The receiver lets the line go quiet before its one NAK; otherwise a
+block that lost a byte would be answered byte by byte, each a NAK and a
+retry spent.
 
 ### Some CPUs report the PC one byte early **[hw]**
 
@@ -886,26 +838,15 @@ hand, set `PC=A-1`.
 
 ### Checking the analyser leads and board files **[hw]**
 
-A preset's labels are only as good as the leads. Decode a reset capture before
-trusting a new channel set: the register-save sequence after reset injects
-known instruction bytes on reads and writes known register values, so swapped
-strobes (such as crossed read and write strobes) show at once.
+A preset's labels are only as good as the leads: decode a reset capture
+before trusting a new channel set. The register save after reset injects
+known instruction bytes on reads and writes known register values, so
+swapped strobes (crossed read and write) show at once.
 
 The `schematics/<board>/*_bionic.toml` pin maps are hand-written and have been
 wrong (reversed data pins, wrong port, duplicated pin); check them against the
-PCB's pad nets, not the other way round.
-
-Capture a reset sequence with `R` once the prompt is ready: it runs the
-same reset as a boot. Arm a capture triggered on the reset's negation
-edge, then send `R`. A pulse-width trigger misses some resets: driving the
-reset pin as an output glitches it first, and at power-up the reset is
-already asserted, so the pulse is not always the width the firmware
-holds. To capture a boot's own reset instead, remember that the firmware
-waits at power-up until the console port opens, and that the daemon opens
-it at each power-on to see what is seated. Hold the board lock
-(`RUN_DIR/board-NAME.lock`, an flock) through the power cycle, arm once
-the board is back on USB, then open the console. A capture armed before
-the power cycle triggers on the power-off edges instead.
+board's netlist (`kicad-cli sch export netlist`) and the PCB's pad nets, not
+the other way round.
 
 Keep captures triggered and short. `trimDataSeconds` is the time kept
 before the trigger, not the whole window, and it only trims once the
@@ -959,25 +900,30 @@ chip and kind (`[p8086-v30-step]`), each with its trigger, window,
 3. Check each channel against its label before saving anything: a clock
    shows its period, RESET is flat outside a reset, a status line toggles
    every cycle. A swapped pair shows as a signal on the wrong channel;
-   fix the leads or the table first. A channel that never toggles in the
-   captures it is meant for carries nothing; give its lead to something
-   that does, such as status bits multiplexed on the top address lines.
-   Take the pin-to-signal map from the board's netlist (`kicad-cli sch
-   export netlist`), not the pin tables alone.
-4. Open the console before arming, and keep that session open: open,
+   fix the leads or the table first. Give the lead of a channel that
+   never toggles in its captures to something that does, such as status
+   bits multiplexed on the top address lines.
+4. Open the console before arming and keep that session open: open,
    arm, then send the command. Opening sends `?`, and printing the
-   banner can drive the bus (on the D8087 board it reads the 8087
-   through FSAVE/FRSTOR, about 160 µs that a READY trigger fires on).
-   For the same reason, part of a reset capture is the register print,
-   not the reset itself.
+   banner can drive the bus (the D8087 board reads the 8087 through
+   FSAVE/FRSTOR, about 160 µs that a READY trigger fires on); likewise
+   part of a reset capture is the register print, not the reset itself.
 5. A wave is for a person to read: keep 50 µs before the trigger, and
    end the window 50 µs after the sequence ends. Probe once at the full
-   window (10 ms; echoitr up to 40 ms) to find that end. A capture whose
-   trigger never fires is stopped and never exported. Each chip gets its
-   own tables: an 8-bit bus takes about twice the cycles of a 16-bit
+   window (10 ms; echoitr up to 40 ms) to find that end. Each chip gets
+   its own tables: an 8-bit bus takes about twice the cycles of a 16-bit
    one.
-6. A reset runs through the debugger's register save; trigger it on the
-   reset's negation, the edge the data sheet times the start from.
+6. A reset runs through the debugger's register save; the negation edge
+   is the one the data sheet times the start from. `R` once the prompt is
+   ready runs the same reset as a boot. A pulse-width trigger misses some
+   resets: driving the reset pin as an output glitches it first, and at
+   power-up the reset is already asserted, so the pulse is not always the
+   width the firmware holds. For a boot's own reset, the firmware waits at
+   power-up until the console port opens, and the daemon opens it at each
+   power-on to see what is seated: hold the board lock
+   (`RUN_DIR/board-NAME.lock`, an flock) through the power cycle, arm once
+   the board is back on USB, then open the console. A capture armed before
+   the power cycle triggers on the power-off edges instead.
 7. For steps, run mandelbrot, halt it with the halt port, and send six
    steps as one write (`SSSSSS`): each a restore, the instruction and the
    save. With a coprocessor, step a few of its instructions too. One
@@ -1016,7 +962,8 @@ Wrap the body at 72 columns.
 ### Record what a change taught in the same commit
 
 Facts found while making a change — a bus timing, a pitfall, a bench lesson —
-go into this document in that change's commit, not a later docs commit.
+go into this document, or the chip's file under `docs/arch/`, in that
+change's commit, not a later docs commit.
 
 ### Build with and without `ENABLE_SERIAL_HANDLER` **[code]**
 
@@ -1079,2163 +1026,37 @@ target's devices mount the images that go with it.
 
 ## Per architecture
 
-### Z280
-
-**Pitfalls.**
-
-- **Byte lanes follow the absolute address**, and a word read at an odd
-  address is the aligned pair.
-- **On-chip memory is a cache at reset**; injection is blind until
-  `disableCache()` has run.
-- **Refresh cannot be turned off**, only kept out of the ring.
-- **`#NMI` must go out during the opcode fetch**, and in modes 0-2 it makes no
-  acknowledge cycle.
-- **The PC is logical, the bus physical.**
-- **A captured sequence ends with a taken jump.**
-- **Analyser leads on the multiplexed bus can stop it working at all**;
-  unplug them before suspecting firmware. **[hw]**
-
-#### Bus, lanes and sampling
-
-**Z-BUS byte lanes.** The even-address byte rides AD8-15, the odd-address byte
-AD0-7 (§13.5.1.1). The lane is chosen by the **absolute address**, never by a
-buffer offset, in injection and in `MemsZ280::read_zbus`/`write_zbus` alike.
-Uncached, the CPU issues a word read at every PC value, on both parities.
-**[hw]**
-
-**A word read at an odd address is the aligned pair**: the CPU takes the lanes
-as bytes `addr & ~1` and `addr | 1`, and with the instruction cache on it
-files both in the line. Answering with `[addr]`, `[addr+1]` works uncached but
-caches a wrong byte before an odd jump target. The symptom: interrupt-driven
-samples fail only with the cache on, and only at some link offsets. **[hw]**
-
-**Sample the address inside the `#AS`-low window, the status after the rise.**
-AD0-15 carries the address only while `#AS` is low. `ST0-3`, `R/#W`, `B/#W` and
-`#AS` are 3-state and valid only from the `#AS` rise, which waits for #XTALI to
-go low. A stopped PC outside the program, with a byte count that varies run to
-run, means the address was sampled after the rise. **[hw]**
-
-```
-while (signal_as() != LOW) { ...clock... }
-delayNanoseconds(addr_delay_ns);   // settle, still inside the #AS-low window
-s->getAddr();
-xtali_lo();                        // ...which makes the #AS rise
-delayNanoseconds(status_delay_ns);
-s->getControl();
-```
-
-**`completeCycle()` cannot count T states**: entered straight after
-`resumeCycle()`, out of a `#WAIT` stretch, it cannot know the T state, so it
-finds both edges by watching `#DS`; latching a write at a fixed T state breaks
-every run. A later write sample without tracking state through
-`resumeCycle()` remains open. **[hw]**
-
-**No critical sections.** #XTALI is driven from `prepareCycle()`, so the bus
-holds until the next edge; an interrupt only delays a sample. Under
-`noInterrupts()` a CPU that stops issuing transactions takes USB and the halt
-port down; unguarded, the watchdog catches it. **[hw][code]**
-
-#### Clocking
-
-`CLK = XTALI` with CS=01 in Bus Timing and Initialization (CS=00 gives
-XTALI/2), ~16 ns XTALI→CLK. On a memory transaction `#AS` is low for one XTALI
-phase; `#DS` falls one phase later on a read, two on a write, and stays low
-three phases and two respectively. **[hw]**
-
-**The CS latch takes effect only after the first bus transaction**; until then
-`CLK` runs on a reset divider whatever CS says. `resetPins()` checks it past
-`prepareCycle()`, where `#WAIT` parks the CPU in T2: sampled once per #XTALI
-cycle, `CLK` is steady at CS=01 and alternates at CS=00. Earlier, extra cycles
-carry the CPU past T1 and `prepareCycle()` misses `#AS`. **[hw]**
-
-**Sustained clock rate is set by host code**: the high phase absorbs
-`completeCycle()`, `_devs->loop()` and `prepareCycle()`, so trimming the delay
-constants buys little. **[hw]**
-
-#### Cache, refresh and the I/O page
-
-**Cache Control** is control register `12`, reset `20` (M/C=0, I=0, D=1):
-instruction caching on. `I=1` stops new fills but does **not** invalidate;
-`PCACHE` (`ED 65`) drops the lines. Fixed-address mode (`M/C=1`) needs all 16
-line tags initialised by data reads, which injection cannot carry (no `#M1`).
-**[hw]**
-
-**Refresh cannot be turned off**: §9.3 makes it a *minimum bus transaction
-rate* — a refresh is generated whenever the timer elapses with no external
-transaction, which at debugger speeds is always. Still set `E=0`, rate `3F`;
-**rate 0 is not the slowest** (documented `0 < n < 63`, every 4n clocks, zero
-special). Keep refresh out of the ring (see General). **[hw][doc]**
-
-**The I/O Page register resets to 0.** On-chip peripherals live on pages
-`FE`/`FF` and make no bus transaction; anything that changes the page must put
-it back, or every later `OUT` stays on-chip and the debugger waits for ever.
-**[hw][doc]**
-
-**Control register addresses** (`LDCTL`, address in C) **[doc]**:
-
-| Register | Addr | | Register | Addr |
-|---|---|---|---|---|
-| Master Status (MSR) | `00` | | Trap Control \* | `10` |
-| Bus Timing and Control \* | `02` | | Cache Control \* | `12` |
-| Stack Limit | `04` | | Local Address \* | `14` |
-| Interrupt/Trap Vector Table Pointer | `06` | | Interrupt Status | `16` |
-| I/O Page \* | `08` | | Bus Timing and Initialization \* | `FF` |
-
-\* 8-bit; only the low byte of the source is written. `LDCTL HL,(C)` of an
-8-bit register leaves H undefined. **[hw]**
-
-#### Injected sequences and the resume origin
-
-**Every sequence threads an `org`.** `execute()` resumes at `org`, keys its
-window on it, and returns where it parked (its exit, or where the guard ran
-out); sequences chain by passing the same variable. **[code]**
-
-**The origin is a bus address; the PC is not.** The PC is 16-bit logical, the
-bus 24-bit physical with 4K MMU pages. `RegsZ280` keeps the frame beside the PC
-(`park(pc, addr)`); `nextIp()` and `physical(logical)` translate on that page,
-identity off it. Exits are physical: `execInst(seq, len, org, physicalPc())`.
-**[hw]**
-
-**Capture the frame on a memory read**: after reset or a step's `RETN`,
-`prepareCycle()` can return a refresh; `skipToRead()` clocks past it. **[hw]**
-
-**End a sequence with `JR $+2`** when the host depends on its tail (a pending
-`POP AF`, the NMI frame before `RETIL`, `restoreRegs`'s pop): the prefetch
-passes the window before the last write lands, and the taken jump refetches
-the exit after it. Each sequence declares its exit (`EXIT_END`, `EXIT_ORG`, or
-its jump's target); the loop cannot infer it. **[hw]**
-
-`RegsZ280::restore()` puts the frame below the SP it resumes with, so an
-edited SP holds. **[code]**
-
-#### Running: free-run, breaks and halts
-
-**`loop()` free-runs** like `PinsZ80::loop()`, `_devs->loop()` each turn,
-breakpoints patched as `RST 38H`; stepping it with `#NMI` would starve the
-maskable interrupts. `setBreakInst()` patches one byte: the Z-BUS word
-transfer lives only in `read_zbus`/`write_zbus`. **[hw]**
-
-**A break must prove an `RST 38H` ran** (`_mems->read_byte(pc) == RST38`),
-since a mode 1 interrupt also vectors to `0038H`. The `FFH` exit convention
-holds only while the vector holds `FFH` (`ORG_INT` = `ORG_RST38` = `0038H`).
-**[hw]**
-
-**Find the push by scanning back**, not `prev()`: a prefetch may sit between
-it and the vector fetch. In `suspend()` accept only the write right before the
-`0066H` fetch or one read behind it; looser matches ordinary data. **[hw]**
-
-**`#NMI` timing**: assert it **during** the stepped instruction's opcode fetch
-— after `resumeCycle()` returns it, before `completeCycle()`. Later steps two
-instructions; earlier steps none. `resumeCycle()` must return the opcode fetch
-itself, not a prefetch. **[hw]** See the TMS9900 for the idiom.
-
-**NMI in modes 0-2** pushes **PC only**, vectors to `0066H`, makes **no
-acknowledge cycle** (`Signals::nmiAck()` is never true; the push is inferred
-from its position), and returns with `RETN` (`ED 45`). The pushed PC is the
-next instruction's, or a block instruction's own. To check for acknowledges,
-probe all four status bits over the `#NMI` window; a `TSET` proves the whole
-status bus in one cycle (`ST_LOCK` is `0xF`). **[hw][doc]**
-
-**`suspend()` rules** (violations show as "halt, then continue sometimes does
-nothing"): save only after it succeeds (else registers are read
-inside the NMI service); every continue from a breakpoint steps over it
-first, so a breakpoint hit twice then never is a stepper bug. **[hw]**
-
-**`HALT`**: a prefetch can carry the CPU into a `HALT` past a breakpoint.
-`rawStep()` refuses to step a `HALT`, and a halted run cannot be saved — no
-boundary to inject at. **[hw][code]**
-
-**`run()` saves before the dump**, holding the ring so the debugger's cycles
-reuse the head slot, since the dump needs the stopped Cache Control. Each
-`loop()` exit `Cycles::discard()`s its injection and returns whether the
-registers can be saved. **[code]**
-
-#### Interrupts and devices **[hw]**
-
-- **The acknowledge vector rides AD0-7.** Mode 0 needs it; the samples build
-  `db 3EH` + `rst 28H`, writing `A = 0EFH` to the UART's vector register.
-- **Override `Devs::vector()`** (compare `DevsZ80::vector()`), or every
-  acknowledge gets `00` and repeats for ever in mode 0.
-- **Only an I/O transaction may reach a device**: gate selection on
-  `s->ioReq()`. `intAck()` names the three maskable codes; `ST_NMIA` (`0x5`)
-  sits inside `ST_INTAA..ST_INTAC` and must not get the USART's vector.
-
-#### MMU and user mode **[hw]**
-
-`samples/z280/mmu_echoir.asm` echoes in user mode (user page 0 at physical
-0A5000H, the rest invalid); USART setup, the receive ISR and putchar/getchar
-run in system mode via `SC` traps through the table at 2000H (mode 3,
-`RETIL`). Constraints:
-
-- The system stack, the vectors (0038H, 0066H, the table) and page 8
-  (`CALL 8000H`) must be valid system pages; page 8 must map to itself.
-- Breakpoints and the `RST 38H` exit are read at the *logical* PC, so work
-  only in identity pages; a user program exits through a system call.
-- User mode with interrupts needs mode 3: in modes 0-2 an interrupt clears U/S
-  without saving the MSR (6.2.1).
-- **A mode 3 NMI** is an acknowledge, `W(PC) W(MSR) W(identifier)` on the
-  system stack, two table reads and the handler fetch. `suspend()` parks there
-  in system mode; `save()`/`restore()` take and return PC and MSR via the
-  frame (`LD SP,msr_slot; RETIL`). The handler never runs; its table entry
-  must supply an MSR that disables interrupts; the system map is assumed
-  identity.
-- **MSR and I/O Page are registers**: dump line three shows `USP=`, `MSR=`,
-  `IOP=`; `=MSR`/`=IOP` set them via `LDCTL` (C=00H, 08H). The MSR is written
-  last, just before the jump.
-- A 24-bit `org` emits extended-linear HEX records; the loader honours them
-  until the upload ends.
-- `ld HL, (IVT>>12)<<4` is an *indirect* load: a leading parenthesis is an
-  address.
-- Writing 0 to the emulated USART's vector register disables its interrupt,
-  even in mode 3 where the byte is only the pushed identifier.
-
-#### Programs with the cache enabled **[hw]**
-
-`samples/z280/cmandel.asm` (via `enable_cache.inc`) turns on instruction and
-data caching itself.
-
-- Nothing may be injected over cached lines, so every stop parks at the
-  *vector* fetch (`RST 38H`, 0066H or the mode 3 handler) and sequences run
-  from there in system mode.
-- A miss fetches one word, so injected code is fetched by even words; jump
-  targets match by word and the CPU resumes at the word the bus showed.
-- Entry purges, keeps HL and BC, reads Cache Control and sets 60H, in one
-  window. Return runs from 8000H: restore Cache Control, BC, HL, purge, SP,
-  return; what follows the purge stays cached, so it must not be the vector's
-  line. A step leaves the cache off; the next save keeps the recorded value.
-- A halt may be seen on an acknowledge with no address; the frame comes from
-  the last memory read.
-- Dump line three ends `CACHE=` (`__`, `I_`, `_D`, `ID`); `=IC 1`/`=DC 1` (0
-  off) edit it, so `mandelbrot.hex` runs cached unmodified. Restore writes the
-  MSR after Cache Control (except after a mode 3 NMI). After a modes 0-2 NMI
-  the interrupt enables sit in the Interrupt Shadow register, read back only
-  by `RETN`: dumped as `??`, not settable by `=MSR`.
-- ST `1000` (cacheable) is the page attribute, on every memory cycle, so it
-  does not show the cache state. With the instruction cache on the dump stays
-  raw.
-
-#### Single-Step and Breakpoint-on-Halt traps — not adopted **[doc]**
-
-- **MSR bit 8 = SS**, **bit 9 = SSP**; each instruction checks SSP then copies
-  SS into it, so setting SS (e.g. `LDCTL`) traps one instruction later. It
-  pushes **PC and MSR**, the PC being the *next* instruction's (Division,
-  Access Violation, Privileged Instruction and Breakpoint-on-Halt save their
-  own); `RETIL` returns; re-executing traps clear SSP in the pushed MSR.
-- **Breakpoint-on-Halt** replaces the first byte with `HALT`; enabled in Trap
-  Control (`10`), vector at IVT offset `40h`.
-- **All** traps use the vector table in every mode: it must sit on a **4K
-  boundary** with pointer `06` set first. Single-Step is at **`3Ch`**. Any
-  patch needs a `PCACHE`.
-
-| | NMI (implemented) | Single-Step trap |
-|---|---|---|
-| Setup in target memory | none — fixed `0066H`, handler injected | 4K-aligned IVT + pointer register |
-| Saved status | PC only (modes 0-2) | PC + MSR |
-| Return | `RETN` | `RETIL` |
-| Timing sensitivity | must assert during the opcode fetch | none — fires by design |
-| Block instructions | can interrupt mid-block; saved PC is the block instruction | steps over the whole block |
-
-#### Bus-cycle tables from the chip **[hw]**
-
-The Z-BUS cannot tell a fetch from a data read and prefetch runs ahead, so the
-tables are recorded. `scripts/record-cycles.py` with `tools/cycles_z280.py`
-runs every pattern of `tools/gen_z280.lst.zst` and `tools/z280-opcodes.txt.zst`
-in isolation over memory filled with `FF` (`RST 38H`); `tools/derive_tables.py`
-writes `z280-PAGExx.txt` and `inst_z280.awk` the tables, hand-maintained from
-then on. The raw recording, `tools/z280-profile.jsonl.zst`, is zstd JSON lines
-via Python 3.14's `compression.zstd`. Recording needs the profile image; the
-plain build prints `R A=xxxxxx D=xxxx` like the Z80's.
-
-- **Prefetch**: at most 3 words before an instruction's last data cycle, 1-3
-  at the exit; patterns are stable and independent of addresses and data.
-- **A byte load at an even address is a word read**, at odd a byte read; an
-  odd word is two byte transactions.
-- **Multiply/divide** re-read the next word up to five times; EI, DI, PCACHE,
-  LDCTL and others re-fetch after a flush.
-- **Traps** are `WWRRS`; `derive` drops that tail from divide rows (the
-  harness's operands trap), `SC` keeps it. **RETIL** is `RRA`, no `out(1)`
-  despite Table E-1.
-- Block instructions appear as `{...}` from one and two iterations, the second
-  at the other parity.
-- The relative and 16-bit indexed `FD ED` forms and register variants the
-  pattern list omits are run as extra patterns; rows still missing are
-  filled by operand shape from a recorded opcode on the same page (IX and IY
-  pages mirror).
-
-#### Disassembling the ring **[hw]**
-
-`disassembleCycles()` uses `MatchWalker` with `InstZ280`: an instruction's own
-bytes, then its data transfers, with prefetch and re-fetches absorbed unmarked
-as the next instruction's fetch (the i8096 model). A taken transfer ends at the
-target's fetch; an interrupt instead of the owed fetch matches as one.
-
-Any start in a byte stream decodes plausibly, so the walk relies on the chain:
-each instruction must lead to the next address, its target, the popped return,
-a vector, or the stop PC. It backtracks until the chain holds; `findFetch()`
-takes the earliest start ending at the PC. Cycles are marked only once a walk
-succeeds.
-
-`tools/check_samples.py` checks dumps against listings;
-`test/z280/test_inst_z280` (`pio test -e native`) replays captured dumps and
-checks marks, and with `Z280_DUMP=<file>` replays any dump, under sanitizers
-if wanted.
-
-#### Samples **[hw]**
-
-`echo`, `arith`, `echoir` (mode 1), `echoitr` (mode 0) and `mandelbrot` run.
-The four that exit do so at their own `rst 38h`; `mandelbrot` loops until
-Ctrl-Space or any byte on the halt port, and a run that ends by itself has
-failed. Frames are timed between blank lines (`docs/mandelbrot.md`).
-
-### Z380
-
-**Status: runs on the board**, all features including resumes with every
-register bank; backtraces walk the fetch queue (below). **[hw]**
-
-**Pitfalls.**
-
-- **`#M1` marks no opcode fetch**, only an `#INT0` acknowledge and each
-  half of a RETI; code is fetched with `#MRD` alone. **[doc]**
-- **Code comes through a fetch queue, as on the 8086**: aligned words up to
-  5 bytes ahead, a byte at an odd branch target (and a 7-byte
-  instruction's last two). A word can hold two instructions and data cycles
-  land among later fetches: no per-opcode bus sequence exists. **[hw]**
-- **After an I/O write an `RST` fetches its vector before it pushes**, so
-  `isRst38Break()` takes the first push. A break reported one push late,
-  at the wrong PC, is the sign of looking back for the push. **[hw]**
-- **In Native mode SP wraps within 64K**, SPz unchanged: rebuild it from a
-  bus address with 16-bit arithmetic, or reset's SP=0 becomes 00010000H.
-  **[doc]**
-- **A push is one word in Native mode, two in Extended**, and the program
-  may have run `SETC XM`: decide after reading the SR. **[code]**
-- **At an odd SP a pushed word is two byte writes**: `readPush()` builds
-  the PC from byte or word writes. Read as one word, a halt saved a wrong
-  PC and dumped the whole ring. **[hw]**
-- **A backtrace's lines are counted by instruction, not by fetch**: a word
-  fetch can hold two, and a ring cut to the last few may not walk again,
-  so the ring stays whole and `printBacktrace()` skips. **[code]**
-- **Fetches are taken to be aligned words**: a sequence that runs off its
-  end starts at an even address and has an even length. **[code]**
-- **Reset does not clear SP, I or the bank 0 extensions**, despite Table 7;
-  `RegsZ380::reset()` applies Table 7 after the first save. **[hw]**
-- **`(HL)` uses all 32 bits of HL in Native mode.** `MULTW`, `DIVUW` and
-  `SWAP` leave HL(31-16) set and a 16-bit `LD HL,nn` keeps it; a pointer
-  in HL that misses by a multiple of 64K is the symptom. Samples address
-  memory directly or through IX, and ISRs use `EXALL`. **[hw]**
-- **An instruction not fully fetched when `#NMI` is asserted may not
-  start**: a step that pushes its own PC shows it, typically at an odd
-  address. When no register changed, `step()` asserts `#NMI` one or two
-  cycles later. **[hw]**
-- **A sequence counts only when finished.** If an NMI, a trap or a parked
-  CPU cuts it short, `execute()` sets `_cutShort` and reset reports
-  `?reset: setup sequence cut short` instead of saving shifted registers.
-  **[hw]**
-
-#### Board **[doc][hw]**
-
-A0-A31 share P30-P37 through four 74HCS153; ASEL1:ASEL0 (mux B:A) select
-A0-A3/A16-A19 at 00, A4-A7/A20-A23 at 01, A12-A15/A28-A31 at 10 and
-A8-A11/A24-A27 at 11. Read them in gray order 00, 01, 11, 10 and back to
-00, where the selects rest: the first nibble needs no settle delay, each
-later step 15 ns (the mux follows a select within one 8 ns analyzer
-sample). AL and AH are both on GPIO7, one read per step. **[hw]**
-The KiCad netlist is authoritative: ASEL0 on P44, ASEL1 on P45, `#M1`,
-`#MRD`, `#MWR` on P40-P42.
-
-JP1 is open, so `#MSIZE` is high: word-wide memory, the even byte on
-D8-D15 and the odd on D0-D7, as on the Z280. CLKSEL is high (CLKI is the
-direct clock); `#BREQ` and `#INT1`-`#INT3` are tied high. Not connected:
-BUSCLK, IOCLK, `#IORQ`, `#INTAK`, `#HALT`, the chip selects and `#TREFx`;
-a halt is inferred from 1024 clocks without a strobe.
-
-The first board carries a bodge wire for A11 (U1.95 to U4.13). Find
-contact and solder faults from the bus, then fix them by reseating the
-part or reflowing the joint of the line it names: the profile image's
-reset walks a 1 and a 0 through each data lane and prints `?data` for a
-bit that fails; a bad address line shows by storing a marker at
-single-bit addresses and seeing where it lands. **[hw]**
-
-#### Bus and clocking **[doc]**
-
-BUSCLK is CLKI inverted, rising up to 30 ns after CLKI falls and falling
-up to 27 ns after it rises; outputs follow BUSCLK by 6.5 ns. CLKI rests low
-and `clki_cycle()` is high-then-low, sampling 40 ns after the fall. Sample
-strobes with BUSCLK high (negated in T1, asserted in T3); sampled low,
-they read asserted in both T2 and T4, and merged back-to-back
-transactions are the symptom.
-
-A memory transaction is T1-T4, two BUSCLK cycles. `#MRD`/`#MWR` assert at
-the end of T1 and negate at the end of T4, where read data is latched; a
-write drives data from T1. `#WAIT`, sampled at each boundary, inserts
-whole BUSCLK cycles with the strobes held, so the CPU parks in T3 mid-run
-and T1 at reset, and `completeCycle()` watches the strobes, as on the Z280.
-
-`#IORD`/`#IOWR` span the second IOCLK rise to the fourth fall, where read
-data is latched: hold data until the strobe negates. An `#INT0` acknowledge
-holds `#M1` five cycles and latches the vector in the last. In a RETI the
-CPU drives the data and `#IORD` joins `#M1` 1.5 IOCLK later, so `#M1`
-alone waits up to 6 BUSCLK for `#IORD` before it is answered as an
-acknowledge; answering early drives the vector against the CPU. Refresh,
-on-chip I/O and a halt strobe nothing the board sees.
-
-Reset leaves 7+3+7 wait states on memory below 1 MB and in the top one, 7
-on I/O, and IOCLK at BUSCLK/8. `setupBus()` clears the wait registers
-(on-chip 08H-0EH) and writes 02H to IOCR0 (11H): IOCLK = BUSCLK/2, so
-`#IORD` joins a RETI 3 BUSCLK in, well before an acknowledge latches its
-vector 10 cycles in. Not divide-by-1 (07H): the vector is then latched 5 BUSCLK
-after `#M1`, before the wait can tell an acknowledge from a RETI. Every
-mode 0 interrupt taking FFH (`RST 38H`) is the symptom of a vector latched
-before the board drove it. **[hw]**
-
-`resetPins()` insists on a read at 00000000H as the first cycle, else
-prints `?reset:` with the cycle and saves nothing; a set address nibble
-there points at the mux or its settle delay.
-
-#### Memory and devices **[code]**
-
-Main memory is the 16 MB of EXTMEM, decoded from A0-A23 and mirrored over
-4 GB, less the upper half, 800000-FFFFFF, lent to the disk cache: it reads 0
-and drops writes, which a 23-bit or narrower address mask never reaches.
-The ring and register dump keep 32-bit addresses; memory commands
-take 24. The USART is the Z80's at 140H (`USART_BASE` in `devs_z380.h`),
-decoded from all 32 bits, byte I/O on D0-D7. `IN A,(n)` puts A on A8-A15,
-so samples use `INA`/`OUTA`.
-
-#### Registers and modes **[doc][code]**
-
-`LDCTL` moves 16 bits in Word mode and never loads the mode bits; both
-directions need `DDIR LW`. `save()` cannot know the LW mode, so it pushes
-HL and the SR in 16-bit halves under `DDIR W`, then runs `RESC LW`. Upper
-halves come down with `SWAP` (no flags touched); 32-bit values go back
-with `DDIR IW,LW` immediate loads, AF by a real `POP` of a word staged
-below the stack, as on the Z280. The SR is read with `DDIR LW; LDCTL
-HL,SR`.
-
-Of the mode bits, LW returns via `SETC LW` and XM, once set with `=XM 1`,
-via `SETC XM`; XM clears only at reset. IM, IEF1 and LCK are never touched
-(`RETN` restores IEF1 after an NMI), so the `SR` command edits the
-selections and LW only. `r` shows the SR one character per field, `_` when
-clear: `SR=Y3'X0_M1'XLI3L'` is IYBANK 3 with IY', IXBANK 0, MAINBANK 1
-with alternate BC/DE/HL, then XM, LW, IEF1, IM 3, LCK and AFP.
-
-All four banks are saved and restored, each register by physical side:
-`LDCTL DSR,n` (`ED DA n`) picks bank and side for AF, BC, DE, HL;
-`LDCTL XSR,n`/`YSR,n` (`DD DA n`, `FD DA n`) for IX, IY; AF' via
-`EX AF,AF'` twice. `r`/`=` act on the set the SR selects; reach another by
-setting `MB`, `XB`, `YB`, `IXP`, `IYP`, or `EX`/`EXX` (AFP, ALT) first;
-`XM` and `LW` set the modes. `restore()` writes the selections last with
-the byte forms of `LDCTL` (and `EX AF,AF'`), never `LDCTL SR,HL`.
-
-`execute()` runs until it has captured the requested byte count, so the
-count must be exact or it runs to the guard. An exit address counts only
-after the sequence's last byte is fetched, since a restored PC may lie in
-the window. `step()` refuses a `HALT` before `restore()`, since at an odd
-restored PC no sequence can be injected.
-
-#### Instruction boundaries **[hw][code]**
-
-The walk (`MatchWalker`, `InstZ380` as Arch) follows the code stream: each
-instruction's bytes are fetched, then its data cycles and any target fetch
-come in any order amid sequential fetches. An interrupt, NMI or trap is a
-PC push and vector fetch, in either order, between instructions or in
-place of a pending target fetch. The walk must end at the stop PC (perhaps
-already queued); the earliest start wins, conditionals tried taken first,
-and instructions before the first with data or a transfer are dropped. The
-backtrace prints each instruction, then its data cycles.
-
-The tables put data and transfer in an unordered `[…]`, each kind's bytes
-in order, with Long Word and Extended variants where they differ and `a`
-bytes a `DDIR` immediate widens; `DDIR W`/`LW` pick the variant. An
-instruction's reads, and its writes, must be contiguous, which stops a
-`RET` "popping" a stray fetch.
-
-`tools/derive_tables.py` writes the tables from the recording (every
-libasm opcode and `DDIR` form, odd and even operands, both condition
-outcomes, Extended and Long Word passes) in `debugger/match_legend.md`'s
-tokens. `tools/rings_z380.py` writes the host test's rings and the bench
-rings in `z380-rings.json.zst`, checked against the sample listings.
-`tools/README.md` has the recording's pitfalls.
-
-#### Samples **[code]**
-
-`samples/z380` are the `samples/z80` programs rewritten: arithmetic in
-`MULTW`, `DIVUW` (`divu16`, unsigned; `div16` signed on it), `SUBW`, `NEGW`,
-`CPW`; I/O by `INA`/`OUTA`; queues through IX; ISRs on the alternate
-registers. Keep routine entries and workspace word aligned: odd-address
-fetches and word accesses cost an extra bus cycle.
-
-#### To check on the bench
-
-- An interrupt inside an injected sequence after an RST 38H break with
-  interrupts enabled, and a PC pushed as two bytes at an odd SP; the Z280
-  driver shares both.
-
-### Z80 / Z180
-
-**Pitfalls.** Sequential-cursor injection: its faked-POP idiom must not be
-copied to a word-bus target. I/O addresses are 8-bit but on the Z180, so
-high-byte bugs stay hidden there.
-
-Byte bus, one byte per read, sequential-cursor injection, so the faked-POP
-idiom (`POP rr` followed inline by its payload) works and is used throughout
-`regs_z80.cpp`. **[code]**
-
-**CP/M disk.** `DevsZ80` puts the sector disk 10H above its USART: 50H on
-the 8-bit boards, which boot the 8080's CP/M unchanged, and 0150H on the
-Z180, Z280 and Z380, which decode 16 bits and need a BIOS using
-`OUT (C),A`. Their MMUs map one to one at reset, so DMA is physical. The
-Z280 runs uncached (reset leaves Cache Control at 60H), so sectors the
-disk writes behind the CPU are never stale. **[code]**
-
-**Z380 address mask.** In Native mode the memory access right after an
-`ADD HL,rr` that carries, fetched in the same word as it (`ADD` at an even
-address), goes out with A16 high: `LD HL,211AH`, `LD DE,0FFF6H`,
-`ADD HL,DE`, `LD A,(HL)` reads 00012110H. HL reads back 00002110H. The
-debugger's memory decodes A0-A23, so the read misses; BDS C's CLINK and
-HI-TECH C failed on it. `AMASK` at 0148H holds the number of address lines
-memory decodes, and the CP/M cold boot writes 16. **[hw]**
-
-The Z80, NSC800 and KL5C80 `completeCycle()` treat an I/O address as 8-bit and
-ignore the high byte; the Z180's decodes all 16 bits, its USART being at
-0140H. **[code]**
-
-### TMS9900 family
-
-**Pitfalls.** Assert the halt interrupt only after the opcode fetch, or the
-step lands on the wrong instruction.
-
-`pins_tms9900_base.cpp::suspend()` is the reference for that idiom: it walks
-the loop with a `bool assert_nmi` latch and asserts on the first cycle where
-`s->fetch()` is true. Targets without an `#M1`-equivalent use "the
-transaction `resumeCycle()` handed back", which is the opcode fetch by
-construction: every sequence parks on the read that follows it. **[code]**
-
-The TMS9980, TMS9995, TMS99105 and TMS99110 also run TMS9900 code. **[hw]**
-
-The TMS99105 board names its CPU by behaviour, not by marking: at reset an
-injected `CIR` makes two writes when a floating-point macrostore answers.
-The bench's chip, marked TMS99105, has the TMS99110's ROM on chip, so
-`MACRO=STANDARD` reports TMS99110 and only `MACRO=BASELINE` runs it as a
-plain TMS99105. The `?` banner reads `BionicTMS99105 (CPU: TMS99110)`;
-take the CPU from the `CPU:` field, not the board name. **[hw]**
-
-#### TMS9980 bus timing
-
-**CKIN never stops.** CKIN must stay within 6-10 MHz, and a bit-banged
-clock held at every cycle boundary by the work between cycles broke
-TMS9980s from run to run. CKIN is FlexPWM2 submodule 1 on pin 5 at
-10 MHz, and `READY`, low but to end a memory cycle, holds the CPU in each
-one until it is served. The TMS9981 shares this code. **[hw][code]**
-
-**Sample at the `#PHI3` fall.** A cycle's address, control and write data
-are valid some 100 ns before it. Non-memory clocks are not held, so a
-read of the bus at any other moment, `resumeCycle()`'s too, may catch the
-next cycle's address changing. **[hw][code]**
-
-**`READY` is sampled at each `#PHI3` rise of a memory cycle but its
-first, with tsu tw-30 and th 2tw+10** (Data Book Figure 9b and switching
-characteristics); the rise that sees it high latches read data. It is
-raised 250-290 ns after a rise, between that rise's hold and the next
-one's setup, and dropped after the latching rise's hold, two clocks
-before the next cycle samples it. A memory byte takes three clocks or
-more. **[hw][code]**
-
-### 6502
-
-**Pitfalls.** Power-cycle after swapping chips on the 6502 board: `R` does
-not redetect the part, so the debugger keeps the previous chip's identity
-and instruction set: a wrong CPU name after a swap means no power cycle.
-**[hw]** `Regs` needing memory gets `Mems*` through its
-constructor, and some targets build `_regs` before `_mems`.
-
-`RegsMos6502` takes its `Mems*` as a constructor argument rather than reaching
-through `Pins`, because `Pins::_mems` is protected and only `Target` is a
-friend. Follow that pattern when a `Regs` needs memory, swapping the
-construction order first where `_regs` comes first. **[code]**
-
-### F3850
-
-**Pitfalls.** A Teensy interrupt mid-cycle desynchronises the ROMC sequence;
-mask them around each bus cycle.
-
-Mask Teensy interrupts around each bus cycle in `cycle()`; a lost sync shows
-as a stack pointer off by one and nondeterministic results. **[hw]**
-
-Release the data bus right after `Cycles::next()`; the bus level holder keeps
-the value for the CPU, so the turnaround needs no wait. **[hw]**
-
-The 16-bit compares in `arith.inc` compute `m + ~s + 1` and derive the flags
-from that. **[hw]**
-
-The profile (`tools/cycles_f3850.py`, recorded as
-`tools/f3850-cycles.jsonl.zst`) matches every opcode to the data sheet's
-ROMC sequences. **[hw]** Its `x=` counts Φ periods: a short cycle is 4 and
-a long one 6. `INS` and `OUTS` of ports 2 and 3 (A2, A3, B2, B3), which
-Table 3 leaves out, take one short cycle as `f3850.txt` has them, not the
-long I/O form the Guide to Programming implies.
-
-### MCS-48
-
-**Pitfalls.** Some machine cycles pulse only ALE with no strobe, and the
-makers differ on which; an ISR switching register bank must not use the
-other bank's pointers uninitialised.
-
-One board runs the P8039/P8048 and OKI MSM80C35/MSM80C39. The OKI parts are
-told apart by `DEC @R0`, which the Intel parts lack. The board identity is
-`P8048`. **[hw]**
-
-The stack lives in internal RAM 08h-17h, with SP in PSW's low three bits; each
-call stores the return address with PSW's top four flags. **[doc]**
-
-**Samples fit in 64 bytes of internal RAM**, the smallest of the parts the
-board takes: past the registers and stack, 20h-3Fh is all there is. The
-MSM80C35 wraps 40h-7Fh onto 00h-3Fh, so a variable at 40h overwrites R0:
-a sample that is right on the larger parts and wrong on it points there. It
-also reports as MSM80C39, since `DEC @R0` tells only the maker apart. **[hw]**
-
-The fetch data drive is released about 300 ns before `#PSEN` rises. It is
-harmless on the parts tried. **[hw]**
-
-The profiles (`tools/cycles_i8048.py` on the P8039 and
-`tools/cycles_msm80c39.py` on the MSM80C39, recorded as
-`tools/i8048-cycles.jsonl.zst` and `tools/msm80c39-cycles.jsonl.zst`) show
-machine cycles that pulse only ALE, with no strobe. **[hw]** `i8048.txt`'s `s`
-column gives the cycles that do strobe, as Intel/OKI where the makers differ:
-
-- `IN A,P1`, `IN A,P2`, `OUTL P1,A`, `OUTL P2,A` (09, 0A, 39, 3A) and the
-  MSM80C39's `MOV P1,@R3` (F3) strobe once in their two cycles.
-- `RET` and `RETR` (83, 93) strobe twice on the Intel parts, once on the
-  OKI ones.
-
-Counting a strobe that never comes makes the matcher take the next fetch for
-the instruction's own cycle; on the MSM80C39 that hands the CPU a real `HALT`
-and wedges the board.
-
-The interrupt-driven samples' ISRs switch to register bank 1 and call the
-queue routines, which push through R1 onto the software stack in external
-data memory. A reset leaves bank 1's R1 as it was, so the ISR has its own
-stack, at `isr_stack`; otherwise it overwrites the main program's stack.
-**[hw]** Wrong results only where computation overlaps serial output (such
-as the pixel computed while a newline goes out) point to an ISR corrupting
-the main program's state.
-
-### MCS-51
-
-**Pitfalls.** An 80C51 in idle mode makes no bus cycles, and a reset in the
-middle of a run must be followed by `restore()` and must end the run.
-
-A P80C51 in idle mode holds ALE high; `prepareCycle()` gives up after
-`idle_cycles` and resets the CPU rather than wait for ever. `resetPins()`
-saves the registers by running injected code at 0000, which leaves the PC
-where that code ended, so it needs a `restore()` (`LJMP` to the saved 0000)
-or the CPU runs on into whatever memory follows, which looks like leftover
-code running past the injected sequence. **[hw]**
-
-The reset comes in the middle of `rawStep()`'s instruction, so the run
-stops there: carrying on counts the old instruction's cycles against the
-new program, loses the instruction boundary, and the next halt fails
-("?halt: no writes"). **[hw]**
-
-`udiv16_8` in `arith.inc` keeps the ninth bit when shifting the partial
-remainder: when the shift sets carry, it subtracts unconditionally. **[hw]**
-Test division with a divisor of 128 or more and a dividend above 255 to
-exercise that bit.
-
-An interrupt latched at a halt makes its LCALL at the first injected fetch,
-and the save's bytes run as its handler. `park()` feeds `SJMP $` to fetches
-at the halt address and the next until it has run twice without one, or a
-fetch at a vector shows the LCALL taken and the save starts at the handler.
-The LCALL pushes to internal RAM, so the vector fetch is all the bus shows,
-and `SJMP $` makes a dummy fetch two bytes on, which can be a vector address
-itself (002B). **[hw]**
-
-R0-R7 are internal RAM 00h-1Fh, four banks picked by PSW's RS1:RS0; dumping
-00-1F shows all of them. **[doc]**
-
-### 8080
-
-**Pitfalls.** Sampling SYNC or status before the datasheet's delays after
-PHI2 rises reads a released bus and writes stale data over code.
-
-`prepareCycle()` must not sample SYNC before tDC (150 ns max) or status before
-tDD (220 ns max) after PHI2 rises. Sampling SYNC early misses T1; the status
-is then read in T2 from a released bus, some reads look like writes, and
-stale bus data is written over code. **[hw]**
-
-Compare memory with the loaded image after a run to tell bus errors from
-program bugs: bus corruption hits operands the CPU has been reading. **[hw]**
-
-The NMOS 8080 is dynamic (tCY max 2 us). To rule clock stretching in or
-out, arm a pulse-width trigger on PHI1 during a failing run; it has never
-fired, so stretching is not a cause of such corruption. **[hw]**
-
-PHI1 and PHI2 run free from FlexPWM2 and FlexPWM3. An XBAR sync from one
-to the other's EXT_SYNC never started the second counter, so the two
-are restarted back to back with FORCE, and PHI2's edges are set 4 counts
-early for the gap between the writes. They reach the CPU through passive
-level shifters: a rise takes about 100 ns, PHI1 peaks near 8.4 V, and
-only fixed phases as wide as the bit-banged ones (PHI1 100 ns, PHI2 at
-least 227 ns) keep it working, which tops the clock at 2.5 MHz. **[hw]**
-
-- READY must change outside the window where PHI2's fall samples it:
-  raised there, it missed tRS, and the CPU went on with part of its
-  state waiting, reading memory without fetches until it ran into the
-  weeds. `raise_ready()` waits on PHI1's counter.
-- The status is on D0-D7 only around SYNC, so the cycle the CPU waits in
-  carries it in its ring slot; `Cycles::reset()` rewinds to a stale slot,
-  and resuming from it served a fetch as a write, writing the held bus
-  over code. `resetCycles()` moves the waiting cycle along.
-- In a run, a plain memory read is served without a wait state: READY
-  goes high again as soon as the status shows it, the data is staged
-  with `busWrite()` and driven the moment DBIN rises. A fetch is
-  held every 10 us to run the devices, which change INT only while the
-  CPU waits, and to poll the halt switch. **[hw][code]**
-
-**CP/M disk.** An I/O cycle holds the CPU at READY for as long as the
-Teensy takes, so the sector disk moves a whole sector, an SD card
-access of milliseconds, inside the OUT to its command port; the next
-IN reads the status. A DMA address is a 16-bit memory address and
-wraps. The images open at the prompt, when `L` loads the cold boot or
-`O` mounts one, never in a transfer; `L`'s set goes through `O`'s
-mount, and an image that is not there is not made. The BIOS picks
-each drive's DPB and skew table by the format DRIVE reads back:
-`hd8`, 8 MB with no skew, or the 8" single-density ones of DRI's
-skeletal `CBIOS.ASM`, the format cpmtools calls `ibm-3740`. The
-disk's ports keep clear of the Z180's internal I/O below 40H, for a
-Z80 port. **[code]**
-
-### 8085
-
-**Pitfalls.** RST 5.5/6.5/7.5 make no INTA cycle.
-
-RST 5.5/6.5/7.5 are vectored inside the CPU: after a discarded opcode fetch it
-pushes the return address and jumps to the fixed vector, with no INTA cycle.
-**[hw]**
-
-X1 runs free from the PWM at 150 MHz / 15, the 8085AH-2's rated 10 MHz.
-READY goes low as ALE rises and high once the cycle is served, and stays
-high until the next ALE: DAD's two bus idle cycles have no ALE, so they
-must never wait. AD0-AD7 carry the low address only until tLA after ALE
-falls, so it is latched there, with interrupts masked from raising READY
-to the next ALE. The acknowledge of TRAP or RST 5.5-7.5 has no strobe
-and does not wait, so a step's TRAP is the cycle before its pushes, and an
-`OUT` just before it makes three writes in a row. **[doc][hw]**
-
-`sio.asm` times its SID/SOD bits as 312.5 CLK, but READY holds each of
-its bus cycles, so on the serial handler's image at 10 MHz X1 they
-measure 103-105 us, about 520 CLK: the handler's 80 x 13 X1 per bit was
-taken from a capture of SOD and SID, not from the listing. **[hw]**
-
-### 8096
-
-**Pitfalls.** A missing `#` silently assembles the direct form; INT_MASK bit
-n is the vector at 2000H + 2n; a word access needs an even address.
-
-`ldb INT_MASK, INT_EXTINT` without `#` assembles to the direct form and loads
-register 40H, so the interrupt works only when that register happens to
-hold the right bit. An interrupt that comes and goes with unrelated register
-contents points to such a slip; the listing's opcode (`B0` direct vs `B1`
-immediate) shows it. **[code]** INT_MASK follows the vector table, bit n
-for the vector at 2000H + 2n, so EXTINT at 200EH is bit 7, `10000000B`; bit 6
-is the serial port's interrupt. **[hw]**
-
-The profile (`tools/cycles_i8096.py`, recorded as
-`tools/i8096-cycles.jsonl.zst`) checks the cycle rows. **[hw]**
-
-- `PUSH [w]`, `PUSH n[w]` and `POP n[w]` prefetch once more between the
-  operand read and the writes: `PUSH [w]` is `1:2:~:R:r:~:W:w`. `POP [w]`
-  makes no such read.
-- `DIV l,[w]` (`FE 8E`) prefetches before its operand read, as the other
-  indirect forms do.
-- When the short-index form of a `/` row fails, `InstI8096::match()` stops at
-  the `/`: going on to an empty sequence matches without taking a cycle and
-  `matchAll()` loops on it for ever, wedging the board on a backtrace.
-- A jump taken to a word the queue has fetched already reads it again; the
-  walk takes that fetch as the jump's (`targetAhead`), on the 8096 as on
-  an 80C196. A `JLT +2` over a `CLRB` fetches 220EH either way; the store
-  after it, of the register the `CLRB` would clear, shows it was taken.
-  **[hw][code]**
-
-A word access needs an even address; the profile keeps `n + [w]` even.
-The pointer register's LSB selects auto-increment for `[w]` and the long
-index for `n[w]`, and the profile uses an even register, so the long-index
-forms are not checked on the chip yet.
-
-**The bus is 16 bits wide.** The debugger serves the CCB as FFH, whatever
-memory holds at 2018H. Every read is then a word's at an even address and
-the CPU discards the byte it doesn't need (8X9X User's Manual §7.6)
-**[doc]**, but a read that wants only the odd byte puts the odd address on
-the bus: a fetch at an odd jump target, `LDB` from an odd address. Answer
-both lanes from the even word whatever A0 says. **[hw]**
-
-- The CCB is read before the CCR selects the bus width, and the manual
-  says only that the chip "will correctly read this location in every bus
-  mode". Driving it on AD0-AD7 alone works. **[doc][hw]**
-- #BHE is bonded out on the DIP-48, despite the data sheet's note that it
-  isn't on 48-pin parts: `PUSHF` pushes in one word cycle. **[hw]**
-- A status read at 0401H would read the data register at 0400H with it
-  and swallow a character, so the USART's registers sit a word apart:
-  data 0400H, status and control 0402H. 0400H is above the 80C196NP's
-  register RAM, so every chip runs the same samples. **[code]**
-- Injection is address-keyed: each sequence runs from where the CPU is
-  parked and jumps back there, and the read of the exit is held for the
-  next one. The vectors the debugger hands a trap are even, so a sequence
-  never starts in the middle of a word. **[code]**
-- The queue reads a word again: twice running, and after one it had too
-  little room for, sometimes past a write. A ring may also start up to
-  seven bytes into the instructions it cuts. `refetchWord` and `cutStart`
-  in `ArchI8096` say so; the bench rings `bench_i8096_16` hold the cases.
-  **[hw]**
-- The queue fetches a word ahead before a 3-operand `n[w]` form's read,
-  and before the long-index read of `MULU`, `MULUB`, `MUL` and `MULB`. The
-  profile on the 16-bit bus, `tools/i8096-cycles16.jsonl.zst`, checks every
-  row. An opcode and its TRAP may come in one word, so `check()` takes one
-  marked fetch for a one-byte instruction. **[hw]**
-- A word fetch may bring an instruction's first byte at its odd address,
-  or two instructions' first bytes: the walker's `markStart()` tells the
-  backtrace which, or it disassembles the byte before. **[hw][code]**
-
-**INT_PENDING is undefined after a reset**, as SP is (8X9X User's Manual
-§13.2). **[doc]** An EXTINT latched at power-up, or while the Teensy
-reboots after a flash, survives every reset and is taken as soon as a
-program enables it, so the debugger's reset clears INT_PENDING. **[hw]**
-A step that sticks once after a power cycle and never again points to state
-a reset leaves undefined.
-
-**N8097BH.** The PLCC-68 part runs the P8095BH's code; its board has INST
-on P46 and NMI on P50 where the P8095BH's has PWM and ACH4, and leaves
-BUSWIDTH open, which floats high. **[doc]** INST is high on every
-instruction fetch, prefetches included, and low on data: the CCB read and
-every write. **[hw]** The debugger keeps NMI low but to halt, since a rise
-vectors to 0000H, and reads INST as the fifth CNTL line. **[code]**
-
-- An open address line (AD9, CPU pin 51, on the first board) follows the
-  last level the Teensy drove: a fetch at 2082 reads as 2282. Compare the
-  addresses the bus shows with the expected ones (the reset vector, the
-  value loaded into SP) to find the one bit that is off; if reseating
-  doesn't help, check that pin's joint before suspecting firmware. **[hw]**
-
-**S80296SA.** The QFP-100 board serves CCB0 C6H and CCB1 DAH (multiplexed,
-16-bit, 64-Kbyte mode) and sets BUSCON5 to 40H for everything outside
-F2000-F20FFH. **[code]**
-
-- It reads a vector before it pushes the PC, as the 8096 does, not first
-  as the 80C196KB and KC. **[hw]**
-- Its reset, an RST's too, holds ALE high before the CCB0 fetch's own
-  ALE, so a cycle's address is the last ALE's before its strobe. A
-  program's RST resets BUSCON5, so the debugger sets it again, reading out
-  the register that takes first. **[hw][code]**
-- It can take an interrupt inside a call, after the call pushed its return
-  address: it pushes that address again, and the handler returns past the
-  callee, leaving the word on the stack. The bus shows the push, the vector
-  read, then the same push; its Specification Update (A0) doesn't list it.
-  With XTAL1 high for 12-265 ns, low up to 1 µs longer, or EXTINT changed at
-  either CLKOUT level, it dropped as many rows of mandelbrot: the chip's
-  logic, not the clock's margin. The interrupt-driven samples disable
-  interrupts before each call made with them enabled, and the callee enables
-  them again. The debugger's halt is an NMI, which no DI holds off: when the
-  cycle before its vector read pushes the halted PC at the interrupted SP,
-  the halt resumes at the call's target, the call's push left on the stack.
-  **[hw][code]**
-- An odd register operand selects another instruction: a signed MUL or
-  DIV without the FE prefix, MVAC or MSAC, EBR; a MUL whose destination
-  byte is below 10H is the MAC family. The profile gives the base forms an
-  even register and records those forms on their own. **[doc][hw]**
-- With its queue full the bus runs 12 bytes past the instruction, beyond
-  the walker's old cap of 8. A ring a run began with keeps its first
-  instruction through `walk()`'s `first`. **[hw][code]**
-- EXTINT0 is P2.2's special function: a sample sets P2_MODE, P2_DIR and
-  P2_REG, then clears the pending bit writing P2_MODE sets. **[doc][hw]**
-- WSR1 windows 40H-7FH and PUSHA leaves it: the save stores it out and
-  clears it, the restore loads it before POPA. **[doc][code]**
-- AD lines open at the QFP's joints latch CCB0 with stray bits (DE for C6:
-  demultiplexed, five wait states); reflowing the AD pins fixed it. **[hw]**
-
-### SC/MP (INS8060)
-
-**Pitfalls.** The printed PC is one byte early (see General); routine
-addresses are `ADDR(label)`, one less than the label.
-
-PC is incremented before each fetch, so it holds the address before the next
-instruction. Routine addresses are loaded as `ADDR(label)`, and a call is
-`XPPC P1` with the operands inline after it. **[doc]**
-
-XIN runs free from the PWM at 150 MHz / 37, halves of 120 and 127 ns.
-`#HOLD`, low but to end a cycle, stretches `#RDS`/`#WDS` until the cycle
-is served. The status and A12-A15 are on DB only around `#ADS`, which
-`#HOLD` does not stretch, so `#ENIN` grants each cycle with interrupts
-masked until `#ADS`, and goes high only once `#ENOUT` shows the cycle
-over: a cycle `#ENIN` cuts short is repeated, and an ILD or DLD's store
-waits for it. The board ran to 6.25 MHz XIN, 80 ns halves, set by `K`.
-**[doc][hw]**
-
-`divsi2` in `arith.inc` must divide on every sign path, including a negative
-divisor, and must take the quotient's sign from the sign bytes, never the
-divisor's low byte. **[hw]**
-
-### INS8070
-
-**Pitfalls.** Same early PC as the SC/MP; reset leaves P2, P3, T, E and A
-as they were; `DIV EA,T` leaves no remainder.
-
-Same PC convention as the SC/MP. Reset clears only PC, SP and the status bits
-other than SA/SB; P2, P3, T, E and A keep leftover values. **[hw]**
-
-XIN runs free from the PWM at 150 MHz / 37, as on the SC/MP. `#HOLD`,
-held low from before the strobe, keeps the address, data and strobe of
-an external read or write until the cycle is served. The manual shows it
-lowered after the strobe starts, but held low throughout it works on the
-bench. `#ENIN` stays low through a run: the address is on its own lines
-and held, so a cycle started while the Teensy is busy waits for the next
-`prepareCycle()`. The board ran to 6.25 MHz XIN, set by `K`. **[doc][hw]**
-
-INS8073 BASIC's bit-banged serial times its bits with loops whose
-fetches the Teensy holds, so in XIN its bits depend on the loop: at
-4800 bps it sends a bit every 1012 XIN and receives, echoing each bit,
-one every 1078. The handler's dividers were measured on F1 and `sio.asm`
-is tuned to them; a `DLY`-timed SC/MP loop needs no such tuning. **[hw]**
-
-INS8073 BASIC starts its program at 8000H when it finds RAM there, as
-the debugger's memory has, so its console patches end RAM at DEFFH, just
-below the ACIA; ending it at 7FFFH answered every program line with
-ERROR 1, out of memory. **[hw]**
-
-An interrupt handler must save S: an interrupt between an `ADD` and the
-`LD A,S` that reads its carry otherwise changes CY/L. The samples' ISRs
-push it after EA and restore it before `OR S,=S_IE`. The bit-banged clock
-hid this: devices raised interrupts only between bus cycles of a stopped
-CPU, so each landed on the same instruction every time; on the
-free-running clock they drift, and `echoitr` printed a wrong bit about
-once in 50 characters. **[hw]**
-
-`DIV EA,T` leaves the quotient in EA but not the remainder in T;
-`print_uint16` multiplies back to get it. **[hw]**
-
-`-vF` as a displacement is not "minus F" when `vF` is offset 0. A
-mandelbrot frame that is symmetric but wrong points to a sign error like
-this. **[hw]**
-
-A backtrace that never matches past one opcode points to a missing cycle
-sequence. `XOR A,d,PC` (`E0`) reads its operand PC-relative like the other
-PC-relative forms, `1:2:Q:N`, as the profile (`tools/cycles_ins8070.py`,
-recorded as `tools/ins8070-cycles.jsonl.zst`) shows. **[hw]**
-
-### MC6800 family
-
-**Pitfalls.** `WAI` stacks first and then idles, so a halt finds no push
-(and on VMA parts no write count change); `#XIRQ` is level-sensitive; the
-MC68HC11's `STOP` can bring E back at another phase.
-
-Three boards run six chips: MC6800 (and MB8861), MC6802 (and MB8870), MC6801
-(and HD6301). The first two share `samples/mc6800`; the MC6801 has its own
-samples. The HD6301 and MC6801 also pass the MC6800 regress, running MC6800
-code. **[code]**
-
-`PinsMc6802` builds a `MemsMc6802`; never cast a base `Mems` object to a
-derived type. **[code]**
-
-Internal reads show on the data bus, never on the address pins, and only
-in some modes. The MC6802 drives its internal RAM's data out whenever RE
-is high (data sheet, Data Bus), so the debugger leaves the bus to it
-there. The MC6801 and HD6301 do it only in mode 0, the multiplexed test
-mode (MC6801 Reference Manual, Port 3; HD6301/HD6303 Series Handbook); the
-MC68HC11 only with IRV in HPRIO set, which starts at 1 in special test and
-bootstrap modes and on most parts can't be set in normal ones (M68HC11RM
-2.9.2). The MC6801 board runs mode 2 and the MC68HC11 board normal
-expanded mode, so neither shows them: the debugger models their internal
-registers and RAM (`mems_mc6801.cpp`, `mems_mc68hc11.cpp`). **[doc]**
-
-`WAI` stacks the context up front and then idles, which a halt must allow
-for; a board that wedges past the halt port when halted in `WAI` breaks one
-of these: **[hw]**
-
-- On the MC6800 and MC6802 the idle cycles have VMA low, which leaves
-  `_writes` alone, so `loop()`'s context-save branch clears `_writes`, or it
-  would be taken on every cycle and never poll the halt switch. A write count
-  stuck at the push's 7 shows this.
-- The halt's NMI then fetches its vector without pushing anything. A read of
-  the NMI vector before the push means `WAI`: `suspend()` injects `RTI` to
-  resume after the `WAI`, then takes a fresh NMI edge. The wait is bounded.
-- Stepping a `WAI` puts the push first and the vector fetch an unknown number
-  of idle cycles later, so `suspend()` looks for the vector read rather than
-  a fixed cycle, and releases the line only after it: `#XIRQ` on the
-  MC68HC11 is level-sensitive, unlike NMI.
-
-The MC6801 has no VMA, so only the second applies to it.
-
-The profile (`tools/cycles_mc6800.py` and its siblings, with a recording
-for each of the six chips in `tools/`) shows `CPX #n16` taking four cycles
-on the MC6801, `1:2:3:x:N` like `SUBD #n16`. **[hw]**
-
-The MC68HC11's `STOP` freezes E, and after the wake-up E can come back at
-another phase against the EXTAL the debugger drives; every later cycle is
-then sampled at the wrong time, so garbage registers at a halt after `STOP`
-point to E's phase. `rawCycle()` checks that
-E is high where it must be; if not, it marks the cycle non-VMA and walks
-EXTAL until E falls again. **[hw]**
-
-### MC6805 family
-
-**Pitfalls.**
-
-- `WAIT` and `STOP` fetch nothing until an interrupt, so a halt must give up
-  and take an IRQ; `STOP` restarts the bus clock at another phase.
-- On the MC68HC08AZ0 the run loop follows each instruction's cycle sequence,
-  so a wrong table row, or an interrupt taken over a prefetched opcode, loses
-  the instruction boundary and with it halts and breakpoints.
-- `MUL` and `DIV` re-read the next opcode's address: a step's `SWI` must go
-  into every read of it.
-- An interrupt's stacking can fall where the cycle table expects the last
-  prefetch, the slot a halt injects its `SWI` at: no halt there on a write.
-  **[hw]**
-- The HC08's COP watchdog is a mask option and cannot be disabled; its reset
-  also turns off the internal read visibility the debugger needs, so the run
-  loop sets it up again at the reset's vector read.
-- With IRV on, the MC68HC05C0 drives the bus in its internal cycles, and
-  not every one has an internal address: the extended-indexed (`a16,X`)
-  dummy read, the third cycle after a `Dx` fetch, reads `hi:FE`. Never drive
-  the bus there (a capture of `D0` shows the fight); the debugger counts
-  cycles from the fetch #LIR marks and reads that one. **[hw]**
-
-Three boards run three chips: MC146805E2 (`samples/mc6805`), MC68HC05C0
-(`samples/mc68hc05`) and MC68HC08AZ0 (`samples/mc68hc08`). The HC05 and HC08
-also run MC146805E2 code. The HC08 has its own run loop; the other two share
-`PinsMc6805`. **[code]**
-
-On the MC146805E2 and MC68HC05C0, a halt in `WAIT` or `STOP` would wait
-forever for an opcode fetch. **[hw]** `suspend()` gives up after 64 cycles
-and takes an IRQ -- both clear the I mask -- whose five-byte push stands in
-for the `SWI` that `save()` would inject; stepping over `STOP` goes the same
-way. `WAIT` restarts the bus in phase, but `STOP` freezes the bus clock with
-DS high or low and restarts it at another phase against the OSC1 the
-debugger drives, so after `STOP` the MC146805E2 walks OSC1 through a whole DS
-pulse first, as reset does. The loop records the last opcode fetched to tell
-which it was: by the time of a halt the ring has lost it.
-
-`captureExtra()` must inject the SWI vector with the dummy cycle that
-follows it, as `save()` does; otherwise the CPU runs a cycle behind, the
-next injected `LDA #` loses its opcode, and its operand, the saved CC, runs
-as an instruction. Test it by stepping after a breakpoint inside an
-interrupt handler, where that CC is an opcode such as `FD` (`JSR ,X`).
-**[hw]**
-
-Each sample binary has one ACIA address and runs as is on every chip that
-can run its code. The MC6805 samples use the MC146805E2's ACIA at 17F8, and
-`[devices]` in their HC05/HC08 regress file moves the ACIA there; only
-mandelbrot runs on those two, the MC68HC05 and MC68HC08 having their own
-echo and arith. **[code]**
-
-On the MC68HC08AZ0, MORA (`$1F`) is read-only with COPD clear, so a program
-that doesn't service the COP is reset every 2^18 OSC1 cycles. **[hw]** The
-run loop redoes `reset()`'s setup at the vector read and jumps to the
-program's vector. Sample variables start at `$50` or above: `$40` is not
-RAM on it. Every sample that can run on the MC68HC08 writes COPCTL (`$FFFF`)
-itself, unconditionally: on the MC68HC05C0 FFFF is external, and the
-MC146805E2's 13-bit bus sees it as 1FFF, the reset vector's low byte,
-written back unchanged. Loops that wait without reading the ACIA service
-the COP themselves. `restore()` writes COPCTL before every run, as a
-captured write that leaves the emulated reset vector alone, so each run
-starts a full COP period. A sample that runs a line and then goes astray
-on the HC08 is a sign of an unserviced COP.
-
-The HC08's run loop follows each instruction's bus-cycle sequence from
-`mc68hc08-P*.txt` to find the next opcode fetch, where a halt injects its
-`SWI`. `scripts/record-cycles.py` with `tools/cycles_mc68hc08.py` records
-every opcode on the chip, on the profile image; cross-check it with a
-logic-analyser capture framed by the debug pin. The tables match it, and
-`haltgo`, halting repeatedly, shows a wrong row as a wedged halt. **[hw]**
-
-- `DIV` makes one next-opcode fetch.
-- Where AN2627 gives an instruction more program fetches than bytes
-  (`TXS`'s `pp`, `MUL`'s `ppddd`), the extra ones re-read the next opcode's
-  address or the byte after it -- `TXS`'s second reads past the next opcode
-  -- and the tables have them as dummy reads.
-- `run()` completes the first opcode fetch, so the loop starts at the cycle
-  after it.
-- An interrupt taken over a prefetched opcode drops the prefetch and stacks
-  five bytes. Five writes in a row inside any sequence but `SWI`'s mean an
-  interrupt, and an opcode without a sequence halts with the cycles that led
-  to it. When the loop stalls, decode the byte it took for an opcode against
-  the opcode map: an ACIA status read taken for a fetch shows as an illegal
-  opcode (`$82`), and a key press that turns it into `SWI` (`$83`) lets the
-  program go on.
-- `MUL` and `DIV` read the next opcode's address again after the prefetch
-  and take the opcode from that read, so a step's `SWI` goes into every read
-  of that address.
-
-`WAIT` and `STOP` make one bus cycle, the next opcode's prefetch, and then
-none until an interrupt or a reset. **[hw]** The loop tells that from eight
-bus cycles of silence rather than from the opcode, keeps the devices running
-while the CPU sleeps, and on a halt takes an IRQ whose push stands in for
-the `SWI`, as the other two chips do. A reset ends a sleep, or a run, with
-its vector read, and the loop realigns there: a program that sleeps without
-a periodic interrupt is reset by the COP every 2^18 OSC1 cycles. Stepping
-`WAIT` or `STOP` on the HC08 is refused. **[code]**
-
-The profile (`tools/cycles_mc146805e2.py` and `tools/cycles_mc68hc05c0.py`,
-recorded as `tools/mc146805e2-cycles.jsonl.zst` and
-`tools/mc68hc05c0-cycles.jsonl.zst`) matches the tables on both chips.
-**[hw]** Each pattern is padded with `SWI` to four bytes, longer than any
-instruction, so a shorter pattern never leaves an earlier one's bytes after
-it. A profile run that goes on past its pattern is a sign of such leftover
-bytes.
-
-### MC6809 family
-
-**Pitfalls.** `CWAI` stacks before it waits, so a halt finds no push; the
-MC6809 has no VMA (its CNTL0 is XTAL); the 6309's vector base is FFF0; R/`#W`
-must be read as E rises on the HD6309.
-
-Two boards run four chips: MC6809 (and HD6309), clocked from EXTAL, and
-MC6809E (and HD6309E), whose E and Q the debugger drives. The HD6309 runs
-MC6809 code and has its own samples, which run in native mode. **[code]**
-
-`CWAI` stacks the whole context and then waits, so the halt's NMI fetches
-its vector without pushing; garbage registers after a halt mean `suspend()`
-looked back from the vector read for a push and found none. **[hw]**
-`suspend()` injects `RTI` to resume after the `CWAI` and takes a fresh NMI
-edge, and its wait for the vector is bounded. Capturing an empty frame
-instead would also clear MD on an HD6309 in native mode. `SYNC` needs none
-of this: it stacks only after the interrupt ends the wait.
-
-- `Signals::getDirection()` forces the valid bit on for the MC6809: CNTL0 is
-  AVMA on the MC6809E but XTAL on the MC6809, which reads low while the
-  debugger drives EXTAL. The MC6809 has no VMA; its dummy cycles read FFFF,
-  which the cycle sequences match as `N`. AVMA is no use either: it tells of
-  the next cycle, not this one. A backtrace or `G` dump that never
-  disassembles anything points at the valid bit or the vector base. **[hw]**
-- `InstHd6309` uses the vector base FFF0, as on the MC6801 and HD6301, so
-  `FIRQ` (FFF6), `SWI2`, `SWI3` and the HD6309 trap match. **[hw]**
-- The MC6809E finds fetches by matching cycles, like the MC6809, not from
-  LIC, which misses around halts and interrupts. **[hw]**
-- `Mems::disassemble()` steps at least one unit: at FFFF an instruction runs
-  past memory and NO_MEMORY leaves its length 0, which would make a
-  backtrace loop forever and ignore the halt port. A board that floods the
-  console and ignores the halt port after a halt suggests a backtrace
-  re-disassembling one address; here a fetch mark on a dummy FFFF cycle
-  started it. **[code]**
-
-When profiling, the HD6309 drives R/`#W` back high right at E's fall, so
-read R/`#W` as E rises; compare only the kind of a dummy cycle such as the
-read of `$FFFF`. **[hw]**
-
-`CWAI` and `SYNC` halt and step correctly in both emulation and native
-mode.
-
-### MC68HC12
-
-**Pitfalls.** Only the special expanded modes put every bus cycle on the
-bus from reset; the CPU12 prefetches into an instruction queue, so a
-program read does not mark an instruction start -- IPIPE1:0 do.
-
-Board for the MC68HC912BD32 (80-pin QFP), identity `MC68HC12B`. Pin
-positions are the board's assignment, not facts from a manual.
-
-- The Teensy holds BKGD (P44) low and MODB and MODA high through reset,
-  which selects special expanded wide mode. That mode comes out of reset
-  with R/`#W`, `#LSTRB`, IPIPE1:0 and `#DBE` as bus signals and IVIS set,
-  so internal accesses show on the bus. A normal expanded mode enables
-  only E and leaves IVIS clear. **[doc]**
-- After reset BKGD is the single-wire BDM pin. Held low it stays
-  harmless: a BDM bit starts only on a host falling edge, ENBDM resets to
-  0 outside special single-chip mode, and TAGHI acts only after a BDM
-  `TAGGO`. **[doc]**
-- IPIPE1:0 share the MODB/MODA pins (P43/P42), which become Teensy inputs
-  after reset. On the M68HC12 the data movement code is valid at E rise,
-  the execution start code at E fall: 01 starts an interrupt sequence, 10
-  an even instruction, 11 an odd one. **[doc]**
-- The Teensy drives DIVBYP (P45): low gives E = EXTAL/4; high is a test
-  mode giving EXTAL/2. It has an always-on pull-down. **[doc]**
-- The MC68HC912B32, MC68HC12BE32 and MC68HC(9)12BC32 are pin compatible
-  except pins 70-76 (BDLC or CAN in place of Byteflight), which the board
-  leaves open but pin 70. There pin 70 is PDLC6/PCAN6, an input after
-  reset, so DIVBYP has no effect and E is EXTAL/4. VFP (pin 69) is tied to
-  VCC, as the Flash parts need; the ROM parts have no connection there.
-  **[doc]** The fixed four-edge bus cycle assumes EXTAL/2, so those parts
-  need it counted in four edge pairs; not tried.
-- AD0-AD15 sit on P1x/P2x, GPIO6 bits 16-31, readable in one access. In
-  a narrow mode the 8-bit data is on port A (P2x), not P1x. **[doc]**
-- The on-chip Flash is off in the expanded modes (ROMON resets to 0), so it
-  does not shadow external memory. **[doc]**
-- Port S is on P3x: SCI0 RxD (PS0) on P30, TxD (PS1) on P31, PS2-PS7 on
-  P32-P37. The MC68HC11 firmware bit-bangs its SCI through GPIO, so no
-  Teensy UART pins are needed. **[code]**
-- PT7/PAI is on P52 and PT0/IOC0 on P55, so the Teensy can drive edges
-  into input capture or the pulse accumulator for timer samples.
-
-Board for the MC9S12DG128B (112-pin LQFP, `schematics/mc9s12d`); not
-built yet. The bus keeps the MC68HC12B's Teensy pins: AD0-AD15, R/`#W`,
-`#LSTRB`, MODA/IPIPE0, MODB/IPIPE1, BKGD, EXTAL, ECLK, `#IRQ`, `#XIRQ`,
-`#RESET`, PT7 and PT0.
-
-- The S12 has no `#DBE` or DIVBYP. P40 drives XCLKS (PE7), latched at
-  every RESET rise: low makes EXTAL an external clock input. A power-on
-  reset latches it too, before the Teensy drives anything, so a 10k
-  pull-down holds it low. After reset PE7 can be NOACC. **[doc]**
-- P45 drives ROMCTL (PK7), latched into ROMON at the RESET rise in the
-  normal expanded modes only; the special and emulation modes clear ROMON.
-  After reset PK7 is ECS. **[doc]**
-- XADDR14-XADDR19 (PK0-PK5) take P32-P37, GPIO7 bits 2-3 and 16-19, in
-  place of PS2-PS7. SCI0 stays on P30/P31.
-- VREGEN is tied high, so VDD1, VDD2 and VDDPLL are 2.5V outputs of the
-  on-chip regulator: each has only its 0.1u cap, never VCC. **[doc]**
-- The PLL is never used, so XFC has no loop filter: AN2727 asks for a 1k-5k
-  pull-up to VDDPLL instead (2.2k here), never VSSPLL, and the firmware to
-  clear PLLON after reset. XTAL is open, TEST and VRL are tied low, VRH
-  high. **[doc]**
-- EXTAL is a 2.5V pin on VDDPLL, 3.0V at most (DUG A.1.3.3, A.4), so P46
-  drives it through a 74LVC1G17 on its own TLV70025 LDO: the regulator
-  outputs take no DC load. Rev 1 wired it straight to the base board's 5V
-  level shifter. **[doc]**
-- Every reset sets CME and SCME in PLLCTL. EXTAL slower than fCMFA
-  (50-200kHz) moves the bus to the self-clock (1-5.5MHz) with no reset,
-  so EXTAL must stay above 200kHz until the firmware clears CME, which is
-  writable anytime. A power-on reset runs a clock quality check of up to
-  2.5s before falling back to the self-clock; an external reset after a
-  running clock skips it. **[doc]**
-
-Board for the MC9S12XDP512MAG (144-pin LQFP, `schematics/mc9s12x`);
-not built yet. Four layers, In1 GND and In2 VCC, signals on F/B only.
-D0-D15 take P1x/P2x and the control pins P40-P53, but the S12X bus
-has 23 address lines, too many for P3x.
-
-- ADDR0-ADDR22 reach P30-P37 through four 74HCS153, selected by P54
-  (ASEL0) and P55 (ASEL1): 00 A0-A3/A16-A19, 01 A4-A7/A20-A22, 10
-  A12-A15, 11 A8-A11. Unused mux inputs are tied to GND.
-- On the S12X, XCLKS (PE7, P52) is latched only at a power-on reset,
-  before the Teensy drives anything, so the 10k pull-down alone selects
-  the external clock on EXTAL. **[doc]**
-- VREGEN is tied high: VDD1, VDD2 and VDDPLL are 2.5V regulator outputs
-  with only their 0.1u caps. XFC is pulled up to VDDPLL by 2.2k (AN3262)
-  since the PLL is unused. XTAL is open, TEST and VRL are tied low, VRH
-  high. **[doc]**
-- EXTAL is a 2.5V pin on VDDPLL, 3.0V at most (RM appendix A), so P47
-  drives it through a 74LVC1G17 on its own TLV70025 LDO: the regulator
-  outputs take no DC load. Rev 1 wired it straight to the base board's 5V
-  level shifter. **[doc]**
-
-Firmware (`debugger/mc68hc12`):
-
-- DIVBYP is driven high, so each EXTAL period is half an E cycle and one
-  edge of each pair moves E; `sync_e()` finds which one while #RESET is
-  low, before any bus cycle. E then follows EXTAL about 20ns after the
-  edge, so a bus cycle is four fixed edges: quiet (address, R/`#W` and
-  `#LSTRB` settle about 24ns later), active (E rises), quiet (`#DBE` falls
-  about 24ns later on an external read, write data valid), active (E
-  falls). E is read once a cycle only to catch STOP. The CPU12 is static,
-  so idle stops the clock. **[hw]**
-- The bus is synchronous: no wait input, and `#DBE` only marks an
-  external read, a quarter cycle into E high. **[doc]**
-- AD is driven only while `#DBE` is low, an external read: internal reads
-  shown under IVIS and free cycles leave the bus to the CPU. **[code]**
-- Reset leaves EXSTR=11 in MISC, a three-cycle stretch with E held high
-  for seven EXTAL pairs and `#DBE` low only after the last quiet edge;
-  `configSystem()` clears it and stops the COP, and until then
-  `prepareCycle()` walks a read, sampling `#DBE` at every quiet edge, until
-  `#DBE` or E falls. A sample has to clear the level as well as set it:
-  one that only set it saw the first high and missed every reset read.
-  **[hw]**
-- Injection is address-keyed, as on the P8095BH: a sequence ends with a
-  `BRA` back to the park ($FF80), and the CPU waits in the refetch. A
-  vector read (reset, SWI, `#XIRQ`) is answered with the park, where
-  `BRA *` waits while the stacking is captured by address. **[code]**
-- `restore()` builds the RTI frame with pushes, so a stack in internal RAM
-  works; an external one is answered from the frame. A user PC within
-  about 30 bytes after the park would end it early. **[code]**
-- `#XIRQ` halts and steps: `restore()` clears CCR.X. RTI checks for a
-  pending interrupt after its first queue refill, so `#XIRQ` asserted
-  before RTI's first PC fetch runs nothing, and asserted at the execution
-  start (IPIPE) runs two instructions. Asserted before the E fall of the
-  second cycle after the restore, the second refill, it runs exactly one.
-  WAI stacks before it waits, so a halt there takes the frame from the
-  writes before the vector. **[hw]**
-- The only injected SWI is `save()` at reset, when I and X are set, so no
-  pending interrupt can take its place. **[code]**
-- Every SWI vector read stops the run: the queue can fetch a breakpoint's
-  SWI long before it executes, so only the stacked PC tells a breakpoint
-  from the program's own SWI. The latter's frame is written back and the
-  run goes on in its handler. **[code]**
-- No cycle table: the backtrace replays the queue from IPIPE1:0 as
-  CPU12RM 8.8 describes (`queue_mc68hc12.cpp`, host test
-  `test/mc68hc12/test_queue_mc68hc12`). **[code]** A page 2 instruction
-  signals two starts, at its $18 prebyte and again at the opcode after it
-  with the queue held (LAT), so the replay folds the second into the
-  first. **[hw]**
-- Memory reads and writes check `devs->isSelected()` once per word and go
-  to the emulated memory directly: the per-byte virtual `Mems::read()`
-  chain cost more than the rest of the bus cycle. A device decodes an
-  aligned block of four, so a word is in or out whole. **[hw]**
-- The samples use EMULS and IDIVS inline; IDIVS's remainder is the
-  `B-Q*F` that other targets multiply back. **[code]**
-
-Firmware for the MC9S12DG128B (`pins_mc9s12d.cpp`, identity `MC9S12D`),
-written before a chip arrived; the `ATTENTION:` constants are the guesses
-to check first:
-
-- MODC:MODB:MODA=010 is special test mode, the HCS12's special expanded
-  wide; 011, the HC12's code, is emulation expanded wide, where PEAR and
-  MODE are write-never and IVIS stays on. **[doc]**
-- There is no `#DBE`. IVIS shows the internal accesses with the CPU's
-  data, so a read is external only if NOACC doesn't mark it free and its
-  address is outside the registers and RAM ($0000-$1FFF). Keeping IVIS
-  matters: `save()` and `restore()` capture the frame from the stack
-  writes, and the samples' stack sits in internal RAM. **[doc]**
-- `configSystem()` clears PLLCTL first: CME and SCME are set by every
-  reset, and EXTAL stopping below 200kHz would move the bus to the
-  self-clock. Until then EXTAL never pauses, and `resetPins()` runs it for
-  100ms first, so that a chip powered up on the self-clock passes its
-  clock check and returns to EXTAL. **[doc]**
-- The HCS12 queue has three stages and no latch, so only ALD moves it.
-  IPIPE1:0 show the execution start before the E rise and the movement
-  before the E fall, both for this cycle, the reverse of the M68HC12
-  (`queue_hcs12.cpp`, host test `test/mc68hc12/test_queue_hcs12`).
-  **[doc]**
-- A cycle without E is taken as a free cycle until 64 in a row mean STOP:
-  the manuals don't say whether a free cycle shows E. **[code]**
-
-Firmware for the MC9S12XDP512 (`pins_mc9s12x.cpp`, identity `MC9S12X`),
-written before a chip arrived; the `ATTENTION:` constants are the guesses
-to check first:
-
-- MODC:MODB:MODA=011, emulation expanded mode, with ROMCTL high and
-  EROMCTL (#LSTRB) low: emulation memory, the debugger's, in place of the
-  Flash, whose accesses take one cycle (S12XMMCV2 Table 17-10). Special
-  test mode shows only addresses: on the bench its ECLK low
-  phase carried the next address, not ACC, IQSTAT or IVD, which only the
-  emulation modes promise (S12XEBIV2 21.4.2). The S12X has no IVIS, NOACC
-  or PEAR to set. **[bench]**
-- The emulation modes read the port replacement registers (S12XMMCV2
-  Table 17-22) from the bus and write them inside and out, so the
-  debugger keeps them in its memory, injected sequences included, and
-  starts them at their reset values. COPCTL and SCME take one write.
-  **[doc]**
-- The cycle follows the emulation-mode timing (S12XEBIV2 4.2.2): ECLK high
-  first with the address; ACC, IQSTAT and the previous cycle's IVD
-  replace it in ECLK low. External read data is due one cycle late, in the
-  next ECLK high, so `completeCycle()` drives it in ECLK low and the next
-  access releases it. **[doc]**
-- A PRR access takes two cycles, any other external one EXSTR+2 (nine out
-  of reset, two once `configSystem()` clears EXSTR); the later cycles show
-  ACC=000. The cycle code folds them into the access: read data stays
-  driven through them, write data is taken in the last one, so a write
-  comes back only once the next access has started, and the first
-  repeat's IQSTAT stands for the next access's. **[doc]**
-- The bus shows global addresses; a read is external only for a CPU access
-  (ACC=001) to $7F_xxxx, whose low 16 bits are the local address with the
-  reset PPAGE. Internal ones map back to local through the reset RPAGE and
-  EPAGE (`Mc9s12xInit::local()`). **[doc]**
-- Internal read data comes out on ADDR15:0, not DATA: IVD follows its read
-  one cycle late, in ECLK low, and a byte read repeats the address byte in
-  the other half (S12XEBIV2 21.4.2, Table 21-16). The older 68-family
-  parts that show internal reads put them on the data bus. **[doc]**
-- Each address takes four mux selections in ECLK high, and IVD four more
-  in ECLK low; ACC and IQSTAT ride the high halves of selections 01 and
-  00. **[code]**
-- IQSTAT3:0 report the start of the cycle before and the ALD of the one
-  before that; the replay moves them back onto those cycles and runs the
-  HCS12 queue on them (`queue_hcs12x.cpp`, host test
-  `test/mc68hc12/test_queue_hcs12x`). **[doc]**
-- The CCR is 16 bits, U and IPL in CCRH, so the frame is 10 bytes and
-  `restore()` pushes the CCR with PSHD (`Mc68hc12Init::wideCcr()`).
-  **[doc]**
-- The samples are the MC68HC12B's, from `samples/mc68hc12`: code from
-  $4000, outside on every part, data and the stack in internal RAM from
-  $1000. The board has no SCI0 pins, so there are no SCI samples.
-  `samples/mc9s12x` adds a mandelbrot with the HCS12X's 16-bit X
-  arithmetic, same layout, same frame. **[code]**
-
-### MC68HC16
-
-**Pitfalls.** The pin functions come from the data bus at reset: hold
-DATA2 and DATA7 low, and leave DATA8, DATA9 and DATA11 high, or FC2:0 and
-ADDR23:19 come out as chip-selects and the bus control pins as port E.
-IPIPE1:0 carry two phases per bus cycle, so one sample is half the story.
-
-Board for the MC68HC16Z1 (144-pin LQFP, case 918); built, not yet brought up.
-
-- While `#RESET` is low the Teensy drives DATA1, DATA2 and DATA7 low.
-  DATA2 gives FC2:0, DATA7 alone gives ADDR23:19 whatever DATA6:3 are,
-  and DATA1 gives `#BR`/`#BG`/`#BGACK`, which only matters for
-  arbitration. DATA8 keeps the bus control pins, DATA9 the `#IRQ` pins and
-  MODCLK, and DATA11 must stay high for normal operation; the weak
-  internal pull-ups hold any line not driven. **[doc]**
-- `#RESET` is open drain both ways: the MCU stretches an external reset by
-  512 CLKOUT cycles and asserts it on internal resets. The pull-up is on
-  the Teensy side of the level shifter, so drive it low or release it,
-  never high. **[doc]**
-- MODCLK is tied low, so EXTAL (P47) is the system clock with the PLL off;
-  CLKOUT comes back on P52. **[doc]**
-- Show cycles (SHEN in SIMCR, %00 from reset) would put internal transfers
-  on the data bus with `#DS` but no `#AS` (User's Manual 5.6.6.1); the
-  debugger leaves them off, so only external cycles reach the bus.
-  **[doc]**
-- IPIPE1:0 encode phase 1 (START, FETCH) and phase 2 (ADVANCE,
-  EXCEPTION) of the pipeline state; latch them on the `#AS` and `#DS`
-  edges. Under FREEZE they become DSI (an input) and DSO. **[doc]**
-- P40-P43 and P46 read as one GPIO9 group: `#AS`, R/`#W`, IPIPE0, IPIPE1
-  and `#DS`, so both IPIPE phases come with the strobes. **[code]**
-- ADDR23:0, SIZ1:0 and FC2:0 share P30-P37 through four 74HCS153
-  selected by ASEL0 (P54) and ASEL1 (P55): 00 A0-A3/A16-A19,
-  01 A4-A7/A20-A23, 10 A12-A15/SIZ, 11 A8-A11/FC. The selects are
-  walked once per cycle in Gray order; the bus holds still meanwhile, as
-  the CPU waits on the bit-banged EXTAL or, in a run, on `#DSACK1`.
-  **[code]**
-- `#DSACK0`/`#DSACK1` (P44/P45) end external cycles. `#AVEC` is tied low,
-  so every interrupt acknowledge is autovectored. `#IRQ7` (P50) and
-  `#IRQ1` (P51) reach the Teensy; `#IRQ6`-`#IRQ2` are tied high. **[doc]**
-- TSC is tied low and `#BKPT` tied high, since a low `#BKPT` at reset
-  enables background mode. The bidirectional `#HALT`, `#BERR`, `#BR` and
-  `#BGACK` have 10k pull-ups instead of ties: the MCU drives `#HALT` low on
-  a double bus fault. VSTBY is grounded, so the standby RAM keeps
-  nothing across power-off. **[doc]**
-- The Z2, Z3 and Z4 share the 144-pin assignment; the Z4 differs only in
-  its MCCI serial pins (28-37), which the board leaves open. The Z2 and
-  Z3 masked ROM wakes enabled because DATA14 is high at reset, and its
-  accesses never reach the bus; a mask-programmed BOOT bit may also take
-  the reset vectors from it. The CK and CM parts are 3.3 V. **[doc]**
-
-#### Debugger **[doc][code]**
-
-Written against the manuals, before bring-up; every timing and
-landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
-
-- The CPU is parked in S1 of a bus cycle with EXTAL stopped: external
-  clock operation goes down to dc, so the timers and watchdog hold too.
-  Outside a run `#DSACK1` stays asserted, so every external cycle ends at
-  its first S2/S3 fall with no wait states.
-- A run clocks EXTAL from FlexPWM3 at a constant 10 MHz, the fastest the
-  full regress passes at (see Clocking a run from a timer). `#DSACK1` is
-  negated then: each cycle waits until it is served, and the on-chip
-  timers keep running while the CPU waits. The MC68HC16Z1PV16 needs
-  EXTAL high and low for 29.8 ns, so 150 MHz / 10 = 15 MHz is the highest
-  rate the PWM can make for it. **[hw]**
-  Sequences are address-keyed and end in `BRA` to their origin or a jump
-  to a named exit.
-- CSBOOT covers 00000H-7FFFFH from reset and ends a cycle by itself after
-  13 waits, and the software watchdog is on. `setupBus()` runs right after
-  the reset vector, before the program runs: it clears SYPCR (write-once,
-  so a program cannot turn the watchdog back on) and CSORBT.
-- The SIM holds off an external reset until the bus cycle in progress
-  ends, and with the bus monitor off a parked one never does: `R` asserts
-  `#DSACK1` for the first clocks of `#RESET`, before the straps go on the
-  bus. **[doc]**
-- Interrupt acknowledges (FC=7) end on `#AVEC` and autovector, even with
-  `#DSACK1` asserted too, as the `#IRQ1` and `#IRQ7` samples showed on the
-  bench; the Teensy drives no data for them.
-- Every microsecond the Teensy spends serving a cycle stretches it, as
-  the CPU waits on `#DSACK1`. Above about 5 MHz the Teensy's time to
-  serve a cycle, not the clock, sets a run's speed. A run polls the halt
-  switch, whose
-  `yield()` services the USB, only every 16 bus cycles; the devices
-  ration their own polling. A CPU in `WAI` is polled every 16 clocks, so
-  the devices that wake it and the watchdog are serviced often. **[code]**
-- The clock delays are minimums: EXTAL high at least 29.8ns, and #AS and
-  #DS were seen within 30ns of a falling edge. A read is looked up and
-  driven while S2's EXTAL is high; a write is
-  stored while S4's is. `delayNanoseconds()` adds its own overhead to
-  each delay, and counting the delays from the edges instead, without
-  it, corrupted the bus: keep them as they are. **[code]**
-- A memory read, byte or word, moves the aligned word, from which a byte
-  read takes its own lane. `MemsMc68hc16` is `final`, so its calls bind
-  statically, and the device check is one call per cycle. DMAMEM is no
-  faster than EXTMEM here: both are cached. **[code]**
-- Halt takes `#IRQ7` (level-7 autovector, 002EH). The frame is PC at SP
-  and CCR below it, SP down by 4; the stacked PC is the next instruction
-  plus 6 for an interrupt, the `SWI` plus 8 for `SWI`. RTI subtracts 6.
-- Step can't use `#IRQ7`: it is synchronised over two clocks and taken
-  at the boundary after, by when a 2-byte instruction has been followed
-  by another. Step serves the instruction's own words from memory and
-  every other program read as `SWI`, so whatever runs next, a branch
-  target or a handler included, breaks. The CPU16 has no trace mode, and
-  its length comes from `InstMc68hc16::length()`, a table checked
-  against libasm by `test/mc68hc16/test_inst_mc68hc16`. **[doc]**
-- `SWI` leaves the interrupt mask as it was, so a break chains `#IRQ7` onto
-  it: the `SWI` vector is answered with NOPs and `#IRQ7`, taken at their
-  first boundary, sets IP to 7. Save and restore then always run masked;
-  the `SWI` frame holds the program's state. **[doc]**
-- Registers are saved with `PSHM D,E,X,Y,Z,K,CCR` and `PSHMAC`, decoded
-  by write address, and restored from an image staged just below SP:
-  `PULMAC`, `PULM`, `RTI`. A stack in the on-chip standby RAM shows
-  nothing on the bus, so it cannot be saved. K is EK:XK:YK:ZK from bit 15
-  down (CPU16RM Figure 2-1). **[doc]**
-- Instruction boundaries come from IPIPE: phase 1 is read at `#AS`,
-  phase 2 late in the cycle, and `PipeMc68hc16` maps each START back to
-  its opcode's fetch. In a run, phase 1 is read as `#AS` is first seen
-  low and phase 2 at the last read before it negates (User's Manual AC
-  timing 100-104). Phase 1 lasts only until S2, about half a clock after
-  `#AS`: at 15 MHz a poll misses it, and halts and the disassembly lose
-  the instruction starts. A FlexIO1 latch at `#AS` reads phase 1 right,
-  but takes the pads from GPIO9, and a run polled through FlexIO is too
-  slow. **[hw]**
-- The ACIA sits at FFE00H, outside the SIM's register block; samples
-  reach it as `,Z` with ZK:IZ set from the reset vector, and keep data
-  in bank 0.
-- An interrupt stacks only PC and CCR, unlike the HC11 the samples were
-  ported from: each sample's handler saves what it uses with `PSHM` and
-  restores it with `PULM` before `RTI`. **[doc]**
-
-### MC68000 family
-
-**Pitfalls.** The clock must never stop: a CLK half longer than 125 ns is
-out of spec (M68000UM 10.8), so reset, injection, step and run all run on
-the PWM clock, and the CPU waits for the Teensy by `#DTACK` alone. An
-external reset needs `#RESET` and `#HALT` low together. Level 7 is taken on
-a change to 7, not while it is held.
-
-Plan, written before any of it runs; every timing it implies gets an
-`ATTENTION:` in `debugger/mc68000/`.
-
-- **One directory for the family.** `debugger/mc68000/` serves the MC68000,
-  MC68HC000, MC68HC001, MC68010 and MC68008: one instruction set, one
-  asynchronous bus. `PinsMc68000Base` holds the engine -- reset, the cycle,
-  injection, halt, step and run -- for word and byte cycles alike, and two
-  `final` board classes read the address, move the data and drive the
-  interrupt level: `PinsMc68000` for the 16-bit-bus boards
-  (`bionic-mc68000p`, `bionic-hd68000ps`, `bionic-mc68000fn`),
-  `PinsMc68008` for the MC68008 boards (`bionic-mc68008p`, `-fn`).
-  Identities name the boards: `MC68000P`, `HD68000PS`, `MC68000FN`,
-  `MC68008P` and `MC68008FN`, all `TARGET_OVERLAY(mc68000)`. Each board
-  instantiates the cycle engine (`pins_mc68000_cycle.h`) with its own
-  class, so a cycle calls the board's hooks directly, not through the
-  vtable. A byte moves in bits 0-7 of a cycle's data whatever lane carries
-  it; a byte read goes out on both lanes. **[code]**
-- **Clock.** CLK (P47) comes from the shared `PwmClock<PIN>`, as the
-  MC68HC16's EXTAL does. Every board starts at 150 MHz / 15 = 10 MHz, 50
-  ns halves: the slowest chips they take are 10 MHz parts (2-10 MHz, 45
-  ns halves), and 8 MHz parts are not used. K goes no faster than 45 ns
-  halves and trusts the user with the grade.
-  **[doc][hw]**
-- **Reset.** `#RESET` (P53) and `#HALT` (P46) are open drain both ways and
-  carry no pull-up on the boards: drive them low together, or release them
-  to `INPUT_PULLUP` behind the level shifters, never drive them high. 100 ms
-  at power-up, 10 clocks after (M68000UM 5.5). The CPU drives `#RESET`
-  during a `RESET` instruction, and `#HALT` after a double bus fault, which
-  `#HALT` low with `#RESET` high reports. The reset vector is four word
-  reads at 000000H: SSP, then PC. **[doc]**
-- **Bus cycle.** `#AS` (P40) falls in S2. The Teensy then walks ASEL1:ASEL0
-  (P55:P54) in Gray order, reading GPIO7 once per phase: A1-A23, FC2:FC0
-  and MODE. A0 comes from the strobes: `#LDS` alone is the odd byte.
-  A read's strobes come with `#AS`; a write's come in S4, so its lanes
-  and data are read as one is first seen low. It serves the cycle while
-  the CPU waits. It asserts `#DTACK`
-  (P44), sampled at S4's fall, and negates it once `#AS` rises, before the
-  next cycle's S4. A read asserts it as soon as the data is looked up and
-  drives the data after: the CPU latches it a clock later, within
-  M68000UM parameter #31. A write asserts it once the data is read and
-  stores after negating it, before the next cycle's lookup: a store into
-  EXTMEM or a device can outlast `#AS`. TAS holds `#AS` from its read
-  through its write: R/#W falling under `#AS` begins the write, served
-  as a cycle of its own. Interrupts stay masked from assert to negate, as for
-  the MC68HC16's `#DSACK1`. A read drives D15-D0 (P10-P27) until the data
-  strobes rise. `#UDS`/`#LDS` (P42/P43) select the byte lanes. **[doc]**
-- **Bus widths.** On the 16-bit boards, MODE (P37, phase 10), read while
-  `#RESET` is held, tells an MC68HC001 strapped for 8 bits (JP1 closed):
-  the first cycle's A0 already depends on it. That chip
-  strobes only `#LDS`, puts its A0 on P30 in phase 00, and moves data on
-  D7-D0. It is a flag in the 16-bit class, not a class of its own. The
-  P and PS boards tie MODE high and A0 low. The MC68008 boards have `#DS`
-  on P43, A0-A7 direct on P20-P27, and 74AHCT157s on P30-P37 (one select,
-  P54). They take 20 bits on the P board and 22 on the FN board, as its
-  identity names it. Reset parks the CPU at the fetch of 0FF000H and
-  checks the wiring there: P34-P35 show A16-A17 (11) under either select
-  on the P board, and A20-A21 (00) under select 1 on the FN board. FC
-  sits on P50-P52 there, and `#IPL2`/`#IPL0` (tied) on P42 is an *output*,
-  where the 16-bit boards' P42 is the input `#UDS`: each class has its
-  own `resetPins()`. A word moves as two byte cycles on an 8-bit bus.
-  **[doc]**
-- **Memory and devices.** All 16 MB sit in EXTMEM (`ExtMemory`). Devices
-  decode the address masked to the board's width. The ACIA at FFFFF0H
-  (masked: FFFF0H on the MC68008P) is reached by absolute short `$FFF0.W`,
-  so one `samples/mc68000` set runs on every board. `#VPA` is tied high on
-  every board, so every interrupt acknowledge (FC = 7, level on A3-A1)
-  takes a vector number on D7-D0 with `#DTACK`. The ACIA's comes from
-  `I ACIA addr rx tx`, and an acknowledge no device claims gets the
-  spurious vector, 24. The MC68008 boards reach levels 2, 5 and 7
-  only, so devices use 5. **[doc][code]**
-- **Halt.** `#IPL2`-`#IPL0` to 7 (P50-P52 on the 16-bit boards, P42 and
-  P55 on the MC68008's). The acknowledge is answered with 31, the
-  level-7 autovector, and IPL drops back to the device level at once.
-  The frame is SR and PC on the 68000/HC000/HC001/008 (6 bytes), plus the
-  format/vector word on the MC68010 (8 bytes). The vector read is answered
-  with an address in an injection window, and the CPU parks at its first
-  fetch. **[doc]**
-- **Save and restore.** Address-keyed, ending in a taken branch to the
-  window's origin, as on the MC68HC16. An exception's frame goes to
-  memory, where the program's stack takes it anyway, and is read back
-  from there. The save's writes are captured, never stored: `MOVEM.L
-  D0-D7/A0-A6,-(SP)`, `MOVE USP,A0` pushed, then `MOVE SR,-(SP)`, which
-  counts only when reset parked the CPU at its own fetch. On the MC68010
-  `MOVEC` pushes VBR, SFC and DFC through A0 before SR; `save_mc68000.h`
-  holds the sequence and its layout, which `test/mc68000` checks against
-  libasm and a model of the pushes. Restore: immediate
-  loads (`MOVE.L #`, `MOVEA.L #`, `MOVE A0,USP`, `MOVEC A0,VBR`), A7 last,
-  pointing at the frame staged in memory at SSP-6 (SSP-8 on the MC68010),
-  then `RTE`. **[code]**
-- **Step and breaks.** Step restores with T set in SR; the trace exception
-  (vector 9) follows one instruction, or comes before the first
-  instruction of any exception it raised. A break is `ILLEGAL` (4AFCH,
-  vector 4), and every `ILLEGAL` stops a run: it is also how the samples
-  halt. Both are told by the vector read after the frame's pushes, from
-  the saved VBR, so a program that moves VBR in a run is stopped only by
-  the halt switch until it next stops. A fetch of a
-  break address proves nothing, as the CPU prefetches two words.
-  **[doc][code]**
-- **MC68010.** Its exception frame tells it apart, 8 bytes against 6.
-  Reset halts once through level 7 while the CPU fetches injected NOPs at
-  the park, so nothing else writes, and counts the frame's bytes,
-  captured below 0FF000H. An 8-byte frame turns on libasm's `MC68010`
-  and a format word (0000H, format 0) in the restore's frame, and adds
-  VBR, SFC and DFC to the registers. Its loop mode runs a `DBcc` loop
-  without fetching opcodes. **[doc][code]**
-- **Backtrace.** No pin marks an instruction start, and FC 2/6 covers
-  PC-relative operands as well as opcodes. The prefetch reads in address
-  order, so a program read off the stream is a flush, where an
-  instruction starts, unless its run comes straight back to the stream:
-  then it was an operand. Instructions after a flush follow by length
-  from libasm, each shown as its first byte is fetched. A write to SR
-  refetches the next instruction: a flush back to the one shown last is
-  not shown again. A ring with no flush, as in a stretch of MULS and
-  DIVS on the MC68008's byte fetches, is anchored by the stop PC: the
-  first even address whose lengths lead to it. `fetch_mc68000.h` holds
-  the sorting, which `test/mc68000` checks. Up to 4 prefetched bytes before a flush show as
-  instructions that never ran, and the MC68010's loop mode shows its
-  loop once. **[doc][code]**
-- **Not planned.** `BKPT` (MC68010 breakpoint acknowledge), bus arbitration
-  (`#BR`, `#BGACK` tied high) and the 6800 bus (E, `#VMA`, `#VPA`).
-  **[doc][code]**
-- **Samples.** `samples/mc68000` serves every board: the vectors at 0,
-  code from 0400H or 1000H, the stack below 1000H, the ACIA as
-  `(ACIA_xxx).w`, and `ILLEGAL` to halt. The ACIA interrupts at level 5
-  with vector 64, the ACIA's default, which the regress wires again with
-  `ACIA = "FFFF0 40"`; on the FN board the base is 3FFFF0. The 6800
-  family's default, 1, would send the interrupt to the reset PC. `ANDI #$F8FF,SR` and `ORI #$0700,SR`
-  switch interrupts without touching CCR, so a queue routine's carry
-  survives them. The same binaries are meant to run on the later family
-  too, so they keep to what every model does alike: the MC68000
-  instruction set, supervisor mode throughout (`MOVE from SR` is
-  privileged from the MC68010 on), vectors at 0 as reset leaves VBR, no
-  look into an exception frame, whose size varies, and words and longs
-  on even addresses, an address error only before the MC68020.
-  **[code]**
-- **libasm syntax.** Absolute operands take `(sym).w` or `(sym).l` and
-  displacements `(disp,An)`: a bare `sym` or `disp(An)` is "Operand not
-  allowed". A `BRA.S` to the next instruction can't be encoded: a 0
-  displacement means a 16-bit one follows. libasm 2.0.0 hangs on it;
-  the fix came after, so it reports an error from the next release on.
-  **[code]**
-- **Order.** The MC68008P board first, then the 16-bit boards: its 157 and
-  8-bit bus are the simpler start, and the same files carry on.
-
-### H16 (HD641016)
-
-**Pitfalls.** The chip is dynamic: PHI is EXTAL/2 and no slower than
-1000 ns, so the clock never stops and every cycle is held with `#WAIT`
-instead. A1-A16 share pins with the data and hold only until the T2
-rise, half a state after `#AS` asserts, so the address is read the
-moment `#AS` falls. The data strobes assert before the CPU lets go of
-the bus, so read data waits for the T2 fall (Figure 17-4).
-
-Board for the HD641016CP (PLCC84), benched on an HD641016CP10: regress
-passes at EXTAL 10 MHz, mandelbrot 2.5 s/frame; at 10.7 MHz the debugger
-no longer keeps up.
-
-- `#HDS` and `#LDS` of a word cycle fall up to 8 ns apart: a data read
-  rereads them 20 ns later, other cycles reread A0 while still held.
-  **[hw]**
-- `#WAIT` is sampled at PHI falls (setup 35 ns, hold 7-10 ns), and pins
-  move 35-60 ns after a read sees a fall: released on PHI found low, it
-  landed in the next fall's setup. **[hw]**
-- EXTAL is a whole number of `ARM_DWT_CYCCNT` cycles, so the release is
-  timed from a calibrated PHI phase, rechecked on a fresh counter read.
-  The counter wraps in no multiple of the period: re-anchor every cycle.
-  **[doc]**
-- The bus holder keeps the data, so the bus is let go at the release. A
-  write is stored after the next address is read; stored at the release,
-  a slow store missed that address. **[doc]**
-- Reads are looked up before their strobes, and each fetch looks up the
-  next word ahead while `#WAIT` still holds it. Looked up after the
-  release, a cache miss outlasted the next T2: the CPU ran that fetch
-  unserved and took its own address, left by the bus holder, as an STM
-  register list. **[hw]**
-- PF marks the prefetch queue's fetches, which run up to 8 bytes ahead,
-  not instruction starts. A fetch that does not follow the last one is a
-  flush, so the backtrace disassembles from there by length. **[hw]**
-- A flush drops what the queue fetched past the instruction that caused
-  it. ANDC, ORC, XORC and LDC refetch right past themselves; ICBN does
-  not. A BSR's return PC writes come after the target's first fetches.
-  An interrupt refetches the instruction it takes, then stacks its
-  address. IRQ0, TRAPA, an illegal instruction, a zero divide and a
-  trace all write the PC long, then the SR word below it, then read the
-  vector. A taken branch to the word the queue fetches next shows no
-  flush at all. **[hw]**
-- The backtrace ends each run at an exception frame's PC, the first
-  unconditional transfer, the first branch to the next flush, or ANDC,
-  ORC, XORC or LDC refetching it; the last run at the stop's PC. A frame
-  is a PC long with the SR word written 2 bytes below; a spilled ring
-  bank or an STM goes on 4 bytes below, and a spilled code address cut
-  its own run short. A branch to a word already fetched may have skipped
-  what lies before its target: those lines are marked `?`, unless the
-  run ended in there. `G n` and `g addr n` keep `n` printed lines.
-  **[code]**
-
-- EXTAL (P47) runs free from FlexPWM3 from reset on, PHI comes back on
-  P46. `#WAIT` stays low; a served cycle negates it until `#AS` rises,
-  then it goes low again before the next T2 fall samples it. **[doc]**
-- Reset turns on DRAM refresh every 32 states, a Tp and 7 Tw in every
-  cycle (MCR H'F0E0, AWCR0 H'0047). Refresh cycles obey `#WAIT` too.
-  After the reset vector a sequence writes MCR H'8000 and AWCR0 H'0000.
-  **[doc]**
-- The reset vector (SSP, PC) comes in by prefetch, and the prefetch runs
-  on to 00000FH before the PC is taken. **[doc]**
-- Halt is `#NMI`; step sets T in the SR that RTE restores, and the trace
-  exception parks the CPU in its vector read. A breakpoint is H'C0, an
-  unimplemented opcode one byte long that stacks its own address; a
-  program ends with TRAPA #15, its vector pointing at itself. After a
-  trace, a break or a halt the debugger asserts `#NMI` while answering
-  the vector, so the save runs with every interrupt masked. **[doc]**
-- The frames and the save go through SSP: keep it off chip. The on-chip
-  RAM (FFF800H) and I/O (FFFE00H) never reach the bus. **[doc]**
-- Registers are saved with STM and STC through R15, which is SSP in
-  supervisor mode; STC has no SSP form. The restore stages USP, EBR,
-  R0-R14 and the RTE frame below SSP and loads them with LDC, LDM and
-  RTE. **[doc]**
-- In ring mode CRn and PRn are the current and previous ring banks'
-  registers, apart from the global bank's Rn; CR15 is no stack pointer,
-  but an overflow stacks the bank through BSP with its low 16 bits as the
-  register list, CR15 itself always included: CR0 first, at the top,
-  and the fill reads CR15 back first. All 32 bits of CBNR count: 8 ICBN
-  from 0 read 8. **[hw]**
-- The on-chip RAM and I/O are reached by MOVs run on the parked CPU. The
-  register banks read as RAM only with BPM set; with it clear they read a
-  fixed pattern. Global bank 0 is the RAM's top 64 bytes, its R15 slot
-  holding USP. **[hw]**
-- `r` lists CR0-CR15 and PR0-PR15 in ring mode, read from the bank RAM
-  with BPM set for the reads only. **[doc]**
-
-### SCN2650
-
-**Pitfalls.** A conditional branch not taken skips its indirect address
-read, two cycles fewer than its row; `HALT` makes no bus cycle after its
-fetch.
-
-The profile is `tools/cycles_scn2650.py`, recorded as
-`tools/scn2650-cycles.jsonl.zst`. An indirect `BCTR`, `BDRA` and the like
-make two bus cycles fewer than its row when they fall through. **[hw]**
-`InstScn2650::notTaken()` tells a fall-through by the address after the
-operand, so the run loop and the matcher don't take those cycles from the
-next instruction.
-
-### TLCS90
-
-**Pitfalls.** On-chip RAM and I/O (FEC0-FFEF) never show on the bus, so
-instructions touching them make fewer cycles than their rows; a word access
-at FFFF wraps to 0000.
-
-The profile (`tools/cycles_tlcs90.py`, recorded as
-`tools/tlcs90-cycles.jsonl.zst`) matches the manual's bus-cycle tables on
-every opcode. **[hw]**
-
-- `JRL` and `CALR` count their 16-bit displacement from the opcode + 2, as
-  an 8-bit `JR`'s does.
-- A word access at FFFF goes on at 0000; `r` and `w` allow it.
-
-On-chip RAM (FEC0-FFBF) and I/O (FFC0-FFEF) never show on the bus; FFF0-FFFF
-is external again. The profile keeps its operands and SP in external memory,
-and leaves out patterns that would point SP at on-chip I/O. **[hw]**
-
-### TMS320C15
-
-**Pitfalls.** The bus timing has no slack: the 10 ns delays that replaced the
-commented-out debug pin calls are the setup margin; don't remove them.
-
-The profile (`tools/cycles_tms320c15.py`, recorded as
-`tools/tms320c15-cycles.jsonl.zst`) matches the tables on every opcode.
-**[hw]** The debugger drives `#BIO`, so `BIOZ` is recorded both taken and
-not.
-
-The fetch data settles as late as the CLKIN edge after it. **[hw]** 10 ns
-after each drive and before each sample settles it 40 ns before that edge
-and 110 ns before `#MEN` rises, and holds it 120 ns after, with analyser
-leads on the bus too. Too little margin shows as a few wrong mandelbrot
-pixels at the same places, not every frame.
-
-### TMS7000 family
-
-**Pitfalls.** Register-file accesses, pushes and pops included, never reach
-the bus; `TRAP n` makes two bus cycles.
-
-One table serves the whole family, and the profile
-(`tools/cycles_tms7000.py`, recorded on a TMS70C02 as
-`tools/tms7000-cycles.jsonl.zst`) takes any family member. **[hw]**
-`TRAP n` makes two bus cycles, its vector reads.
-
-An interrupt pending at a halt is taken at the save's first fetch and would
-feed the injected bytes to its vector reads. `park()` runs `JMP $` there
-until it has run twice without one, or an entry shows and the save starts at
-the handler. The entry is an acknowledge cycle at address 0 and two vector
-reads, but a TMS70C02 can be at the vector reads already at the halt, so a
-read at FFD0 or above counts too. **[hw]**
-
-### TMS370
-
-**Pitfalls.** The oscillator fault logic watches CLKIN and resets the CPU
-whenever the clock runs slower than somewhere between 20 and 500 kHz; on the
-A and B parts no bit disables it. CLKIN therefore runs free from the PWM
-through every sequence and at the prompt, and `#WAIT` holds each external
-access until it is served. **[hw]**
-
-- `#WAIT` is sampled at a SYSCLK rise (setup 0.25tc+70, hold 0), and with
-  the auto wait state not before the third SYSCLK of an access. It is
-  negated just after a rise, a whole tc ahead of the rise that samples it,
-  and asserted again once `#EDS` rises. **[doc]**
-- Write data is valid only by the SYSCLK fall after `#EDS` falls, not at
-  the fall. **[doc]**
-- OSC POWER (SCCR0.6) must stay clear above 3 MHz SYSCLK. **[doc]**
-- A flash stops the clock and sets OSC FLT FLAG (SCCR0.4), which no reset
-  clears. **[hw]**
-
-An interrupt pending at a fetch aborts it and reads its vector next.
-`takePendingInterrupt()` runs `JMP $` at the halt until it has run twice
-without one, so an interrupt recognised a boundary late is taken there too;
-one run is not enough. Injected bytes showing up in the saved state reveal
-a missed interrupt; only many halts in a row expose it. **[hw]**
-
-The wait for `#EDS` gives up after 1024 CLKIN cycles at the slowest rate,
-2 MHz, four times the longest instruction (DIV, 63 SYSCLK cycles), and prints `?halt: no bus
-cycle`, so a CPU that stops issuing bus cycles doesn't wedge the board.
-**[code]**
-
-### Z8
-
-**Pitfalls.** The stack is external, and the tables must see
-`EXTERNAL_STACK`; on the Super8, register sets C0-FF are banked, and a
-working-register write can reload the register cache from the wrong bank.
-
-One board each runs the Z86C91 and the Z88C00 (Super8), sharing
-`PinsZ8`. The profile (`tools/cycles_z86.py` and `tools/cycles_z88.py`,
-recorded as `tools/z86-cycles.jsonl.zst` and `tools/z88-cycles.jsonl.zst`)
-matches the tables. **[hw]**
-
-- `EXTERNAL_STACK` is defined in `inst_z8.h`, not `pins_z8.h`, which the
-  instruction tables don't include; without it their `#if` drops the pushes
-  and pops of `PUSH`, `POP`, `CALL`, `RET` and `IRET`.
-- `NEXT`, `EXIT` and `CALL @RR` make 3, 3 and 1 external cycles, as
-  `z88.txt` says; keep `inst_z88.cpp` in step with it.
-
-`HALT` on the Z86C91 and `WFI` on the Z88C00 read the byte after them,
-then the bus stops. **[hw]**
-
-`restore()` enables interrupts with `IRET`, which pops FLAGS and PC and sets
-the global enable (IMR bit 7, the Super8's SYM bit 0): it loads the mask
-without that bit, moves SP down three bytes and feeds `IRET` the pops.
-`IRET` reads the byte after it before popping, on both chips. **[hw]** With
-the enable clear it still ends in `JP`, and so it does on the Super8 while
-FIS is set, since `IRET` then returns from a fast interrupt without popping.
-**[doc]**
-
-Normal builds don't follow the Super8's fast interrupt. It pushes nothing,
-and the run loop, which finds instruction boundaries by counting each
-instruction's bus cycles, loses them at the first one. `Z88_FAST_INTERRUPT`
-in `pins_z8.h` follows IP, SYM's fast enable and FIS from the restored state
-and the program's immediate writes to them (an IP written from a register,
-or by `NEXT`, `ENTER` or `EXIT`, isn't followed). It takes a fetch at IP
-after an opcode fetch and a read of the byte after it as an entry, and
-counts a fast `IRET` as two bus cycles. Checking every bus cycle for an
-entry slows the bus of both chips, so it stays out of normal builds. A
-mandelbrot built with fast interrupts tests it: without the option it stops
-almost at once. **[hw]**
-
-On the Z88C00, only setting RP, RP0 or RP1 refreshes r0-r15 in the register
-cache. **[hw]** `write_reg()` and `restore_sfrs()` write RP0 and RP1 while
-RP0 points at C0, so refreshing on any such write would load the C0 bank,
-and `restore()` would write it over the user's values. `r` shows the
-cache, so check a register set with `=` after a `G` or step, with RP0 other
-than C0.
-
-Super8 indirect and stack accesses to C0-FF reach register set 2, not the
-registers a direct address names, so a working register at C0 can't point
-at itself. The profile keeps RP0 at 20. **[hw]**
-
-### PDP-8 (IM6100 / HD6120)
-
-**Pitfalls.** The debugger's `restore()` ends in `RTF` on both chips, and
-on the IM6100 `RTF` enables interrupts after the next instruction whatever
-IEFF was. **[hw]** Resuming inside an interrupt handler whose request is
-still pending would take the interrupt again and overwrite the return
-address in location 0000. The debugger holds INTREQ off while the saved
-IEFF is clear, records IEFF as clear in `save()` until then, and lets
-requests through once the program fetches its own `ION` or `RTF`. The
-HD6120 keeps interrupts off until the handler's own return. To check,
-stop inside `echoir`'s handler with the request pending, step and `G`, and
-see that location 0000 keeps the main-line return address.
-
-Holding INTREQ off still leaves the chip's own IEFF on, which `SKON` and
-`GTF` read. `restore()` follows the `RTF` with `IOF` on both chips when the
-saved IEFF is clear: `RTF` enables interrupts one instruction late, so the
-`IOF` turns them off before any request is taken. To check, halt and resume
-an `IOF`, `SKON`, `JMP .-1` loop: it must never fall through to a `HLT`
-after it. **[hw]**
-
-### DCT11
-
-**Entry.** A HALT instruction and the HALT input (AI7) push the PS and
-the PC and fetch the restart address with PS 340; BPT and a T-bit trace
-trap push the same frame and read the vector at 14. **[doc]** The
-debugger answers that vector with the restart address and 340, so every
-entry parks on the fetch of 173004 with the frame below SP. A BPT's PC
-is the pushed PC less 2; a step's is the pushed PC. A step sets the T
-bit and restores with `RTT`, which defers the trace trap past the next
-instruction. A step onto a BPT or HALT is refused: the trace trap would
-still be pending after its own trap. **[code]**
-
-**Mode register.** It is read from DAL15-DAL8 and DAL1-DAL0 while #BCLR
-is low, at power-up and on every `RESET` instruction, so the board drives
-it at both: 153377, start 173000, 16-bit, static memory, normal
-read/write so R/#WHB and R/#WLB are valid at the #RAS fall. **[doc]**
-
-**Read before write.** Every write is preceded by a read of the same
-address, except the pushes of a trap or interrupt. **[doc]** That read
-would take a received character from the DL11's RBUF, so a
-device read returns `peek()` and takes effect only if the next
-transaction is not a write to the same word. **[code]**
-
-**Console.** Both chips have a DL11 at 177560, vectors 60 and 64. A
-request comes as DONE or READY rises with its interrupt enable set, or
-as the enable is set, and the acknowledge that reads its vector drops
-it: a level request would interrupt for as long as a program leaves the
-transmitter's enable set. Received characters come a 9600 baud character
-time apart: all at once, pasted text overruns a program that polls.
-**[doc][code][bench]**
-
-**Interrupts.** The DL11 requests level 4 with #VEC, and its vector is
-driven on DAL7-DAL0 at the IACK. The AI lines must not change while PI
-is high, so a request a device raises inside a transaction is driven
-after it. **[doc][code]**
-
-**Clock.** XTL1 is bit-banged: it needs T > 133 ns and each half > 60 ns
-at the pin (User's Guide 5.4.2), and the board's 48/48 ns delays give
-halves of 64 and 88 ns at least. **[doc]** A high half under about 70 ns
-at the connector leaves #RAS asserted through the transactions that
-follow an IACK; nothing in the manuals defines such a bus, so it is the
-clock to fix, not a transaction to serve. **[bench]** The
-clock rests high and the pins are read at the end of a period: #RAS is
-seen in the period it falls in with the address still on DAL, and a read's
-lookup rides the period that brings #CAS. **[bench]**
-
-- The PS after power-up, as `MFPS` reads it.
-
-### DCJ11
-
-**Bus.** A cycle is four CLK1 periods, T0-T3; a stretched one adds T4
-pairs until #CONT, sampled at T4's falling edges, ends it, and #SCTL
-rises three edges after the sample. The address, AIO3-AIO0 and BS1-BS0
-are valid while #ALE is low: DAL21-DAL16, BS and AIO reach the Teensy
-through two 74HCS153s on P30-P33, selected one select bit at a time,
-and resting at AIO, so a NIO costs one port read. **[doc][bench]**
-
-**Clock.** The DCJ11 is static, and CLK1 is bit-banged: the debugger
-makes every edge, reset, step and run alike, from one script per cycle,
-counting from the fall #ALE falls after. The address is read with the
-clock parked after the next rise, where #ALE is low with #STRB high, and
-interrupts stay on, as one only lengthens a half. A NIO ends at the
-eighth edge. #MISS is held high, so a memory read, fetches among them,
-is not stretched either: its data goes out in the fourth period's low
-half and T3's rise latches it, held 60ns after; the table's 20ns broke
-one V6 compile in three, and the data is let go before the CPU drives
-the next address. Every other cycle stretches to eight periods, #CONT
-at the first sample point: a stretched read's data goes out as #BUFCTL
-falls the second time, with #ALE high, and DV latches it before the
-sample; a write's is read with #SCTL low; #CONT and DV are held until
-#SCTL rises. A read the bus times out takes ten. The halves are coded
-24ns and measure 32ns and up on the pin, a period of 72ns and up, in
-captures sampled every 8ns, against the table's 28 and 67; coded 28, the
-table's minimum, measured 40ns and 96ns in this build, and 32ns and 80ns
-in another with the same edge code. **[doc][bench]**
-
-**#ABORT.** The CPU's own, an MMU or address error, falls two edges
-before the cycle's #ALE and holds through its first part: it is read
-with the address, and a write it covers is not stored. An abort from
-outside is taken in the stretch, sampled at T4's falling edges (User's
-Guide, 2.6.3). #BUFCTL is low twice in a read: from #STRB's fall to
-#ALE's rise, with the address still out, then high again, then low for
-the data. Read data driven on the first met the CPU's own on DAL until
-the second, and with 177777 against an address of zeros the CPU aborted
-the cycle and trapped through 4: most often in the first register
-restore after power-up, when the FP11's accumulators hold 000000 177777
-000000 177777. Only a stretched read's data waits for the second;
-a memory read's goes out after the first, where the address has left
-(User's Guide, Figure 3-3). **[doc][bench]**
-
-**Bus timeout.** A read of 760000-760077, the I/O page's first words,
-or of 770200-770376, the UNIBUS map's registers, is aborted: the
-debugger pulls #ABORT low in the cycle's stretch, as an abort from
-outside has to come (DCJ11 User's Guide, 2.6.3), and lets it go as
-#SCTL rises. The CPU traps through 4 with the timeout bit in its error
-register; Unix sizes its memory by that trap, and 2.11BSD's boot finds
-no UNIBUS map, which a read of 0 would turn on in MMR3 and so put every
-DMA address through the map. The maintenance register at 177750, which
-the DCJ11 leaves to its board and reads with the system-register bank
-select (BS 01, as 17777740-17777750 are; User's Guide, Table 2-1), reads
-000020, a KDJ11-A module id, which that boot reports as an 11/73. The
-rest of the I/O page outside its devices still reads 0. **[doc][code]**
-
-**Disks.** The RK11 and the MSCP controller both interrupt at level 5
-on IRQ1: `DevsPdp11::vector(5)` asks each whether it requests, and the
-line is let go only when neither does. A transfer is done whole inside
-the register access that starts it, the RK11's GO write or the MSCP
-poll's service, so the kernel sees it complete as the interrupt comes;
-the DCJ11 is static and waits, and the line clock drops the ticks it
-would have made meanwhile, so the kernel sees no time pass. `Mscp` is the controller without the
-board: it reads and writes the host's memory and drives through
-`MscpHost`, so `test/test_mscp` runs 2.11BSD's init handshakes and
-packets against arrays on the host, and a flash tests the bus, not the
-protocol. `Rq` is its board side: the `Device`, the SD card images and
-the interrupt. **[doc][code]**
-
-**Entries and power-up.** The power-up configuration read is answered
-with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
-traps to 4. #PWRF halts through vector 24, BPT and the trace trap through
-14; the debugger answers either with 017000 and 340. A vector read has
-no bus code of its own, and a program reads those words as data (the
-Unix boot block copies itself through them) or handles BPT itself. The
-vector at 14 is answered only in a step, for a BPT at a break point, or
-while it points at itself, as the MC6800's SWI vector does to halt to
-the debugger; the one at 24 only while #PWRF is held. The one at 4 is
-answered when a HALT's fetch comes just before it, past the
-configuration read the HALT makes; a kernel's HALT then
-stops there, and one in user or supervisor mode, which traps through 4
-too, goes on to the program's vector, the debugger pushing its PS and
-PC and running an RTI. 017000 is in kernel I page 0, which a kernel
-maps whole; page 7 would not do, as 2.11BSD maps its overlays there and
-some end below 173004. With the memory management on, the fetch lies
-wherever page 0 maps it, so the debugger parks on the first fetch after
-the frame, by its bus address, and its save sequence jumps back to
-017000. Each save reads
-MMR0 and MMR3, and with the mapping on the kernel data space's eight
-PARs (KDPAR when MMR3 enables kernel D space, else KIPAR), which carry
-the restore's RTT frame below SP and the FP11's loads from 177000 to
-their bus addresses; `test/test_pdp11_mmu` checks that translation.
-HALT, the #EVENT and
-IRQ lines and #MISS come from a 74HCT259 that shares the 153s' selects.
-`RegsPdp11` saves the FP11's FPS and AC0-AC5; its FD and FL bits pick
-how the disassembler spells FP11 instructions, as single and double (or
-short and long integer) forms share opcodes. Without a trap frame it
-reads the PS with `MFPS`, a byte, so the J11's PS<15:8> (modes and
-register set) needs a per-chip hook. **[doc][code]**
-
-**Memory.** The emulated memory is 22 bits wide, in EXTMEM: a cycle's
-word is found by DAL21-DAL00. The I/O page, which BS marks, has only its
-devices: elsewhere it reads 0. With the MMU off a program's 160000-177777
-is that page, so the CPU starts at 1000, in memory, and a sample's
-restart jump at 173000 loads into memory it does not reach. **[code]**
-
-**Bus reset.** The general-purpose write 014, a RESET instruction or
-the power-up microroutine, resets the devices. **[doc][code]**
-
-**Line clock.** The KW11-L's LKS is at 177546: MONITOR comes every
-60th of a second of a run, and with the interrupt enable set it pulls
-#EVENT low, level 6 through vector 100 with no IACK. The CPU answers
-with the general-purpose write 100, which lets #EVENT go. A tick missed
-while the CPU was halted is not made up. Only the DCJ11 has the clock.
-**[doc][code]**
-
-**Switches.** The switch register at 177570 reads 173030 at power-up,
-which starts Unix single-user; `I SWR value` sets it, and any setting
-but 0 lets the Unix kernel print. **[doc][code]**
-
-**Disk.** The RK11's registers are at 177400, and its request is IRQ1,
-level 5 with vector 220: an IACK carries its level on DAL3-DAL0 (DCJ11
-User's Guide, Table 3-4), which picks the disk's vector or the
-console's. A transfer is done whole in the write that sets GO, with the
-CPU held in that cycle's stretch, between the image on the SD card and
-the memory at RKBA on the 18-bit bus; READY and the interrupt come at
-the next service. A byte write goes into its half of the register's
-word; the other devices' high bytes hold nothing a program writes, and
-a high byte reaches them at its odd address. A write check compares
-the memory with the disk and a read check only reads; a write lock
-holds until a drive reset or a bus reset. The sector counter steps on
-each read of RKDS. A disk comes with its bootstrap: `L` of a file from
-the card mounts the slots of the image of the same name with `.dsk`, as
-far as the file reaches, and nothing is mounted before, so no disk is
-written by chance. The drives are the shared disk layer's units, one
-file handle among them, flushed once a transfer. **[doc][code]**
-
-**Stack limit.** A kernel stack reference below 400, a trap's push
-among them, takes a yellow stack trap through vector 4 (DCJ11 User's
-Guide, 1.8), and a reset keeps SP (Figure 8-2), so after power-up SP may
-lie below it, or in the I/O page, where `G`'s restore cannot stack the
-PC and PS and the CPU ends in a HALT loop at 1730xx. So `R` moves such
-an SP to 1000, and a step's trace frame, which would trap there, is
-refused while SP is below 400. **[doc][bench]**
-
-### CP1600
-
-**Pitfalls.** The interrupt sequence pushes only the PC and leaves INTFF
-alone, so `#INTRM` stays enabled through the debugger's own entry. `HLT`
-stops the CPU only after the next interruptible instruction.
-
-`HLT` itself is not interruptible, so a run of injected `HLT`s never
-stops the CPU: the debugger parks it with `HLT` then `NOP`, and a program
-that halts takes its PC from the next fetch, past that instruction.
-**[doc]**
-
-The debugger halts and steps through `#STPST`, an edge-triggered toggle:
-a falling edge stops a running CPU after the next interruptible
-instruction, with HALT high, and the next starts it again. **[doc]** So
-the debugger raises it again before a register save, whose restart needs
-a fresh falling edge. A break point's fetch is served `HLT` then `NOP`
-instead. `#INTR` is not used: on the rev 1 board neither the Teensy nor
-the `SIN` trap gates pull it low against its pull-up. **[hw]**
-
-The interrupt sequence is `INTAK`, `DW`/`DWS` and `IAB` only, and the
-manuals leave INTFF to `EIS`, `DIS`, `JE`, `JD`, `JSRE` and `JSRD`;
-service routines are expected to mask `#INTRM` themselves. **[doc]** So,
-as on the PDP-8, the debugger holds `#INTRM` off from the halt until the
-program's first bus cycle after the restore, which then ends in `JE` or
-`JD` to set INTFF with the jump. `save()` reads INTFF by asserting
-`#INTRM` over an injected `NOP`. **[code]**
-
-PHI1 and PHI2 run free from FlexPWM, 207 ns each with 43 ns between, at
-the rated 2 MHz. The CP1610 data sheet's 250 ns minimum phase leaves no
-gap at 2 MHz; the CP1600 Data Manual's CP1610 table gives 200 ns. Nothing
-marks TS1, as PHI1 rises in TS1 and TS3. `#MSYNC` rising starts a TS3,
-and the microcycles keep that phase while the CPU waits on HALT or
-BUSRQ, so the debugger keeps a grid of Teensy cycles from reset rather
-than finding TS1 again from the bus, which locked onto TS3 when the CPU
-resumed within the period sampled first. **[code]**
-
-The CPU can be held only after `BAR` or `ADAR`, with BDRDY, and for 40 µs
-at most. **[doc]** The debugger holds a fetch with it where a stopped
-clock used to freeze the CPU. Device service, whose USB writes can take
-longer, waits on BUSRQ, which the CPU grants at an instruction boundary
-for as long as needed; BUSAK rises within the microcycle it resumes in,
-which may be an `INTAK`. A pause comes every 256 transactions and runs
-the devices once; pausing on a timer every 20 µs instead stopped the
-CPU for 3 µs in every 31. Only this pause
-enables interrupts; a BDRDY hold never does, so USB cannot stretch it
-past 40 µs. **[code]**
-
-Read data is due by TS3, and a read through `Mems` takes about 200 ns of
-that, so memory is read at the `BAR`, two microcycles ahead. A device
-may change as it is read, so it is read ahead only for an instruction
-that reads its operand, not an `MVO`; the `IAB` vector is read at
-`INTAK`, and break points are looked up at the `BAR` too, as either at
-the `DTB` made its data late. **[code]** A branch not
-taken skips its displacement word, so after a branch the fetch count
-takes a `DTB` at any other address as the next fetch. **[hw]**
-
-Board for the CP1610 (40-pin DIP), rev 1.
-
-- The CP1610 runs from +11 V VDD and −2.2 V VBB, both ±5 %, not the
-  CP1600's +12 V and −3 V. An NJW4132 boost makes VDD from VCC; an LM2776
-  inverter and a TPS72301 regulator make VBB, and a Schottky diode keeps
-  VBB from rising above GND while the rails come up. **[doc]**
-- A UCC27324 powered from VDD turns the Teensy's PHI1/PHI2 (P46/P47) into
-  the two-phase clock, which must reach 10 V, rise and fall within 15 ns
-  and never overlap; see
-  [Driving a high-voltage clock](#driving-a-high-voltage-clock). **[doc]**
-  A probe hook on U1-37 (PHI2) easily touches U1-36 (VDD), reading a flat
-  high and stopping the CPU. **[hw]**
-- `#INTR` is open drain with a 10 kΩ pull-up. The Teensy (P50) and a
-  74LVC1G02 and 74LVC1G06, while `#PCIT` and `#ENSWI` (P34) are both low,
-  were to pull it low; on rev 1 neither does. **[hw]**
+Each chip's notes live in their own file under `docs/arch/`, pitfalls first;
+read them before touching its code.
+
+- [Z280](arch/z280.md)
+- [Z380](arch/z380.md)
+- [Z80 / Z180](arch/z80.md)
+- [TMS9900 family](arch/tms9900.md)
+- [6502](arch/mos6502.md)
+- [F3850](arch/f3850.md)
+- [MCS-48](arch/i8048.md)
+- [MCS-51](arch/i8051.md)
+- [8080](arch/i8080.md)
+- [8085](arch/i8085.md)
+- [8086](arch/i8086.md)
+- [8096](arch/i8096.md)
+- [SC/MP (INS8060)](arch/ins8060.md)
+- [INS8070](arch/ins8070.md)
+- [MC6800 family](arch/mc6800.md)
+- [MC6805 family](arch/mc6805.md)
+- [MC6809 family](arch/mc6809.md)
+- [MC68HC12](arch/mc68hc12.md)
+- [MC68HC16](arch/mc68hc16.md)
+- [MC68000 family](arch/mc68000.md)
+- [H16 (HD641016)](arch/h16.md)
+- [SCN2650](arch/scn2650.md)
+- [TLCS90](arch/tlcs90.md)
+- [TMS320C15](arch/tms320.md)
+- [TMS7000 family](arch/tms7000.md)
+- [TMS370](arch/tms370.md)
+- [Z8](arch/z8.md)
+- [PDP-8 (IM6100 / HD6120)](arch/pdp8.md)
+- [DCT11](arch/dct11.md)
+- [DCJ11](arch/dcj11.md)
+- [CP1600](arch/cp1600.md)
