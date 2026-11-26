@@ -378,9 +378,11 @@ HALT, stopping at the prompt. So multi-user is reached from `#`. Single-user, `m
 reaches `/usr/root`, where `as fmandel.s; ./a.out` and `cc -O -o fmandel fmandel.c;
 ./fmandel` each draw the set.
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast):
-`U` uploads the bootstrap and `O` mounts the disk, 2.11BSD boots single-user, and its
-`as` and `cc` build `fmandel`, each drawing the set. It's also on
-[asciinema.org](https://asciinema.org/a/0g96wFIKzY4koiQ4).
+`U` uploads the bootstrap and `O` mounts the disk alone, 2.11BSD boots single-user,
+`^D` takes it to multi-user and root logs in; its `cc` builds `fmandel`, which draws
+the set, `banner` and `hangman` from `/usr/games` follow, and `halt` stops it. The
+long silences are cut, each to a comment line saying what took the time. It's also on
+[asciinema.org](https://asciinema.org/a/0WgNmnQ790X4SB6m).
 
 ## The reference implementation
 

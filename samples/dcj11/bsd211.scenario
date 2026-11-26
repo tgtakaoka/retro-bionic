@@ -1,24 +1,34 @@
 # Scenario for scripts/record-scenario.py: 2.11BSD on the DCJ11, from the
 # MSCP controller's disk on the SD card (docs/samples.md, "2.11BSD on the
 # DCJ11"). U uploads the MSCP bootstrap and O mounts dcj11/bsd211.dsk as
-# ra0; rauboot and /boot bring the GENERIC kernel up single-user, /usr
-# is mounted, and its own as and cc build fmandel in /usr/root, each
-# drawing the set on the FP11.
+# ra0 alone; rauboot and /boot bring the GENERIC kernel up single-user,
+# ^D goes on to multi-user and root logs in. Its cc builds fmandel in
+# /usr/root, which draws the set on the FP11, then banner and hangman
+# from /usr/games.
 #
 # The kernel sends each character with a parity bit, so the line is masked
 # to 7 bits for the recording. Addresses are octal, the target's radix.
 #
+# hangman's word is random: the guesses are consonants without n and y,
+# so the word is never complete and each game is lost on its seventh
+# miss, before the guesses run out; a key left over only asks for y or
+# n, and n ends it.
+#
 # Starts from the installed disk (bsd211-install.py's image, with the
-# sources alone in /usr/root) freshly synced onto the card: the runs
-# leave a.out and fmandel there, so sync it again before recording.
+# sources alone in /usr/root) freshly synced onto the card: the run
+# leaves fmandel there, so sync it again before recording.
 
 key ?
 pace 2.0
 
 # U uploads the bootstrap and O mounts the disk once, so a reboot never
 # re-mounts it and the disk cache stays warm; the listing shows the cache.
+# rk0 is unmounted first, in case Unix V6 ran before.
 key R
 upload samples/dcj11/bsd211.hex
+type O
+wait Disk?
+command rk0
 type O
 wait Disk?
 command ra0 dcj11/bsd211.dsk
@@ -32,30 +42,27 @@ pace 1.0
 
 # The bootstrap reads block 0: rauboot asks for the kernel, Enter takes
 # ra(0,0,0)unix, which comes up single-user; its banner has a # in it,
-# so the prompt is awaited by the line before it.
-type G 5\r
+# so the prompt is awaited by the line before it. ^D runs /etc/rc to
+# login:, and root has no password.
+type G 10\r
 waitfor 30 :
 type \r
 waitfor 300 intr ^C
+waitfor 30 #
 pace 1.5
-type mount /usr\r
-waitfor 60 #
+type \x04
+waitfor 400 login:
+type root\r
+waitfor 60 intr ^C
+waitfor 30 #
+pace 1.5
 type cd /usr/root\r
 waitfor 30 #
 type ls -l\r
 waitfor 30 #
 pace 2.0
 
-# 2.11BSD's as, then its C compiler; ls shows what each made, and each
-# draws the set.
-type as fmandel.s\r
-waitfor 300 #
-type ls -l\r
-waitfor 30 #
-pace 1.0
-type ./a.out\r
-waitfor 300 #
-pace 3.0
+# 2.11BSD's C compiler; ls shows what it made, and fmandel draws the set.
 type cc -O -o fmandel fmandel.c\r
 waitfor 900 #
 type ls -l\r
@@ -65,11 +72,44 @@ type ./fmandel\r
 waitfor 300 #
 pace 3.0
 
-# The disk written out, then the halt.
-type sync\r
+# banner prints its #s down the screen, so its end is not awaited by the
+# prompt but paced.
+type /usr/games/banner -w40 2.11BSD\r
+pace 15.0
+
+type /usr/games/hangman\r
+waitfor 60 Guess:
+pace 2.0
+type z
+pace 2.5
+type q
+pace 2.5
+type x
+pace 2.5
+type j
+pace 2.5
+type k
+pace 2.5
+type v
+pace 2.5
+type w
+pace 2.5
+type f
+pace 2.5
+type b
+pace 2.5
+type g
+pace 2.5
+type p
+pace 2.5
+type m
+pace 2.5
+pace 3.0
+type n
 waitfor 30 #
-type sync\r
-waitfor 30 #
-pace 1.0
-halt
-command I DL11 377
+pace 2.0
+
+# halt syncs the disks and stops at the debugger's prompt.
+type halt\r
+waitfor 120 >
+pace 3.0
