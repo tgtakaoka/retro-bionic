@@ -12,6 +12,8 @@ usage.
 | `bionic-regress.py` | Runs a target's regression suite from `samples/<dir>/bench/regress.toml`: reset, step, samples, haltgo, breakpoint, gountil, disasm, backtrace. |
 | `record-scenario.py` | Plays a `.scenario` console demo live, or records it as an asciinema cast with `--save`. |
 | `mandelbrot-timing.py` | Times the mandelbrot frames in recorded casts, as `docs/mandelbrot.md` rows. |
+| `retime-cast.py` | Moves a cast's first output to 0.5 s and holds its last screen 3 s, in place; `record-scenario.py --save` runs it on each recording. |
+| `cut-cast.py` | Writes a copy of a cast with each long silence (a boot, a compile) cut to 1.5 s and a `# [38 s cut: ...]` comment line where it was; `--list` shows the silences to write notes for. |
 | `record-cycles.py` | Records bus cycles per instruction pattern on the profile image and checks them against the debugger's cycle tables. |
 | `record-rings.py` | Records the bus cycles leading to breakpoints, as fixtures for the matcher's host tests. |
 
@@ -32,6 +34,19 @@ target, CrashReport, lock and command in
 benches the session holds, one line per event, for a Claude session's
 Monitor; `watch` alone covers every bench, and `--deadline SECONDS` ends
 it so a re-arm is explicit.
+
+A cast for a sample, then a shorter copy to share:
+
+```sh
+scripts/record-scenario.py samples/dcj11/bsd211.scenario --save samples/dcj11/bsd211.cast
+scripts/mandelbrot-timing.py samples/dcj11/bsd211.cast    # docs/mandelbrot.md rows
+scripts/cut-cast.py samples/dcj11/bsd211.cast --list
+scripts/cut-cast.py samples/dcj11/bsd211.cast bsd211_cut.cast \
+    --note "20.3=the bootstrap loads /unix from the disk"
+```
+
+The repository keeps the full cast, whose timing the tables come from;
+the cut copy is only for sharing.
 
 ## Logic analyzer
 
