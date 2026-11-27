@@ -88,7 +88,7 @@ on the KL5C80: `L` loads `cpm80.hex` and mounts the disks beside it, CP/M boots,
 MBASIC draws the set from `fmandel.bas` on B:.
 
 The Z180, HD64180S, Z280 and Z380 decode 16-bit ports, so `samples/z180` has their port
-routines (0140H, 0150H, `OUT (C)`); `make` there puts that BIOS on a copy of
+routines (0140H, 0150H, `OUT (C)`); `make cpm80` there puts that BIOS on a copy of
 the 8080's A:, and `L z180/cpm80.hex` boots it. That boot also writes 16 to the
 Z380's address mask register, so its memory wraps at 64K as CP/M's programs expect.
 
