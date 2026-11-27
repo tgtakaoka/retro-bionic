@@ -171,6 +171,25 @@ alone; a reset clears only the device's own registers and pending interrupts.
   A-D, those that exist; `O B work.dsk` mounts a single drive and `O B` unmounts it; `I -DISK` turns the
   disk off and `I DISK` on. Each mount prints the drive's line as `O` lists it, such as
   `A    hd8       i8080/cpm80a.dsk`, and each drive dropped prints `B unmounted`.
+- **Tick timer** (6809 family) — `debugger/tick.cpp`: `TICK`, a periodic interrupt for an
+  OS's clock, at DF08 on the 6809 boards: STATUS (+0) bit 7 is set while a tick waits and
+  reading it acknowledges the tick, a write runs the timer with bit 0 and acknowledges too,
+  INTR (+1) is the interrupt name a tick raises, 0 for none, and RATE (+2) the ticks per
+  second, 60 after a reset. `I -TICK` turns it off and `I TICK` on. NitrOS-9's clock runs it.
+- **RAM disk** (6809 family) — `debugger/ram_disk.cpp`: `DISK`, a disk for a CPU that
+  cannot wait, at DF10 on the 6809 boards. Its four drives, D0-D3, are image files on the
+  SD card, each read whole into the disk cache at its mount, or refused; a command then
+  copies sectors between the cache and memory by DMA while the CPU runs on, and sets DONE,
+  which raises the interrupt named in INTR (+7). The registers are DRIVE (+0, mounted
+  drives in bits 4-7 as it reads back), a 24-bit LSN (+1 to +3), the buffer address (+4,
+  +5), COMMAND (+6: 1 reads, 2 writes, 0 acknowledges), whose read is STATUS (bit 7 DONE,
+  bit 0 BUSY, an error code in bits 1-3), and COUNT (+8), the sectors a command moves. The
+  formats are NitrOS-9's RBF disks of 256-byte sectors: `coco35` (a 35-track CoCo `.dsk`, any
+  image up to 161280 bytes), `os9-4m` (16384 sectors) and `os9-8m` (32768 sectors), images of
+  exactly their size. `L mc6809/nitros9.s19` mounts `nitros9d0.dsk`-`nitros9d3.dsk` beside it
+  as D0-D3, those that exist; `O D1 work.dsk` mounts a single drive and `O D1` unmounts it.
+  Nothing reaches the card in a run: the first mount sets the cache to write-back, and the
+  written blocks go to the card when the CPU stops, on `O sync` or at an unmount.
 - **Timer** (8086 family) — `debugger/i8086/timer.cpp`: `TIMER`, the PC's 18.2 Hz
   tick on four ports from 58H: CTRL (+0) bit 0 starts it, TYPE (+1) is the interrupt
   type it raises INTR with, a write to EOI (+2) acknowledges a tick. `I -TIMER` turns
@@ -236,7 +255,8 @@ lists the cache after the drives:
   cache 11.8 MB write-through: 4096 hits, 120 misses, 0 dirty
 ```
 
-Writes follow one of two policies, write-through at power-up:
+Writes follow one of two policies, write-through at power-up, except that the 6809
+boards' RAM disk sets write-back as it mounts, since its CPU cannot wait for the card:
 
 - `O cache through`: a sector write goes to the card at once, as it would
   without the cache, and only reads are served from memory.

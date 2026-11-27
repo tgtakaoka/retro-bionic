@@ -101,7 +101,10 @@ void PinsMc6809Base::assertInt(uint8_t name) {
         assert_firq();
 }
 
+// A shared line stays up while another device still requests it.
 void PinsMc6809Base::negateInt(uint8_t name) {
+    if (devs<DevsMc6809>()->requesting(name))
+        return;
     if (name == INTR_IRQ)
         negate_irq();
     if (name == INTR_FIRQ)
