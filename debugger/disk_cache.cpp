@@ -304,6 +304,32 @@ uint32_t DiskCache::preload(uint8_t file, uint32_t at, uint32_t len) {
     return have;
 }
 
+uint8_t *DiskCache::cached(
+        uint8_t file, uint32_t at, uint16_t len, bool dirty) {
+    if (!enabled() || (dirty && _policy == WRITE_THROUGH))
+        return nullptr;
+    const auto off = uint16_t(at % BLOCK);
+    if (off + len > BLOCK)
+        return nullptr;
+    auto s = find(file, at / BLOCK);
+    if (s == nullptr) {
+        ++_misses;
+        return nullptr;
+    }
+    ++_hits;
+    if (s->len < (dirty ? off : off + len))
+        return nullptr;
+    if (dirty) {
+        if (s->len < off + len)
+            s->len = off + len;
+        if ((s->state & DIRTY) == 0) {
+            s->state |= DIRTY;
+            ++_dirty[file];
+        }
+    }
+    return data(s) + off;
+}
+
 bool DiskCache::hasFree(const Slot *set) {
     for (auto s = set; s < set + WAYS; ++s) {
         if (s->file == FREE)

@@ -60,6 +60,10 @@ struct DiskUnit {
     bool read(uint32_t lsn);
     bool write(uint32_t lsn);
     bool flush();
+    // |bytes| of the image from sector |lsn| as the cache holds them, for
+    // a copy that never touches the card: null when they are not all in
+    // one cached block. |dirty| marks it written, under write-back only.
+    uint8_t *cached(uint32_t lsn, uint16_t bytes, bool dirty);
 
 private:
     struct DiskFile *_file = nullptr;

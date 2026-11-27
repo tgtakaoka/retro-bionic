@@ -461,6 +461,57 @@ void test_disabled_cache_passes_through() {
 
 }  // namespace
 
+// cached() hands out a block's bytes for a copy the card never sees.
+void test_cached_points_into_a_whole_block_only() {
+    store0->bytes.resize(4 * BLOCK);
+    // Nothing is in yet: a miss, and no fill.
+    TEST_ASSERT_NULL(cache.cached(0, 256, 256, false));
+    TEST_ASSERT_EQUAL_UINT32(1, cache.misses());
+    TEST_ASSERT_EQUAL_UINT(0, store0->reads);
+    TEST_ASSERT_EQUAL_UINT32(2, cache.preload(0, 0, 2 * BLOCK));
+    auto p = cache.cached(0, 256, 256, false);
+    TEST_ASSERT_NOT_NULL(p);
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(&store0->bytes[256], p, 256);
+    // Both sectors of one block at once, but never across blocks.
+    TEST_ASSERT_NOT_NULL(cache.cached(0, 0, 512, false));
+    TEST_ASSERT_NULL(cache.cached(0, 256, 512, false));
+    // A short block does not reach bytes past its end.
+    store0->bytes.resize(2 * BLOCK + 100);
+    TEST_ASSERT_EQUAL_UINT32(1, cache.preload(0, 2 * BLOCK, BLOCK));
+    TEST_ASSERT_NULL(cache.cached(0, 2 * BLOCK, 256, false));
+    TEST_ASSERT_NOT_NULL(cache.cached(0, 2 * BLOCK, 100, false));
+    TEST_ASSERT_EQUAL_UINT(3, store0->reads);
+}
+
+void test_cached_dirty_needs_write_back() {
+    cache.preload(0, 0, BLOCK);
+    TEST_ASSERT_NULL(cache.cached(0, 0, 256, true));
+    TEST_ASSERT_TRUE(cache.setPolicy(DiskCache::WRITE_BACK));
+    auto p = cache.cached(0, 256, 256, true);
+    TEST_ASSERT_NOT_NULL(p);
+    memset(p, 0x5A, 256);
+    TEST_ASSERT_EQUAL_UINT32(1, cache.dirty(0));
+    TEST_ASSERT_EQUAL_UINT(0, store0->writes);
+    // Dirty once: a second hand-out does not count the block again.
+    TEST_ASSERT_NOT_NULL(cache.cached(0, 0, 256, true));
+    TEST_ASSERT_EQUAL_UINT32(1, cache.dirty(0));
+    TEST_ASSERT_TRUE(cache.sync(0));
+    TEST_ASSERT_EQUAL_UINT(1, store0->writes);
+    TEST_ASSERT_EQUAL_UINT8(0x5A, store0->bytes[256]);
+    TEST_ASSERT_EQUAL_UINT8(0x5A, store0->bytes[511]);
+    TEST_ASSERT_EQUAL_UINT8(255, store0->bytes[255]);
+    // A block not holding the file's bytes up to the sector cannot take
+    // a write, the file has not grown there.
+    store0->bytes.resize(2 * BLOCK + 100);
+    cache.preload(0, 2 * BLOCK, BLOCK);
+    TEST_ASSERT_NULL(cache.cached(0, 2 * BLOCK + 256, 256, true));
+    // Writing up to a short block's end extends what is valid in it.
+    TEST_ASSERT_NOT_NULL(cache.cached(0, 2 * BLOCK, 256, true));
+    TEST_ASSERT_NOT_NULL(cache.cached(0, 2 * BLOCK + 256, 256, true));
+    TEST_ASSERT_TRUE(cache.sync(0));
+    TEST_ASSERT_EQUAL_UINT32(3 * BLOCK, store0->bytes.size());
+}
+
 void setUp() {
     cache = DiskCache();
     cache.begin(arena, ARENA);
@@ -501,6 +552,8 @@ int main() {
     RUN_TEST(test_preload_reads_an_image_in_once);
     RUN_TEST(test_preload_takes_what_fits_and_evicts_nothing);
     RUN_TEST(test_disabled_cache_passes_through);
+    RUN_TEST(test_cached_points_into_a_whole_block_only);
+    RUN_TEST(test_cached_dirty_needs_write_back);
     return UNITY_END();
 }
 

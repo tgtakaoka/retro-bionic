@@ -201,6 +201,15 @@ bool DiskUnit::flush() {
     return mounted() && block_cache.flush(indexOf(_file));
 }
 
+uint8_t *DiskUnit::cached(uint32_t lsn, uint16_t bytes, bool dirty) {
+    if (!mounted() || lsn >= lsns())
+        return nullptr;
+    const auto at = _offset + lsn * _geometry->sectorBytes;
+    if (at + bytes > _offset + _bytes)
+        return nullptr;
+    return block_cache.cached(indexOf(_file), at, bytes, dirty);
+}
+
 bool CardFile::open(const char *path, bool create) {
     close();
     if (strstr(path, ".."))

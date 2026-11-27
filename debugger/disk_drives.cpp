@@ -59,7 +59,7 @@ Disk::Mounted DiskDrives::mountImage(uint8_t unit, const char *path) {
     uint32_t offset;
     if (!place(unit, bytes, format, offset))
         return MOUNT_BAD_SIZE;
-    if (!_units[unit].mount(path, offset, format))
+    if (!_units[unit].mount(path, offset, format, reserveOnMount()))
         return MOUNT_NOT_FOUND;
     return MOUNT_OK;
 }
