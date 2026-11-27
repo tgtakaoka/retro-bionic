@@ -29,15 +29,31 @@ SCRIPTS = os.path.join(PROJ, 'scripts')
 CPUS = 'MC68000,MC68008P,MC68008FN'
 
 
-def run(*cmd):
+def shown(arg):
+    """|arg| as the echo shows it: a path relative to where make runs."""
+    return os.path.relpath(arg) if os.path.isabs(arg) else arg
+
+
+def run(*cmd, echo=True):
+    """Runs |cmd| with relative paths, as the tools echo their arguments
+    in messages."""
+    cmd = [shown(a) for a in cmd]
+    if echo:
+        print('+', ' '.join(cmd), flush=True)
     subprocess.run(cmd, check=True)
 
 
 def scenario(lines):
+    """Runs |lines|, scenario directives; echoes the debugger commands
+    they type."""
+    typed = [line.split(' ', 1)[1] for line in lines
+             if line.startswith('command ')]
+    print('+ O', ', O '.join(typed), flush=True)
     with tempfile.NamedTemporaryFile('w', suffix='.scenario') as f:
         f.write('\n'.join(lines) + '\n')
         f.flush()
-        run(os.path.join(SCRIPTS, 'record-scenario.py'), f.name, '--nopace')
+        run(os.path.join(SCRIPTS, 'record-scenario.py'), f.name, '--nopace',
+            echo=False)
 
 
 def build(cast):
@@ -59,7 +75,7 @@ def main(argv):
              for f in ('cpm68k.s19', 'cpm68ka.dsk', 'cpm68kb.dsk')]
     for path in files:
         if not os.path.exists(path):
-            sys.exit(f'{path} missing: run make cpm68k')
+            sys.exit(f'{shown(path)} missing: run make cpm68k')
     # sample-sd.py checks the CPU, unmounts, and keeps the card's B:.
     run(os.path.join(SCRIPTS, 'sample-sd.py'), '--cpu', CPUS, '--dir',
         'mc68000', *files[:2], '--keep', files[2])
@@ -67,12 +83,15 @@ def main(argv):
     scenario([line for d in 'ABCD'
               for line in ('type O', 'wait Disk?', f'command {d}')])
     control = os.path.join(SCRIPTS, 'bionic-control.py')
-    with tempfile.TemporaryDirectory() as tmp:
-        disk = os.path.join(tmp, 'cpm68ka.dsk')
+    os.makedirs(fetched, exist_ok=True)
+    disk = os.path.join(fetched, 'cpm68ka.dsk')
+    try:
         run(control, 'sd', 'get', 'mc68000/cpm68ka.dsk', disk)
-        os.makedirs(fetched, exist_ok=True)
         run(os.path.join(SCRIPTS, 'cpm-disk.py'), 'get', disk,
             'CPM68010.SYS', os.path.join(fetched, 'CPM68010.SYS'))
+    finally:
+        if os.path.exists(disk):
+            os.remove(disk)
     print(f'{fetched}/CPM68010.SYS: linked on the board')
 
 
