@@ -50,6 +50,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | [CP/M-8000 1.1](#cpm-8000-on-the-z8001) | Z8001 | `z8001/cpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/cpm8000.cast) |
 | [CP/M-8000 1.2](#cpm-8000-12-on-the-z8001), built on the board | Z8001 | `z8001/pcpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/pcpm8000.cast) |
 | [NitrOS-9 Level 1](#nitros-9-on-the-6809) | MC6809, MC6809E, HD6309, HD6309E | `mc6809/nitros9.s19` | /DD and /D1, RAM disk at DF10 | [MC6809](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc6809/nitros9_mc6809.cast) |
+| NitrOS-9 Level 1, 6309 build | HD6309, HD6309E | `hd6309/nitros9.s19` | /DD and /D1, RAM disk at DF10 | [HD6309](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/hd6309/nitros9_hd6309.cast) |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -237,6 +238,16 @@ region begins at the I/O page, DF00, so no page of it is ever handed out.
 [`samples/mc6809/nitros9_mc6809.cast`](../samples/mc6809/nitros9_mc6809.cast) records the
 boot on the MC68B09, a look around and fmandel in BASIC09, `scripts/record-scenario.py` driving
 `nitros9_mc6809.scenario`; the written blocks reach the card at the halt that ends it.
+
+`samples/hd6309/` builds the same port for the HD6309 with `CPU=6309`, from the same fetch:
+the kernel and the modules with 6309 code (IOMan, RBF, SCF, `sc6850`, the drivers) take the
+native instructions, REL switches the chip to native mode, Init reports a 6309 system, and
+BASIC09 is its 6309 build.
+`cd samples/hd6309; make nitros9` makes its `nitros9.s19`, `nitros9d0.dsk` and
+`nitros9d1.dsk`, `make nitros9-sd` puts them in `hd6309/` on the card of an HD6309 bench,
+and `L hd6309/nitros9.s19`, `R`, `G` boots it;
+[`samples/hd6309/nitros9_hd6309.cast`](../samples/hd6309/nitros9_hd6309.cast) is its
+recording on the HD63C09.
 
 ## CP/M-68K on the 68000
 

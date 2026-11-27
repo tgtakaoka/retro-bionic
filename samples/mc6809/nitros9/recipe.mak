@@ -10,18 +10,28 @@
 # It makes OUT/nitros9.s19, the kernel track (Krn, KrnP2, Init, Boot at
 # Krn.Start) with REL and the hardware vectors at $FF00, which the
 # debugger's L loads; OUT/nitros9d0.dsk, /DD with OS9Boot, CMDS, SYS
-# and the startup; and OUT/nitros9d1.dsk, an empty /D1.
+# and the startup; and OUT/nitros9d1.dsk, an empty /D1. CPU=6309 makes
+# the HD6309 system, which samples/hd6309/Makefile asks for.
 #
 # This file is part of NitrOS-9's Bionic port and is distributed under
 # the GNU General Public License version 2, like NitrOS-9 itself.
 
 PORT = bionic
-CPU = 6809
+CPU ?= 6809
 LEVEL = 1
 MACHINE = Bionic MC6809
 RECIPE = bionic
 MODDIR = .mods
 include $(NITROS9DIR)/recipes/rules.mak
+
+# CPU=6309 builds the HD6309 system: the modules with 6309 code take it,
+# REL switches to native mode, and the startup names the chip.
+ifeq ($(CPU),6309)
+AFLAGS += -DH6309=1
+STARTUP = $(PORTDIR)/startup_6309
+else
+STARTUP = $(PORTDIR)/startup
+endif
 
 OUT ?= .
 PORTDIR ?= $(L1PD)
@@ -48,6 +58,9 @@ CMDS = $(STDCMDS) basic09 runb
 B09LANG = $(NITROS9DIR)/../languages
 B09SRC = $(B09LANG)/basic09/microware
 B09BUILD ?= $(PORTDIR)/../../../debugger/mc6809/tools/basic09-build.py
+ifeq ($(CPU),6309)
+B09FLAGS = -DH6309=1
+endif
 $(MODDIR)/basic09: $(B09BUILD) | $(MODDIR)
 	$(B09BUILD) $(B09SRC) $(DEFSDIR) basic09 $@ $(B09FLAGS)
 $(MODDIR)/runb: $(B09BUILD) | $(MODDIR)
@@ -55,7 +68,6 @@ $(MODDIR)/runb: $(B09BUILD) | $(MODDIR)
 
 FMANDEL ?= $(PORTDIR)/../fmandel.b09
 
-STARTUP = $(PORTDIR)/startup
 SYS_FILES = $(L1D)/sys/errmsg $(L1D)/sys/motd $(L1D)/sys/password
 HELP_FILES = $(wildcard $(L1D)/sys/*.hp)
 
