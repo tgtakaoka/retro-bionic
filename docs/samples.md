@@ -239,9 +239,10 @@ the BIOS as `cpm68k10.s19` and copies A: and B: as `cpm68k10a.dsk` and `cpm68k10
 `make cpm68k10-sd` puts the three on the card, and `L mc68000/cpm68k10.s19`, `R`, `G` boot
 the MC68010 to `A>`, where AS68 and Alcyon C run.
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k10_build_mc68000p.cast)
-on the MC68000P10 runs that link
-([`cpm68k10_build.scenario`](../samples/mc68000/cpm68k10_build.scenario)): a minute and a
-half from the boot to `CPM68010.SYS` on A:.
+on the MC68000P10 runs `make cpm68k10` from the host shell, the link at `A>` by
+[`cpm68k10_build.scenario`](../samples/mc68000/cpm68k10_build.scenario): under a minute from
+the boot to `CPM68010.SYS` on A:, a minute and a half for the whole make with the card
+transfers.
 [Another](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k10_mc68010p.cast)
 boots that system on the MC68010P12 and builds and runs `fmandel.c` and `mandel.c` as the
 MC68000P demo does.
