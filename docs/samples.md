@@ -123,7 +123,7 @@ from `z180/`, and on [asciinema.org](https://asciinema.org/a/bZJg8ghJDnk8ugUM).
 for the P8086 and D8087 boards, on the same console and sector disk. CCP, BDOS and the
 BIOS sit in segment F000H, and `L` loads all three: no system tracks are read.
 
-DRI's binaries stay out of the repository: the first `make` downloads them with
+DRI's binaries stay out of the repository: `make cpm86` downloads them with
 `debugger/i8086/tools/cpm86-fetch.py` into `samples/i8086/cpm86.fetch/`, checks each
 archive's sha256, and keeps the archives in `cpm86.fetch/dl/` so later builds work
 offline. It fetches `CPM.SYS` and the A: tools, such as `PIP.CMD`, `STAT.CMD` and
@@ -132,11 +132,14 @@ offline. It fetches `CPM.SYS` and the A: tools, such as `PIP.CMD`, `STAT.CMD` an
 
 ```sh
 cd samples/i8086
-make
+make cpm86
+make cpm86-sd
 ```
 
-makes `cpm86.hex`, `cpm86a.dsk` and `cpm86b.dsk`; copy them into an `i8086/` folder on
-the SD card. `L i8086/cpm86.hex` mounts both disks beside it; `R`, then `G` boots to `A>`.
+makes `cpm86.hex`, `cpm86a.dsk` and `cpm86b.dsk`, and puts them in `i8086/` on the SD
+card of the bench the session holds, once `probe` finds an 8086-family board at its
+prompt; B: only onto a card without one, so files saved there stay (`NEWB=1` replaces
+it). `L i8086/cpm86.hex` mounts both disks beside it; `R`, then `G` boots to `A>`.
 DDT86's breakpoints and trace stop in the debugger, which owns INT 1-3.
 CP/M-86's CCP has no `SAVE`; DDT86's `W` writes back what `R` read, header and all, so
 `-RB:PROG.CMD`, a patch with `S` or `A`, then `-WB:PROG.CMD` keeps a loadable `.CMD`.
@@ -264,16 +267,18 @@ and MSDOS.SYS, the first two directory entries, to 0070:0000 and after;
 [`mbr.asm`](../samples/i8086/mbr.asm) the master boot record. `scripts/msdos-disk.py`
 writes the FAT12 images, and lists, reads and adds to them.
 
-Microsoft's files stay out of the repository: `make` downloads them once with
+Microsoft's files stay out of the repository: `make msdos200` downloads them once with
 `debugger/i8086/tools/msdos-fetch.py` into `samples/i8086/msdos.fetch/`, pinned to a
-commit and checked by sha256, and builds `msdos200.hex` and the disks with them:
+commit and checked by sha256, and builds `msdos200.hex` and the disks with them;
+`make msdos200-sd` puts them in `i8086/` on the card, B: only onto a card without one:
 
 ```sh
 cd samples/i8086
-make
+make msdos200
+make msdos200-sd
 ```
 
-Copy those into an `i8086/` folder on the SD card. `msdos200.hex` is the ROM BIOS under
+`msdos200.hex` is the ROM BIOS under
 the name whose disks `L` mounts: `msdos200a.dsk`, a 360K `fd360` boot floppy with the system,
 `COMMAND.COM` and the small utilities, as A:; `msdos200b.dsk`, a formatted blank floppy, as
 B:; and `msdos200c.dsk`, the 32 MB `hd32` hard disk with every utility, as C:.
@@ -309,14 +314,16 @@ SYSIMES.OBJ the board assembled.
 
 ```sh
 cd samples/i8086
-make bld211.hex bld211c.dsk  # the ROM BIOS and the build disk: MS-DOS 2.0, tools, sources
+make msdos200-sd             # the card needs 2.0's A: and C:
 ../../scripts/bionic-bench.py lock bench1
-../../debugger/i8086/tools/msdos-build.py bench 2.11 msdos211.built
-make msdos211.hex msdos211a.dsk msdos211c.dsk
+make msdos211                # builds on the board, then the system and its disks
+make msdos211-sd             # onto the card
 ```
 
-`make bld211c.dsk` fetches the sources first, pinned and checked by sha256
-(`msdos-fetch.py --source`). `msdos-build.py bench` turns the debugger's disk cache off,
+`make msdos211` fetches the sources first, pinned and checked by sha256
+(`msdos-fetch.py --source`), makes `bld211.hex`, the ROM BIOS, and `bld211c.dsk`, the
+build disk with MS-DOS 2.0, the tools and the sources, and runs `msdos-build.py bench
+2.11 msdos211.built` when `msdos211.built/` lacks the objects. That turns the debugger's disk cache off,
 copies the BIOS and the build disk to the SD card, boots the disk as C:, the only drive
 `L bld211.hex` mounts, types `BUILD`
 ([`msdos211_build.scenario`](../samples/i8086/msdos211_build.scenario)), copies the disk
@@ -327,8 +334,8 @@ same bytes each time, whose sha256 the script checks.
 long silences cut, lists the build disk and runs BUILD, which echoes each MASM and LINK
 step. BUILD skips
 a module whose object is already on the disk, so a build that stopped picks up where it
-left off. Copy `msdos211.hex`, `msdos211a.dsk` and `msdos211c.dsk` into the card's
-`i8086/`; `L i8086/msdos211.hex` then boots 2.11 as `L i8086/msdos200.hex` boots 2.0. C:
+left off. With `msdos211.hex`, `msdos211a.dsk` and `msdos211c.dsk` in the
+card's `i8086/`, `L i8086/msdos211.hex` boots 2.11 as `L i8086/msdos200.hex` boots 2.0. C:
 also has MASM 5.10, LINK 3.65 and 2.0's CREF. `COUNTRY=081` in CONFIG.SYS gives Japan's
 year-month-day dates, `044` the UK's day-month-year; the default, `001`, is the US's
 month-day-year.
@@ -347,7 +354,7 @@ the compiler stops with fatal error C1015, unable to open a file.
 kernel, from Elliott's 2.00 tree, which gives the release's MSDOS.SYS with MASM 4.00.
 MASM 5.10 makes it 3 bytes shorter: it encodes three `AND reg,imm16` whose immediates
 fit in a byte in the short form, and everything else only moves.
-[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos200_build_80c86.cast) on the P80C86, with the long silences cut. The 2.0 disks themselves need no board: `make` builds them on the host.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos200_build_80c86.cast) on the P80C86, with the long silences cut. The 2.0 disks themselves need no board: `make msdos200` builds them on the host.
 
 ## Unix V6 on the DCJ11
 

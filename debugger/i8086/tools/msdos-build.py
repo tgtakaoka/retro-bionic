@@ -21,7 +21,8 @@ L bldVER.hex mounts the disk alone, as C:, and BUILD runs there
 turns the cache on and mounts C: and A: as L msdos200.hex does, and
 puts what BUILD made into OUT/: MSDOS.SYS, and for 2.11 COMMAND.COM,
 SYSINIT.OBJ, SYSIMES.OBJ and the utilities in OUT/bin/, for the
-Makefile's msdos211*.dsk. It needs the card's msdos200a.dsk and
+Makefile's msdos211*.dsk, and writes OUT/.built, which `make msdos211`
+looks for before running this. It needs the card's msdos200a.dsk and
 msdos200c.dsk (docs/samples.md), and takes half an hour. With CAST, it
 also records the build there.
 
@@ -370,12 +371,19 @@ def bench(version, out, cast=None):
             '--save', cast)
         printed = cast_text(cast)
     else:
-        p = subprocess.run([os.path.join(SCRIPTS, 'record-scenario.py'),
-                            scenario], stdout=subprocess.PIPE)
-        sys.stdout.buffer.write(p.stdout)
-        if p.returncode:
+        # Shown as it comes, so the half hour of BUILD can be followed,
+        # and kept for the check.
+        p = subprocess.Popen([os.path.join(SCRIPTS, 'record-scenario.py'),
+                              scenario], stdout=subprocess.PIPE,
+                             env=dict(os.environ, PYTHONUNBUFFERED='1'))
+        chunks = []
+        for chunk in iter(lambda: p.stdout.read1(4096), b''):
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
+            chunks.append(chunk)
+        if p.wait():
             sys.exit(f'{scenario}: failed')
-        printed = p.stdout.decode(errors='replace')
+        printed = b''.join(chunks).decode(errors='replace')
     if 'BUILD OK' not in printed:
         sys.exit('BUILD failed')
     os.makedirs(out, exist_ok=True)
@@ -391,6 +399,7 @@ def bench(version, out, cast=None):
                         exist_ok=True)
         run(get, 'get', built, name, os.path.join(out, as_name))
     check(version, out)
+    open(os.path.join(out, '.built'), 'w').close()
 
 
 def outputs(version):
