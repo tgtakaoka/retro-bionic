@@ -47,6 +47,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | [CP/M-68K 1.3](#cpm-68k-on-the-68000) | MC68000P, MC68000FN, MC68008P, MC68008FN | `mc68000/cpm68k.s19` | A: and B:, sector disk at FFFFE0H | [MC68000P](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k_mc68000p.cast) |
 | [CP/M-8000 1.1](#cpm-8000-on-the-z8002) | Z8002 | `z8002/cpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/cpm8000.cast) |
 | [CP/M-8000 1.2](#cpm-8000-12-from-source), built on the board | Z8002 | `z8002/pcpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/pcpm8000.cast) |
+| [CP/M-8000 1.1](#cpm-8000-on-the-z8001) | Z8001 | `z8001/cpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/cpm8000.cast) |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -459,6 +460,24 @@ of the build on the Z8002, from the host shell, booting the result at its end, r
 ../../scripts/record-build-cast.py pcpm8000_build.cast 'make pcpm8000-sd' \
     '../../scripts/record-scenario.py pcpm8000_boot.scenario --nopace'
 ```
+
+## CP/M-8000 on the Z8001
+
+[`samples/z8001/cpm8000bios.asm`](../samples/z8001/cpm8000bios.asm) is the BIOS for DRI's
+1.1 kernel on the Z8001, which DRI shipped for the Olivetti M20, linked with no patches:
+the system runs nonsegmented in segment 0, traps enter segmented, and each program gets a
+64K segment of its own, a split one separate instruction and data space through the
+debugger's split I/D device (see [docs/arch/z8000.md](arch/z8000.md)). In `samples/z8001`,
+
+```sh
+make cpm8000
+make cpm8000-sd
+```
+
+makes and puts on the card `z8001/cpm8001.hex`, `cpm8001a.dsk` with DRI's tools and
+`cpm8001b.dsk` with `imandel.c`; `L z8001/cpm8001.hex`, `R`, `G` boots to `A>`. Merged
+programs get the whole 64K, and the C compiler builds `imandel.c` as on the Z8002. DDT
+loads into its own segment, 9, but stops while it lists a program.
 
 ## Unix V6 on the DCJ11
 
