@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
-"""Compile CP/M-8000 1.2 from P-CP/M-Z8K's sources on the Z8002 board.
+"""Compile CP/M-8000 1.2 from P-CP/M-Z8K's sources on the Z8002.
 
-    debugger/z8000/tools/pcpm8000-build.py tree FETCHED OUT
-    debugger/z8000/tools/pcpm8000-build.py bench OUT
-    debugger/z8000/tools/pcpm8000-build.py check OUT
+    debugger/z8000/tools/pcpm8000-build.py tree CPU FETCHED OUT
+    debugger/z8000/tools/pcpm8000-build.py bench CPU OUT
+    debugger/z8000/tools/pcpm8000-build.py check CPU OUT
 
-FETCHED is the folder cpm8000-fetch.py and its --source filled
-(samples/z8002/cpm8000.fetch).
+CPU is Z8002, which picks samples/z8002 and Kontron's Z8002 BDOS and
+exception glue. FETCHED is the folder cpm8000-fetch.py and its --source
+filled (the samples folder's cpm8000.fetch).
 
 `tree` writes into OUT/ the files of a build disk: the CCP, the BDOS
-and Kontron's Z8002 glue, patched as below, and the DRI compiler and
-assembler that build them. samples/z8002/Makefile puts them on
-bld8002a.dsk, which L bld8002.hex, the 1.1 system, mounts alone as A:.
+and the glue, patched as below, and the DRI compiler and assembler that
+build them. The samples folder's Makefile puts them on bld8002a.dsk,
+which the 1.1 system, bld8002.hex, mounts alone as A:.
 
 `bench` builds on the bench the bench tools pick: BIONIC_BENCH, the one
 the session holds (scripts/bionic-bench.py lock NAME) or the only one.
-Once a Z8002 answers there, with the block cache off, it copies
-bld8002.hex and bld8002a.dsk to the SD card, runs
-samples/z8002/pcpm8000_build.scenario, which compiles and assembles
-there, copies the disk back, and puts the objects in OUT/, for the
-Makefile's pcpm8002.hex, echoing what the board prints as it goes. It
-takes a few minutes. `check` compares OUT/'s objects with the known
+Once CPU answers there, with the block cache off, it puts the 1.1
+system and the build disk on the SD card, runs the samples folder's
+pcpm8000_build.scenario, which loads the system from the card with the
+disk beside it, compiles and assembles there, copies the disk back,
+and puts the objects in OUT/, for the Makefile's 1.2 system, echoing
+what the board prints as it goes. It takes a few minutes. `check` compares OUT/'s objects with the known
 build, as `bench` does at its end before it writes OUT/.built.
 
 The patches: the BDOS's and CCP's STDIO.H lost their last lines in the
@@ -30,8 +31,8 @@ no CP/M name, and uses X_SG_DATA, which XOUT.H calls X_SG_DAT;
 BIOSDEFS2.Z8K is a 9-letter name. Kontron's Z8002 has one address
 space, so its BDOS entry passes a program's parameter as is; here the
 lines it left commented out give it the program's data segment,
-_usrseg of the BIOS. The CCP compiles with the BDOS's headers, the
-same but for declarations it does not use.
+_usrseg of the BIOS. The CCP compiles with the BDOS's headers, the same
+but for declarations it does not use.
 """
 import hashlib
 import os
@@ -43,13 +44,16 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.normpath(os.path.join(HERE, '..', '..', '..'))
-SAMPLES = os.path.join(PROJ, 'samples', 'z8002')
 SCRIPTS = os.path.join(PROJ, 'scripts')
-BUILD_SCENARIO = os.path.join(SAMPLES, 'pcpm8000_build.scenario')
+# Per CPU: its samples folder, which names the build disk, the 1.1 system
+# the board builds on and the card folder, and the BDOS and exception
+# glue, Kontron's for the Z8002.
+CPUS = {
+    'Z8002': ('z8002', ('bdosif2', 'exceptn2')),
+}
 
 C_MODULES = ('ccp go bdosmain bdosmisc bdosrw conbdos dskutil fileio '
              'iosys pgmld').split()
-ASM_MODULES = 'ccpif bdosif2 exceptn2'.split()
 HEADERS = 'basepage bdosdef biosdef pktio'.split()
 TOOLS = ('ZCC.Z8K ZCC1.Z8K ZCC2.Z8K ZCC3.Z8K ASZ8K.Z8K ASZ8K.PD '
          'XCON.Z8K').split()
@@ -115,7 +119,16 @@ def stdio(src):
                                    if l.startswith(tail)):])
 
 
-def tree(fetched, out):
+def cpu_of(name):
+    """The samples folder and the assembled modules of CPU |name|."""
+    if name.upper() not in CPUS:
+        sys.exit(f'{name}: not one of {" ".join(CPUS)}')
+    folder, glue = CPUS[name.upper()]
+    return folder, ['ccpif'] + list(glue)
+
+
+def tree(cpu, fetched, out):
+    folder, modules = cpu_of(cpu)
     src = os.path.join(fetched, 'src')
     files = {'STDIO.H': stdio(src)}
     for h in HEADERS:
@@ -132,9 +145,25 @@ def tree(fetched, out):
                              'PGMLD.C')
     files['XOUT.H'] = (text(read(os.path.join(src, 'newos', 'xout.h'))) +
                        b'#define X_SG_DATA X_SG_DAT\r\n')
+    files['CCPIF.8KN'] = text(read(os.path.join(src, 'ccp', 'ccpif.z8k')))
+    z8002_glue(src, files)
+    for t in TOOLS:
+        files[t] = read(os.path.join(fetched, 'a', t))
+    os.makedirs(out, exist_ok=True)
+    for name in os.listdir(out):
+        if name not in files and not name.startswith('.'):
+            os.remove(os.path.join(out, name))
+    for name, data in files.items():
+        with open(os.path.join(out, name), 'wb') as f:
+            f.write(data)
+    open(os.path.join(out, '.tree'), 'w').close()
+
+
+def z8002_glue(src, files):
+    """Kontron's Z8002 glue, BIOSDEFS2.Z8K under an 8.3 name, and the BDOS
+    entry giving a program's parameter its data segment."""
     files['BIOSDEF2.Z8K'] = text(read(os.path.join(src, 'newos',
                                                    'biosdefs2.z8k')))
-    files['CCPIF.8KN'] = text(read(os.path.join(src, 'ccp', 'ccpif.z8k')))
     for m in ('bdosif2', 'exceptn2'):
         files[f'{m.upper()}.8KN'] = patch(
             text(read(os.path.join(src, 'newos', f'{m}.z8k'))),
@@ -149,16 +178,6 @@ def tree(fetched, out):
         b'\tbit\tr0,#14\t\t; Was user system?\r\n'
         b'\tjr\tnz,callC\t; Yes: rr6 is physical\r\n'
         b'\tld\tr2,_usrseg\t; user data segment\r\n'), 'bdosif2.z8k')
-    for t in TOOLS:
-        files[t] = read(os.path.join(fetched, 'a', t))
-    os.makedirs(out, exist_ok=True)
-    for name in os.listdir(out):
-        if name not in files and not name.startswith('.'):
-            os.remove(os.path.join(out, name))
-    for name, data in files.items():
-        with open(os.path.join(out, name), 'wb') as f:
-            f.write(data)
-    open(os.path.join(out, '.tree'), 'w').close()
 
 
 def xout(data):
@@ -167,62 +186,76 @@ def xout(data):
     return data[:16 + 4 * nseg + init + reloc + symb]
 
 
-def run(*argv, **kw):
-    print('+', ' '.join(argv), flush=True)
+def shown(arg):
+    """|arg| as the echo shows it: a path relative to where make runs."""
+    return os.path.relpath(arg) if os.path.isabs(arg) else arg
+
+
+def run(*argv, echo=True, **kw):
+    if echo:
+        print('+', ' '.join(shown(a) for a in argv), flush=True)
     return subprocess.run(argv, check=True, **kw)
 
 
 def scenario(lines):
     """Runs |lines|, scenario directives, with what the board prints
-    going to stdout as it comes."""
+    going to stdout as it comes; echoes the debugger commands they type."""
+    typed = [line.split(' ', 1)[1] for line in lines
+             if line.startswith('command ')]
+    print('+ O', ', O '.join(typed), flush=True)
     with tempfile.NamedTemporaryFile('w', suffix='.scenario') as f:
         f.write('\n'.join(lines) + '\n')
         f.flush()
-        run(os.path.join(SCRIPTS, 'record-scenario.py'), f.name, '--nopace')
+        run(os.path.join(SCRIPTS, 'record-scenario.py'), f.name, '--nopace',
+            echo=False)
 
 
-def bench(out):
-    disk = os.path.join(SAMPLES, 'bld8002a.dsk')
-    system = os.path.join(SAMPLES, 'bld8002.hex')
+def bench(cpu, out):
+    folder, modules = cpu_of(cpu)
+    samples = os.path.join(PROJ, 'samples', folder)
+    stem = 'bld' + folder[1:]
+    disk = os.path.join(samples, f'{stem}a.dsk')
+    system = os.path.join(samples, f'{stem}.hex')
     for path in (disk, system):
         if not os.path.exists(path):
             sys.exit(f'{path} missing: run make pcpm8000')
     control = os.path.join(SCRIPTS, 'bionic-control.py')
     p = subprocess.run([control, 'probe'], capture_output=True, text=True)
-    if p.returncode or '(Z8002)' not in p.stdout:
-        sys.exit('no Z8002 at a bench prompt: '
+    if p.returncode or f'({cpu.upper()})' not in p.stdout:
+        sys.exit(f'no {cpu.upper()} at a bench prompt: '
                  f'{(p.stdout + p.stderr).strip()}')
-    card = 'z8002/bld8002a.dsk'
+    card = f'{folder}/{stem}a.dsk'
     # The block cache stays off from before the copy to the card until
-    # the copy back, as for MS-DOS's build (2026-11-25).
-    scenario([line for d in 'ABCD'
-              for line in ('type O', 'wait Disk?', f'command {d}')] +
-             ['type O', 'wait Disk?', 'command cache off'])
-    run(control, 'sd', 'put', system, 'z8002/bld8002.hex')
-    run(control, 'sd', 'put', disk, card)
-    run(os.path.join(SCRIPTS, 'record-scenario.py'), BUILD_SCENARIO, '--nopace')
+    # the copy back, as for MS-DOS's build (2026-11-25). The scenario
+    # loads the 1.1 system from the card, which mounts the disk beside it.
+    scenario(['type O', 'wait Disk?', 'command cache off'])
+    run(os.path.join(SCRIPTS, 'sample-sd.py'), '--cpu', cpu.upper(),
+        '--dir', folder, system, disk)
+    run(os.path.join(SCRIPTS, 'record-scenario.py'),
+        os.path.join(samples, 'pcpm8000_build.scenario'), '--nopace')
     scenario([line for d in 'ABCD'
               for line in ('type O', 'wait Disk?', f'command {d}')])
     os.makedirs(out, exist_ok=True)
-    built = os.path.join(out, 'bld8002a.dsk')
+    built = os.path.join(out, f'{stem}a.dsk')
     run(control, 'sd', 'get', card, built)
     scenario(['type O', 'wait Disk?', 'command cache on'])
     get = os.path.join(SCRIPTS, 'cpm-disk.py')
-    for m in C_MODULES + ASM_MODULES:
+    for m in C_MODULES + modules:
         path = os.path.join(out, f'{m}.o')
         run(get, 'get', built, f'{m.upper()}.O', path)
         data = xout(read(path))
         with open(path, 'wb') as f:
             f.write(data)
-    check(out)
+    check(cpu, out)
     open(os.path.join(out, '.built'), 'w').close()
 
 
-def check(out):
+def check(cpu, out):
     """Prints each object's sha256 and whether the build is the known
     one."""
+    _, modules = cpu_of(cpu)
     differ = []
-    for m in C_MODULES + ASM_MODULES:
+    for m in C_MODULES + modules:
         path = os.path.join(out, f'{m}.o')
         if not os.path.exists(path):
             differ.append(m)
@@ -238,15 +271,15 @@ def check(out):
 
 
 def main(argv):
-    if len(argv) == 3 and argv[0] == 'tree':
+    if len(argv) == 4 and argv[0] == 'tree':
         tree(*argv[1:])
-    elif len(argv) == 2 and argv[0] == 'bench':
+    elif len(argv) == 3 and argv[0] == 'bench':
         try:
-            bench(argv[1])
+            bench(*argv[1:])
         except subprocess.CalledProcessError as e:
             sys.exit(f'{os.path.basename(e.cmd[0])} failed')
-    elif len(argv) == 2 and argv[0] == 'check':
-        check(argv[1])
+    elif len(argv) == 3 and argv[0] == 'check':
+        check(*argv[1:])
     else:
         sys.exit(__doc__)
 

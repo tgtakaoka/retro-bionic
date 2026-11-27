@@ -5,8 +5,9 @@
 
 Downloads CP/M-8000 1.1 into DIR/dl/ (kept, so later runs work
 offline), checks its sha256, and extracts from the four 8" disk images
-inside it: CPMSYS.REL, the CCP and BDOS, and LIBCPM.A into DIR/, the A:
-files, LIBCPM.A too, into DIR/a/. Writes DIR/.fetched when done.
+inside it: CPMSYS.REL, the CCP and BDOS, FPE.O, Zilog's Z8070
+floating-point emulator, and LIBCPM.A into DIR/, the A: files, LIBCPM.A
+too, into DIR/a/. Writes DIR/.fetched when done.
 
 The images, not the DISK1-4.ZIP beside them: those archives' text files
 lost their line feeds and kept stale bytes past their ends. STDIO.H
@@ -16,7 +17,9 @@ includes a PORTAB.H that 1.1's disks lack, so A: gets the one of the
 With --source, it downloads P-CP/M-Z8K, DRI's 1983 sources, instead
 and extracts the CCP, BDOS and Z8002 glue that
 pcpm8000-build.py builds a 1.2 kernel from into DIR/src/, writing
-DIR/.fetched-source.
+DIR/.fetched-source; also, for reference, Zilog's Z8070 emulator, whose
+binary FPE.O is linked, and its system-dependent parts for Kontron's
+Z8002 and the M20.
 
 CP/M-8000 1.1 is DRI's release of December 1984 for the Olivetti M20, the
 only one made, from the Unofficial CP/M Web Site under the licence at
@@ -49,7 +52,8 @@ SOURCES = (
         'biosdef.h', 'pktio.h', 'stdio.h')] +
     ['ccp/' + n for n in ('ccp.c', 'go.c', 'ccpdef.h', 'ccpif.z8k')] +
     ['newos/' + n for n in ('bdosif2.z8k', 'exceptn2.z8k', 'biosdefs2.z8k',
-                            'xout.h', 'stdio.h')])
+                            'xout.h', 'stdio.h', 'fpe.z8k', 'fpedep.z8k')] +
+    ['bios/fpedep.z8k'])
 URL13 = 'http://www.cpm.z80.de/download/cpm8k13.zip'
 SHA13 = '0cb55fe9699c4c2afb7734ba550ed75438ee0436fcef5a66156bc9050ebc92da'
 
@@ -68,7 +72,7 @@ DISKS = {
         'ASZ8K.Z8K', 'ASZ8K.PD', 'CTYPE.H', 'ERRNO.H', 'OPTION.H',
         'SETJMP.H', 'SIGNAL.H', 'STDIO.H', 'XOUT.H', 'STARTUP.O',
         'XCON.Z8K', 'XDUMP.Z8K', 'ZCC3.Z8K')}},
-    '8K_4OF4.IMG': {'CPMSYS.REL': ('',)},
+    '8K_4OF4.IMG': {'CPMSYS.REL': ('',), 'FPE.O': ('',)},
 }
 
 

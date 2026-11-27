@@ -75,7 +75,7 @@ trapinit_clear:
         ldl     trapvec+4*(SC0TRAP+MEM_SC), rr2
         ld      r3, #biossc
         ldl     trapvec+4*(SC0TRAP+BIOS_SC), rr2
-        ld      r3, #epu_exc
+        ld      r3, #fpe_trap
         ldl     trapvec+4*EPUTRAP, rr2
         ret
 
@@ -543,22 +543,77 @@ setexc_bad:
         subl    rr6, rr6
         ret
 
-;;; An extended instruction with no EPU: skipped. The C start-up clears
-;;; the Z8070's registers with them; a program that computes in floating
-;;; point gets nothing back. The trap's identifier is the instruction's
-;;; first word, whose mode bits say how long it is: direct and indexed
-;;; addressing take a word more.
-epu_exc:
-        ld      r0, FR_ID+CO(r15)
-        and     r0, #0C000H
-        ld      r1, #4
-        cp      r0, #4000H
-        jr      ne, epu_skip
-        ld      r1, #6
-epu_skip:
-        ld      r0, FR_PC+CO(r15)
-        add     r0, r1
-        ld      FR_PC+CO(r15), r0
+;;; Zilog's Z8070 emulator, FPE.O, linked after the kernel, takes the
+;;; extended instruction trap. It wants the M20's frame, a PC segment
+;;; word before the PC, 4 bytes above its stack: the handler copies the
+;;; trap's frame into one below, calls fp_epu over a word, and copies back
+;;; R0-R14, the FCW, whose flags a compare sets, and the PC, which FPE
+;;; moves past the instruction.
+M20FRAME:       equ     40
+fpe_trap:
+        sub     r15, #M20FRAME
+        ld      r5, r15
+        ld      r7, r15
+        add     r7, #M20FRAME+CO
+        ld      r2, #FR_PC/2            ; R0-R14, NR15, the identifier, FCW
+        ldir    @r5, @r7, r2
+        clr     FR_PC(r15)              ; the PC's segment
+        ld      r0, M20FRAME+CO+FR_PC(r15)
+        ld      FR_PC+2(r15), r0
+        push    @r15, #0
+        call    fp_epu
+        inc     r15, #2
+        ld      r5, r15
+        add     r5, #M20FRAME+CO
+        ld      r7, r15
+        ld      r2, #FR_NR15/2          ; R0-R14
+        ldir    @r5, @r7, r2
+        ld      r0, FR_FCW(r15)
+        ld      M20FRAME+CO+FR_FCW(r15), r0
+        ld      r0, FR_PC+2(r15)
+        ld      M20FRAME+CO+FR_PC(r15), r0
+        add     r15, #M20FRAME
+        ret
+
+;;; What FPE needs of the system: where its frame keeps R0, the trap's
+;;; identifier (the instruction's first word), the FCW and the PC's
+;;; segment, offsets from its stack, and the trapped program's
+;;; instruction words and memory, in the segments the split I/D device
+;;; routes it to, the system's for a merged program.
+stareg:         word    4
+staevnt:        word    FR_ID+4
+stafcw:         word    FR_FCW+4
+stapcsg:        word    FR_PC+4
+
+;;; R3=the instruction word at R7, the trapped program's PC, keeping RR6,
+;;; which FPE goes on using.
+gettext:
+        pushl   @r15, rr6
+        ld      r6, usrseg              ; the program's code
+        clr     r4
+        ld      r5, #gttxt
+        clr     r2
+        ld      r3, #2
+        sc      #MEM_SC
+        popl    rr6, @r15
+        ld      r3, gttxt
+        clrb    rl2
+        ret
+
+;;; R3 bytes from the program's R7 to the emulator's R5.
+getmem:
+        ld      r6, _usrseg             ; the program's data
+        clr     r4
+        clr     r2
+        sc      #MEM_SC
+        ret
+
+;;; R3 bytes from the emulator's R7 to the program's R5.
+putmem:
+        clr     r6
+        ld      r4, _usrseg
+        clr     r2
+        sc      #MEM_SC
         ret
 
 ;;; Skew 6, the 8" standard.
@@ -620,6 +675,7 @@ usrseg: word    0
 ;;; parameters.
 _usrseg:
         word    0
+gttxt:  word    0
 
 ;;; Uninitialised areas: the exception vector, then the BDOS's scratch.
 bss:    equ     $

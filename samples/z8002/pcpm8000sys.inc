@@ -1,31 +1,32 @@
-;;; Made by xout-link.py from pcpm8000.built/ccpif.o pcpm8000.built/ccp.o pcpm8000.built/go.o pcpm8000.built/bdosif2.o pcpm8000.built/exceptn2.o pcpm8000.built/bdosmain.o pcpm8000.built/bdosmisc.o pcpm8000.built/bdosrw.o pcpm8000.built/conbdos.o pcpm8000.built/dskutil.o pcpm8000.built/fileio.o pcpm8000.built/iosys.o pcpm8000.built/pgmld.o cpm8000.fetch/LIBCPM.A: the
-;;; symbols of the system linked at 9800H, ending at EC9CH.
-ccp:	equ	09800H
-_autost:	equ	0E462H
-_submit:	equ	0E464H
-_morecmd:	equ	0E465H
-_usercmd:	equ	0E792H
-_subcom:	equ	0E90EH
-_subdma:	equ	0E990H
-_save_su:	equ	0EA10H
-_subfcb:	equ	0EA92H
-_cmdfcb:	equ	0EAB6H
-_dma:	equ	0EADAH
-_parm:	equ	0EB5EH
-_LPB:	equ	0EBC6H
-_sstack:	equ	0EBDCH
-_tpa_lp:	equ	0EBE4H
-_tpa_lt:	equ	0EBE8H
-_tpa_hp:	equ	0EBECH
-_tpa_ht:	equ	0EBF0H
-_gbls:	equ	0EBF4H
-_x_sg:	equ	0EC36H
-_mylpb:	equ	0EC76H
-_x_hdr:	equ	0EC8CH
+;;; Made by xout-link.py from pcpm8000.built/ccpif.o pcpm8000.built/ccp.o pcpm8000.built/go.o pcpm8000.built/bdosif2.o pcpm8000.built/exceptn2.o pcpm8000.built/bdosmain.o pcpm8000.built/bdosmisc.o pcpm8000.built/bdosrw.o pcpm8000.built/conbdos.o pcpm8000.built/dskutil.o pcpm8000.built/fileio.o pcpm8000.built/iosys.o pcpm8000.built/pgmld.o cpm8000.fetch/FPE.O cpm8000.fetch/LIBCPM.A: the
+;;; symbols of the system linked at 8400H, ending at EC28H.
+ccp:	equ	08400H
+fp_epu:	equ	0D7DAH
+_autost:	equ	0E128H
+_submit:	equ	0E12AH
+_morecmd:	equ	0E12BH
+_usercmd:	equ	0E71EH
+_subcom:	equ	0E89AH
+_subdma:	equ	0E91CH
+_save_su:	equ	0E99CH
+_subfcb:	equ	0EA1EH
+_cmdfcb:	equ	0EA42H
+_dma:	equ	0EA66H
+_parm:	equ	0EAEAH
+_LPB:	equ	0EB52H
+_sstack:	equ	0EB68H
+_tpa_lp:	equ	0EB70H
+_tpa_lt:	equ	0EB74H
+_tpa_hp:	equ	0EB78H
+_tpa_ht:	equ	0EB7CH
+_gbls:	equ	0EB80H
+_x_sg:	equ	0EBC2H
+_mylpb:	equ	0EC02H
+_x_hdr:	equ	0EC18H
 ;;; The kernel's locals.
-ccpclear:	equ	09806H
-ccpstart:	equ	0980AH
-ccploop:	equ	09818H
-copy:	equ	0E43CH
-sysinit:	equ	0E463H
-stackp:	equ	0E814H
+ccpclear:	equ	08406H
+ccpstart:	equ	0840AH
+ccploop:	equ	08418H
+copy:	equ	0E102H
+sysinit:	equ	0E129H
+stackp:	equ	0E7A0H

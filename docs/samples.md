@@ -407,11 +407,11 @@ make cpm8000-sd
 `z8002/` on its SD card, B: only onto a card without one, so files saved there stay,
 unless `NEWB=1`; or copy them there by hand. `L z8002/cpm8002.hex` mounts both disks
 beside it; `R`, then `G` boots to `A>`. A: is an 8 MB `hd8` with DRI's tools, B: one
-with `imandel.c`. `make` alone builds the samples and the BIOSes, `make clean` removes
+with `imandel.c` and `fmandel.c`. `make` alone builds the samples and the BIOSes, `make clean` removes
 what it built, and `make distclean` everything not in the repository, and nothing that
 is: the systems, the disks, the downloads and the 1.2 objects the board built.
 
-The TPA is the 34K below the BIOS, and a program is linked at 0, where the reset
+The TPA is the 29K below the BIOS, and a program is linked at 0, where the reset
 vector is: after a program has run, `L` the system again before `R`. The program's
 stack and base page take the top of memory, above the kernel. PIP, STAT and DUMP
 run there. ED, the C compiler, assembler and linker are split instruction and data
@@ -428,8 +428,10 @@ A>B:IMANDEL
 
 draws the integer mandelbrot: [`imandel.c`](../samples/z8002/imandel.c) includes
 `samples/arith/imandel.c` as `IMANDEL.INC`, adding the `stdio.h` DRI's `putchar` needs.
-DRI's C compiles `float` to Z8070 instructions, which no board here runs, so `fmandel.c`
-is not on B:. DDT is a 58K program that is not split, which the 34K TPA cannot hold.
+DRI's C compiles `float` to Z8070 instructions, which trap with no EPU; the BIOS hands them
+to Zilog's floating-point emulator, `FPE.O` from the release, linked into the system, so
+`fmandel.c` builds the same way and draws the set, in about seven minutes. DDT is a 58K
+program that is not split, which the 29K TPA cannot hold.
 
 ### CP/M-8000 1.2 from source
 
@@ -450,7 +452,13 @@ with the compiler and assembler; boots 1.1 on that disk alone, compiles there, i
 about five minutes, checks the objects against the known build, and links the kernel;
 `make pcpm8000-sd` puts it and its disks on the card. Its A: and B: are 1.1's.
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/pcpm8000_build.cast)
-of the build on the Z8002, with the long silences cut.
+of the build on the Z8002, from the host shell, booting the result at its end, recorded in
+`samples/z8002` by
+
+```sh
+../../scripts/record-build-cast.py pcpm8000_build.cast 'make pcpm8000-sd' \
+    '../../scripts/record-scenario.py pcpm8000_boot.scenario --nopace'
+```
 
 ## Unix V6 on the DCJ11
 
