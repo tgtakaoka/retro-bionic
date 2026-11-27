@@ -794,6 +794,17 @@ before any reset, so on a freshly powered bench, where memory is still
 blank, load the sample once before recording; otherwise the cast opens
 on an undecodable PC.
 
+### A build cast runs from the host shell **[hw]**
+
+A cast of a system built on the board shows the whole flow from
+`samples/<arch>`, not a board scenario alone: make building the tree and
+the build disk, the board's build, the images put onto the card, and the
+built system booting. `scripts/record-build-cast.py CAST CMD...` records
+it, each command shown as `$ CMD`, and fails on a cast that shows an
+absolute host path: the tools echo paths relative to make's directory.
+The docs give each cast's command line beside its demo link, so it can
+be recorded again.
+
 ### A damaged record is rejected, not loaded **[hw]**
 
 The loader takes a record's length from its count field, so a line cut short
