@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fetch the DRI files the CP/M-8000 disks are built from.
 
-    debugger/z8000/tools/cpm8000-fetch.py DIR
+    debugger/z8000/tools/cpm8000-fetch.py [--source] DIR
 
 Downloads CP/M-8000 1.1 into DIR/dl/ (kept, so later runs work
 offline), checks its sha256, and extracts from the four 8" disk images
@@ -12,6 +12,11 @@ The images, not the DISK1-4.ZIP beside them: those archives' text files
 lost their line feeds and kept stale bytes past their ends. STDIO.H
 includes a PORTAB.H that 1.1's disks lack, so A: gets the one of the
 1.3 sources, cpm8k13.zip.
+
+With --source, it downloads P-CP/M-Z8K, DRI's 1983 sources, instead
+and extracts the CCP, BDOS and Z8002 glue that
+pcpm8000-build.py builds a 1.2 kernel from into DIR/src/, writing
+DIR/.fetched-source.
 
 CP/M-8000 1.1 is DRI's release of December 1984 for the Olivetti M20, the
 only one made, from the Unofficial CP/M Web Site under the licence at
@@ -32,6 +37,19 @@ _disk = importlib.machinery.SourceFileLoader(
 
 URL = 'http://www.cpm.z80.de/download/cpm8k11.zip'
 SHA = '3df52fdc8393283b08c900f00bcb86cd8f03bd2e9c40be4f58145bc857d9b183'
+URL_SRC = 'http://www.cpm.z80.de/download/8k0583.zip'
+SHA_SRC = '0e9ad74b70b1fdf0b449830bb0ac234c4a695defc95283d19970d58967cfa2c4'
+# The 1.2 BDOS and CCP and the Z8002 glue of Kontron's port (newos/,
+# else a loader); newos/stdio.h is the whole of the file bdos/ and ccp/
+# have cut short.
+SOURCES = (
+    ['bdos/' + n for n in (
+        'bdosmain.c', 'bdosmisc.c', 'bdosrw.c', 'conbdos.c', 'dskutil.c',
+        'fileio.c', 'iosys.c', 'pgmld.c', 'basepage.h', 'bdosdef.h',
+        'biosdef.h', 'pktio.h', 'stdio.h')] +
+    ['ccp/' + n for n in ('ccp.c', 'go.c', 'ccpdef.h', 'ccpif.z8k')] +
+    ['newos/' + n for n in ('bdosif2.z8k', 'exceptn2.z8k', 'biosdefs2.z8k',
+                            'xout.h', 'stdio.h')])
 URL13 = 'http://www.cpm.z80.de/download/cpm8k13.zip'
 SHA13 = '0cb55fe9699c4c2afb7734ba550ed75438ee0436fcef5a66156bc9050ebc92da'
 
@@ -75,12 +93,28 @@ def download(url, sha, cache):
     return data
 
 
+def source(top, cache):
+    src = zipfile.ZipFile(io.BytesIO(download(URL_SRC, SHA_SRC, cache)))
+    for name in SOURCES:
+        path = os.path.join(top, 'src', name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'wb') as f:
+            f.write(src.read(name))
+    open(os.path.join(top, '.fetched-source'), 'w').close()
+
+
 def main(argv):
+    with_source = argv[:1] == ['--source']
+    if with_source:
+        argv = argv[1:]
     if len(argv) != 1:
         sys.exit(__doc__)
     top = argv[0]
     cache = os.path.join(top, 'dl')
     os.makedirs(cache, exist_ok=True)
+    if with_source:
+        source(top, cache)
+        return
     outer = zipfile.ZipFile(io.BytesIO(download(URL, SHA, cache)))
     for disk, members in DISKS.items():
         image = bytearray(outer.read(disk))

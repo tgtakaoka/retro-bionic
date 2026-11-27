@@ -1,13 +1,14 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; The CP/M-8000 BIOS for the Z8002: the console on the i8251 and four
 ;;; drives on the debugger's sector disk, both polled, byte I/O at
-;;; 16-bit port addresses. cpm8000bios.asm links it with DRI's 1.1
-;;; kernel and the Z8002 glue of cpm8000glue.asm; the kernel, at SYSTEM
-;;; by xout-link.py, calls the BIOS with SC #3: R3 the function, RR4 and
-;;; RR6 the parameters, the result back in RR6 (R7 for a word). SC #2 is
-;;; the BDOS, SC #1 memory management and the context switch that starts
-;;; a program. All traps go through the exception vector, 48 longs the
-;;; BDOS fills with BIOS function 22, as CP/M-68K's.
+;;; 16-bit port addresses. cpm8000bios.asm links it with DRI's 1.1 kernel
+;;; and the Z8002 glue of cpm8000glue.asm, pcpm8000bios.asm with the 1.2
+;;; kernel built from P-CP/M-Z8K's sources; either, at SYSTEM by
+;;; xout-link.py, calls the BIOS with SC #3: R3 the function, RR4 and RR6
+;;; the parameters, the result back in RR6 (R7 for a word). SC #2 is the
+;;; BDOS, SC #1 memory management and the context switch that starts a
+;;; program. All traps go through the exception vector, 48 longs the BDOS
+;;; fills with BIOS function 22, as CP/M-68K's.
 
 DISK:   equ     150H
         include "../i8080/sector_disk.inc"
