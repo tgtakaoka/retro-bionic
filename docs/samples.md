@@ -49,6 +49,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | [CP/M-8000 1.2](#cpm-8000-12-from-source), built on the board | Z8002 | `z8002/pcpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/pcpm8000.cast) |
 | [CP/M-8000 1.1](#cpm-8000-on-the-z8001) | Z8001 | `z8001/cpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/cpm8000.cast) |
 | [CP/M-8000 1.2](#cpm-8000-12-on-the-z8001), built on the board | Z8001 | `z8001/pcpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/pcpm8000.cast) |
+| [NitrOS-9 Level 1](#nitros-9-on-the-6809) | MC6809, MC6809E, HD6309, HD6309E | `mc6809/nitros9.s19` | /DD and /D1, RAM disk at DF10 | |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -187,6 +188,45 @@ on the P80C86A-2 and D8087: `U` uploads `cpm86.hex`, `O` mounts A: and B:, and C
 boots; Aztec C builds `fmandel.c` for the 8087 and DRI's C builds `imandel.c`, and each
 draws the set. [The same on the P80C86 alone](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86.cast)
 links `fmandel` with `M87S.LIB`, which falls back to software floating point.
+
+## NitrOS-9 on the 6809
+
+[`samples/mc6809/nitros9/`](../samples/mc6809/nitros9/) is a NitrOS-9 Level 1 port, the
+Bionic port `bionic`, for the MC6809, MC6809E and HD6309 boards: the console on the ACIA at
+DF00, the clock on the tick timer at DF08 and the disks on the RAM disk at DF10, all raising
+IRQ. The 6809 has no way to wait for the SD card, so the disk images live whole in the
+debugger's memory and a sector moves by DMA while the CPU runs on, DONE by interrupt; the
+blocks written reach the card when the CPU stops, on `O sync` or at an unmount. The port is
+`rel.asm` (the reset entry and the hardware vectors), `boot_bionic.asm` (the booter, reading
+`OS9Boot` from the RAM disk), `rbbionic.asm` (the RBF driver, which polls for each copy to end) with
+`rbbdesc.asm` (its descriptors /DD and /D0-/D3), `clock_bionic.asm` (the clock, on the
+tick timer) and `defs/bionic.d`, with NitrOS-9's own kernel, IOMan, RBF, SCF, `sc6850`,
+`clock2_soft`, SysGo, the shell and the standard commands. NitrOS-9 is the NitrOS-9 Project's,
+under the GNU General Public License version 2, and so are the port's files in that directory;
+the rest of this repository stays under its own license.
+
+The sources stay out of the repository: the first `make nitros9` downloads the NitrOS-9
+tree from [nitros9project/nitros9](https://github.com/nitros9project/nitros9), pinned to a
+commit, [LWTOOLS](http://www.lwtools.ca/) 4.25, which it builds, and ToolShed 2.7.0's `os9`
+command, each checked by sha256, into `samples/mc6809/nitros9.fetch/`, with
+`debugger/mc6809/tools/nitros9-fetch.py`, and links the port into the tree as `level1/bionic`.
+Then:
+
+```sh
+cd samples/mc6809
+make nitros9     # the kernel and its disks; `make` alone builds the samples
+make nitros9-sd  # puts them in mc6809/ on the SD card of the 6809 bench
+```
+
+`make nitros9` makes `nitros9.s19`, the kernel track (Krn, KrnP2, Init and Boot at E000)
+with REL and the vectors at FF00, `nitros9d0.dsk`, /DD, an 8 MB `os9-8m` disk with
+`OS9Boot`, `CMDS`, `SYS` and the `startup`, and `nitros9d1.dsk`, /D1, an empty 4 MB
+`os9-4m` disk; `make nitros9-sd`, with the bench locked or the only one on USB and a 6809 at
+its prompt, puts them in `mc6809/` on its card, /D1 only onto a card without one so that files
+saved there stay (`NEWD1=1` replaces it). Memory from 0500 to DEFF is NitrOS-9's: the kernel
+region begins at the I/O page, DF00, so no page of it is ever handed out.
+`L mc6809/nitros9.s19`, `R`, then `G` boots to the shell prompt on the console, after the
+`startup` script's `setime`, which asks for the date and time.
 
 ## CP/M-68K on the 68000
 

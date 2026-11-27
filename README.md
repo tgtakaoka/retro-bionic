@@ -68,7 +68,7 @@ its own pinout in a small TOML file. See **[docs/hardware.md](docs/hardware.md)*
 - **Emulated peripherals** — MC6850 ACIA and i8251 USART — and on-chip serial ports of MCU
   targets bridged to your terminal (`I`).
 - **Disk images on the SD card** behind emulated disk controllers (`L`, `O`), enough to
-  boot [CP/M 2.2, CP/M-86, Unix V6 and 2.11BSD](docs/samples.md#operating-systems).
+  boot [CP/M 2.2, CP/M-86, CP/M-68K, NitrOS-9, Unix V6 and 2.11BSD](docs/samples.md#operating-systems).
 - **Automatic board identification** from a UNI/O serial EEPROM, plus **runtime variant
   detection**: one 6502 board reports `MOS6502`, `G65SC02`, `R65C02`, `W65C02S` or
   `W65C816S` depending on which die actually responds.
