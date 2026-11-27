@@ -718,11 +718,100 @@ const SignalsImpl *PinsZ8000::findBacktraceStart() {
     return backtraceStartByFetchCount<Signals>(_lineLimit);
 }
 
+namespace {
+constexpr uint8_t FCW_LOADED = 0x80;  // the mode may change past it
+
+MemsZ8000::Decode modeOf(uint16_t fcw) {
+    return (fcw & InstZ8000::FCW_SEG) ? MemsZ8000::DECODE_SEG
+                                      : MemsZ8000::DECODE_NONSEG;
+}
+}  // namespace
+
+// The mode each Z8001 instruction in the ring ran in, by its fetch cycle;
+// DECODE_FCW where nothing tells, which disassembles as the FCW at the
+// stop says. No bus signal gives the mode, so: the FCW a trap or an
+// interrupt reads from the PSA after its pushes, and the one IRET pops,
+// set it past them; an instruction that decodes, to the words it fetched,
+// in one mode only ran in it; and the mode carries forward to the next
+// LDCTL FCW or LDPS, and back from the first instruction that tells.
+#ifdef WITH_DISASSEMBLER
+void PinsZ8000::backtraceModes(uint_fast8_t cycles, uint8_t *modes) const {
+    const auto mems = static_cast<const MemsZ8000 *>(_mems);
+    const auto g = Signals::get();
+    uint8_t mode = MemsZ8000::DECODE_FCW;
+    for (auto i = 0u; i < cycles; ++i) {
+        modes[i] = MemsZ8000::DECODE_FCW;
+        const auto s = g->next(i);
+        if (!s->fetch())
+            continue;
+        uint_fast8_t words = 1;
+        auto next = s->addr + 2;
+        auto pushed = false;
+        auto loaded = false;
+        uint8_t after = mode;
+        for (auto j = i + 1; j < cycles; ++j) {
+            const auto t = g->next(j);
+            if (t->fetch())
+                break;
+            if (t->programSpace() && t->read() && t->addr == next) {
+                ++words;
+                next += 2;
+            } else if (t->st() == ST_STACK && t->write()) {
+                pushed = true;
+            } else if (!loaded && t->memReq() && t->read() &&
+                       ((s->data == InstZ8000::IRET && t->st() == ST_STACK) ||
+                               (pushed && t->st() != ST_STACK))) {
+                after = modeOf(t->data);
+                loaded = true;
+            }
+        }
+        const auto nonseg = mems->insnWords(s->addr, MemsZ8000::DECODE_NONSEG);
+        const auto seg = mems->insnWords(s->addr, MemsZ8000::DECODE_SEG);
+        if (nonseg == words && seg != words) {
+            mode = MemsZ8000::DECODE_NONSEG;
+        } else if (seg == words && nonseg != words) {
+            mode = MemsZ8000::DECODE_SEG;
+        }
+        modes[i] = mode;
+        if (loaded) {
+            modes[i] |= FCW_LOADED;
+            mode = after;
+        } else if (InstZ8000::ldctlFcw(s->data) || InstZ8000::ldps(s->data)) {
+            modes[i] |= FCW_LOADED;
+            mode = MemsZ8000::DECODE_FCW;
+        }
+    }
+    uint8_t later = MemsZ8000::DECODE_FCW;
+    for (auto i = cycles; i-- > 0;) {
+        if (!g->next(i)->fetch())
+            continue;
+        if (modes[i] & FCW_LOADED) {
+            modes[i] &= ~FCW_LOADED;
+            later = MemsZ8000::DECODE_FCW;
+        }
+        if (modes[i] == MemsZ8000::DECODE_FCW) {
+            modes[i] = later;
+        } else {
+            later = modes[i];
+        }
+    }
+}
+#endif
+
 // One line per instruction, then its data cycles; its other words only
-// when verbose.
+// when verbose. A Z8001's lines decode in the mode each ran in.
 void PinsZ8000::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
+    const auto mems = static_cast<const MemsZ8000 *>(_mems);
+    uint8_t modes[256];
+#ifdef WITH_DISASSEMBLER
+    if (_segmented)
+        backtraceModes(cycles, modes);
+#else
+    for (auto i = 0u; i < cycles; ++i)
+        modes[i] = MemsZ8000::DECODE_FCW;
+#endif
     uint32_t from = 0, to = 0;  // the last instruction's bytes
     for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);
@@ -730,6 +819,8 @@ void PinsZ8000::printBacktrace() {
             if (Debugger.verbose())
                 s->print();
             from = s->addr;
+            if (_segmented)
+                mems->setDecode(MemsZ8000::Decode(modes[i]));
             to = _mems->disassemble(s->addr, 1);
         } else if (s->st() != ST_PROGRAM || s->addr < from || s->addr >= to ||
                    Debugger.verbose()) {
@@ -737,6 +828,7 @@ void PinsZ8000::printBacktrace() {
         }
         idle();
     }
+    mems->setDecode(MemsZ8000::DECODE_FCW);
 }
 
 }  // namespace z8000

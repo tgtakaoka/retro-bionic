@@ -1,13 +1,14 @@
 ASM=asm
 
 .PHONY: clean distclean cpm8000 pcpm8000 cpm8000-sd pcpm8000-sd \
-	pcpm8000-build
+	pcpm8000-build fmandel
 
 # The samples and the CP/M-8000 BIOSes; the systems and their disks are
 # `make cpm8000` and `make pcpm8000`.
 all: echo.hex echoir.hex echoitr.hex arith.hex mandelbrot.hex \
 	echo_nonseg.hex echoir_nonseg.hex echoitr_nonseg.hex arith_nonseg.hex \
-	mandelbrot_nonseg.hex cpm8000.lst cpm8000bios.hex pcpm8000bios.hex
+	mandelbrot_nonseg.hex cpm8000.lst cpm8000bios.hex pcpm8000bios.hex \
+	fmandel.ihx
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<
@@ -134,14 +135,30 @@ pcpm8001a.dsk: cpm8001a.dsk
 pcpm8001b.dsk: $(CPM8000B)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM8000B)
 
+# samples/arith/fmandel.c in Z8070 instructions for L fmandel.hex, as
+# for the Z8002: fmandel.asm, segmented, assembled to fmandel.ihx,
+# linked with Zilog's emulator, FPE.O, at <<0>>5000H, fixed by
+# ../z8002/fpefix.hex. `make fmandel` makes it, fetching DRI's files
+# once.
+fmandel: fmandel.hex
+
+fmandel.ihx: fmandel.asm ../z8002/fmandel8070.inc fpe.inc z8001.inc \
+	../z8002/usart.inc ../z8002/io.inc ../z8002/queue_wait.inc \
+	../z8002/fpesys.inc
+	$(ASM) -l fmandel.lst -o $@ $<
+
+fmandel.hex: fmandel.ihx ../z8002/fpefix.hex $(CPM8000)/.fetched $(LINK)
+	$(LINK) --symbols fmandel.lst --org 0x5000 --patch ../z8002/fpefix.hex \
+	    --overlay fmandel.ihx -o $@ $(CPM8000)/FPE.O
+
 clean:
-	-rm -f *.lst *.hex
+	-rm -f *.lst *.hex *.ihx
 
 # Everything not in the repository, and nothing that is: the systems, the
 # disks, the build tree, DRI's files the fetch downloaded and the
 # objects the board built.
 distclean:
-	-rm -f cpm8001.hex pcpm8001.hex bld8001.hex *.dsk imandel.inc fmandel.inc
+	-rm -f cpm8001.hex pcpm8001.hex bld8001.hex fmandel.hex fmandel.ihx *.dsk imandel.inc fmandel.inc
 	-rm -rf bld8001 $(CPM8000) $(CPM8012)
 
 include ../deps.mk

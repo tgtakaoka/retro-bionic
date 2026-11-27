@@ -1,0 +1,569 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; samples/arith/fmandel.c in Z8070 instructions, which Zilog's
+          0 :                    ;;; emulator, FPE.O of CP/M-8000, runs: `make fmandel` links it in at
+          0 :                    ;;; 5000H, above DATA, into fmandel.hex.
+          0 :                            include "z8002.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; Z8002
+(1)       0 :                            cpu     z8002
+(1)       0 :
+(1)       0 :                    ;;; Reset reads the FCW at 0002H and the PC at 0004H, the reset entry of
+(1)       0 :                    ;;; a Program Status Area at 0000H.
+(1)       0 : =0                 ORG_RESET:      equ     0000H
+(1)       0 :                    ;;; Program Status Area offsets: an FCW, then a PC.
+(1)       0 : =4                 PSA_EPA:        equ     04H     ; extended instruction trap
+(1)       0 : =8                 PSA_PRIV:       equ     08H     ; privileged instruction trap
+(1)       0 : =C                 PSA_SC:         equ     0CH     ; system call
+(1)       0 : =14                PSA_NMI:        equ     14H     ; non-maskable interrupt
+(1)       0 : =18                PSA_NVI:        equ     18H     ; non-vectored interrupt
+(1)       0 : =1C                PSA_VI:         equ     1CH     ; vectored interrupt: the FCW, then a PC
+(1)       0 :                                                    ; for each identifier from 1EH, the one
+(1)       0 :                                                    ; for identifier n at PSA_VI+2+2*n
+(1)       0 :                    ;;; Flag and Control Word
+(1)       0 : =4000              FCW_SN:         equ     4000H   ; system mode
+(1)       0 : =2000              FCW_EPA:        equ     2000H   ; extended processor architecture
+(1)       0 : =1000              FCW_VIE:        equ     1000H   ; vectored interrupt enable
+(1)       0 : =800               FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
+(1)       0 :
+(1)       0 :                    ;;; The data area: queues and variables.
+(1)       0 : =4000              DATA:           equ     4000H
+(1)       0 :
+(1)       0 :                    ;;; SC #SC_EXIT hands control back to the debugger, as a breakpoint does.
+(1)       0 : =FF                SC_EXIT:        equ     0FFH
+          0 :                            fpu     on
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =140               USART:  equ     140H
+(1)       0 : =140               USARTD: equ     USART+0         ; Data register
+(1)       0 : =141               USARTS: equ     USART+1         ; Status register
+(1)       0 : =141               USARTC: equ     USART+1         ; Control register
+(1)       0 : =142               USARTRV:        equ     USART+2 ; Receive interrupt identifier
+(1)       0 : =143               USARTTV:        equ     USART+3 ; Transmit interrupt identifier
+(1)       0 :                    ;;; The identifiers the USART answers its vectored interrupts with: even,
+(1)       0 :                    ;;; as the Z8001 requires.
+(1)       0 : =2                 RX_ID:          equ     2
+(1)       0 : =4                 TX_ID:          equ     4
+(1)       0 :                            include "../z80/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(2)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(2)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :                            include "fpesys.inc"
+(1)       0 :                    ;;; Made by xout-link.py from cpm8000.fetch/FPE.O: the
+(1)       0 :                    ;;; symbols of the system linked at 5000H, ending at 638CH.
+(1)       0 : =59EA              fp_epu:	equ	059EAH
+(1)       0 : =5B90              fpepu553:	equ	05B90H
+          0 :
+          0 : =1000              stack:  equ     1000H           ; system mode
+          0 : =3000              ustack: equ     3000H           ; normal mode
+          0 :                    ;;; The Program Status Area in a page of its own: at 0000H the extended
+          0 :                    ;;; instruction trap's FCW would be the reset PC, at 0004H.
+          0 : =100               PSA:    equ     0100H
+          0 :
+          0 :                            org     ORG_RESET
+          0 : 0000                       word    0
+          2 : 4000                       word    FCW_SN          ; system mode, interrupts disabled
+          4 : 0200                       word    init
+          6 :
+        104 :                            org     PSA+PSA_EPA
+        104 : 4000                       word    FCW_SN          ; FPE runs with interrupts disabled
+        106 : 0388                       word    fpe_trap
+        108 :
+        10C :                            org     PSA+PSA_SC
+        10C : 4000                       word    FCW_SN          ; I/O for the program in normal mode
+        10E : 04C2                       word    isr_sc
+        110 :
+        11C :                            org     PSA+PSA_VI
+        11C : 4000                       word    FCW_SN          ; the handlers run with interrupts disabled
+        122 :                            org     PSA+PSA_VI+2+2*RX_ID
+        122 : 0478                       word    isr_rx
+        126 :                            org     PSA+PSA_VI+2+2*TX_ID
+        126 : 0498                       word    isr_tx
+        128 :
+        200 :                            org     0200H
+        200 :                    init:
+        200 : 210F 1000                  ld      sp, #stack
+        204 : 2100 0100                  ld      r0, #PSA
+        208 : 7D0D                       ldctl   psap, r0
+        20A : 2100 3000                  ld      r0, #ustack
+        20E : 7D0F                       ldctl   nsp, r0
+        210 : 5F00 03F2                  call    init_io
+        214 : 7900 0234                  ldps    user_ps         ; on in normal mode, which does I/O by SC
+        218 :
+        218 :                    start:
+        218 : 8D08                       clr     r0
+        21A : 8D18                       clr     r1
+        21C : 8F58 C000                  fldctl  fctl5, r0, #1   ; the emulator's control registers, as
+        220 : 8F48 C001                  fldctl  fctl4, r0, #2   ; DRI's C start-up sets them
+        224 :                    loop:
+        224 : 5F00 0238                  call    fmandel
+        228 : 7F03                       sc      #SC_NEWLINE
+        22A : 2101 2080                  ld      r1, #tx_queue
+        22E : 5F00 057E                  call    queue_wait_empty
+        232 : E8F8                       jr      loop
+        234 :
+        234 :                    user_ps:
+        234 : 1000                       word    FCW_VIE         ; normal mode, vectored interrupts enabled
+        236 : 0218                       word    start
+        238 :
+        238 :                            include "fmandel8070.inc"
+(1)     238 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     238 :                    ;;; samples/arith/fmandel.c in Z8070 instructions, as DRI's C compiles
+(1)     238 :                    ;;; it: each sum and product is worked out in double from the float
+(1)     238 :                    ;;; variables, then stored as float. Without a Z8070 each instruction
+(1)     238 :                    ;;; traps, and Zilog's emulator, FPE.O, runs it.
+(1)     238 :
+(1)     238 :                    ;;; Print one 79x25 frame of the Mandelbrot set in float: each point is
+(1)     238 :                    ;;; its escape iteration in hex, or a space if it does not escape in 16.
+(1)     238 :                    ;;; Exits to the debugger when NUL is received.
+(1)     238 :                    fmandel:
+(1)     238 : 2101 FFF4                  ld      r1, #-12
+(1)     23C : 6F01 401C                  ld      vY, r1          ; Y=-12
+(1)     240 :                    fmandel_y:
+(1)     240 : 2101 FFCF                  ld      r1, #-49
+(1)     244 : 6F01 401E                  ld      vX, r1          ; X=-49
+(1)     248 :                    fmandel_x:
+(1)     248 : 6107 401E                  ld      r7, vX
+(1)     24C : B16A                       exts    rr6
+(1)     24E : 8F08 8621                  fldil   f0, rr6
+(1)     252 : 4F04 70B3 0374             fmuld   dbl f0, kCA
+(1)     258 : 4F0C 8001 4000             flds    vCA, f0         ; CA=X*0.0458
+(1)     25E : 4F0C 8001 4008             flds    vA, f0          ; A=CA
+(1)     264 : 6107 401C                  ld      r7, vY
+(1)     268 : B16A                       exts    rr6
+(1)     26A : 8F08 8621                  fldil   f0, rr6
+(1)     26E : 4F04 70B3 037C             fmuld   dbl f0, kCB
+(1)     274 : 4F0C 8001 4004             flds    vCB, f0         ; CB=Y*0.08333
+(1)     27A : 4F0C 8001 400C             flds    vB, f0          ; B=CB
+(1)     280 : 4D08 4020                  clr     vI              ; I=0
+(1)     284 :                    fmandel_i:
+(1)     284 : 4F04 8001 4008             flds    f0, vA
+(1)     28A : 4F0C 8003 4014             fldd    vT, f0
+(1)     290 : 4F04 70B3 4014             fmuld   dbl f0, vT      ; A*A
+(1)     296 : 4F04 8201 400C             flds    f2, vB
+(1)     29C : 4F0C 8203 4014             fldd    vT, f2
+(1)     2A2 : 4F04 72B3 4014             fmuld   dbl f2, vT      ; B*B
+(1)     2A8 : 8E04 7290                  fsub    dbl f0, f2
+(1)     2AC : 4F04 8201 4000             flds    f2, vCA
+(1)     2B2 : 8E04 7280                  fadd    dbl f0, f2
+(1)     2B6 : 4F0C 8001 4010             flds    vN, f0          ; N=A*A-B*B+CA
+(1)     2BC : 4F04 8001 4008             flds    f0, vA
+(1)     2C2 : 8E04 7080                  fadd    dbl f0, f0      ; 2*A
+(1)     2C6 : 4F04 8201 400C             flds    f2, vB
+(1)     2CC : 8E04 72B0                  fmul    dbl f0, f2
+(1)     2D0 : 4F04 8201 4004             flds    f2, vCB
+(1)     2D6 : 8E04 7280                  fadd    dbl f0, f2
+(1)     2DA : 4F0C 8001 400C             flds    vB, f0          ; B=2*A*B+CB
+(1)     2E0 : 4F04 8001 4010             flds    f0, vN
+(1)     2E6 : 4F0C 8001 4008             flds    vA, f0          ; A=N
+(1)     2EC : 4F0C 8003 4014             fldd    vT, f0
+(1)     2F2 : 4F04 70B3 4014             fmuld   dbl f0, vT      ; A*A
+(1)     2F8 : 4F04 8201 400C             flds    f2, vB
+(1)     2FE : 4F0C 8203 4014             fldd    vT, f2
+(1)     304 : 4F04 72B3 4014             fmuld   dbl f2, vT      ; B*B
+(1)     30A : 8E04 7280                  fadd    dbl f0, f2
+(1)     30E : 4F04 8221 0384             fldil   f2, kFour
+(1)     314 : 8E00 4210                  fcpf    f0, f2
+(1)     318 : 8E40 C010                  fldctlb fcb4            ; the comparison to the flags
+(1)     31C : EA09                       jr      gt, print_i     ; if A*A+B*B>4
+(1)     31E : 6900 4020                  inc     vI, #1          ; I+=1
+(1)     322 : 6101 4020                  ld      r1, vI
+(1)     326 : 0B01 0010                  cp      r1, #16
+(1)     32A : E1AC                       jr      lt, fmandel_i   ; if I<16
+(1)     32C : C820                       ldb     rl0, #' '
+(1)     32E : E80A                       jr      print_char
+(1)     330 :                    print_i:
+(1)     330 : 6101 4020                  ld      r1, vI
+(1)     334 : A098                       ldb     rl0, rl1
+(1)     336 : 0A08 0A0A                  cpb     rl0, #10
+(1)     33A : E102                       jr      lt, print_digit
+(1)     33C : 0008 0707                  addb    rl0, #'A'-'0'-10
+(1)     340 :                    print_digit:
+(1)     340 : 0008 3030                  addb    rl0, #'0'
+(1)     344 :                    print_char:
+(1)     344 : 7F02                       sc      #SC_PUTCHAR
+(1)     346 :
+(1)     346 : 7F01                       sc      #SC_GETCHAR
+(1)     348 : EF03                       jr      nc, next_x
+(1)     34A : 8C84                       testb   rl0
+(1)     34C : EE01                       jr      nz, next_x
+(1)     34E :                    halt_to_system:
+(1)     34E : 7FFF                       sc      #SC_EXIT
+(1)     350 :
+(1)     350 :                    next_x:
+(1)     350 : 6900 401E                  inc     vX, #1          ; X+=1
+(1)     354 : 6101 401E                  ld      r1, vX
+(1)     358 : 0B01 001E                  cp      r1, #30
+(1)     35C : 5E01 0248                  jp      lt, fmandel_x   ; if X<30
+(1)     360 : 7F03                       sc      #SC_NEWLINE
+(1)     362 : 6900 401C                  inc     vY, #1          ; Y+=1
+(1)     366 : 6101 401C                  ld      r1, vY
+(1)     36A : 0B01 000D                  cp      r1, #13
+(1)     36E : 5E01 0240                  jp      lt, fmandel_y   ; if Y<13
+(1)     372 : 9E08                       ret
+(1)     374 :
+(1)     374 :                    ;;; doubles 0.0458 and 0.08333, as DRI's compiler rounds them, and the
+(1)     374 :                    ;;; long 4
+(1)     374 : 3FA7 7318 FC50     kCA:    word    3FA7H, 7318H, 0FC50H, 4817H
+        37A : 4817
+(1)     37C : 3FB5 551D 68C6     kCB:    word    3FB5H, 551DH, 68C6H, 92F7H
+        382 : 92F7
+(1)     384 : 0000 0004          kFour:  word    0, 4
+(1)     388 :
+(1)     388 :                    ;;; workspace, in the data area DATA: floats, the double T, then words
+(1)     388 : =4000              vCA:    equ     DATA+00H
+(1)     388 : =4004              vCB:    equ     DATA+04H
+(1)     388 : =4008              vA:     equ     DATA+08H
+(1)     388 : =400C              vB:     equ     DATA+0CH
+(1)     388 : =4010              vN:     equ     DATA+10H
+(1)     388 : =4014              vT:     equ     DATA+14H
+(1)     388 : =401C              vY:     equ     DATA+1CH
+(1)     388 : =401E              vX:     equ     DATA+1EH
+(1)     388 : =4020              vI:     equ     DATA+20H
+        388 :                            include "fpe.inc"
+(1)     388 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     388 :                    ;;; Zilog's Z8070 emulator, FPE.O of CP/M-8000, on the bare Z8002: the
+(1)     388 :                    ;;; extended instruction trap builds the frame FPE takes at fp_epu, the
+(1)     388 :                    ;;; Olivetti M20's, below what the CPU pushed, and what FPE needs of the
+(1)     388 :                    ;;; system follows. One address space: the program's addresses are
+(1)     388 :                    ;;; FPE's.
+(1)     388 :
+(1)     388 :                    ;;; The frame: R0-R13, the normal R14 and R15, the trap's identifier
+(1)     388 :                    ;;; (the instruction's first word), the FCW, the PC's segment and the PC.
+(1)     388 : =0                 FPE_R0:         equ     0
+(1)     388 : =1C                FPE_NR14:       equ     28
+(1)     388 : =1E                FPE_NR15:       equ     30
+(1)     388 : =20                FPE_ID:         equ     32
+(1)     388 : =22                FPE_FCW:        equ     34
+(1)     388 : =24                FPE_PCSEG:      equ     36
+(1)     388 : =26                FPE_PC:         equ     38
+(1)     388 : =4                 FPE_CO:         equ     4       ; FPE's stack above the frame: a word and the call
+(1)     388 :
+(1)     388 :                    fpe_trap:
+(1)     388 : 030F 0022                  sub     r15, #FPE_ID+2  ; the CPU's identifier, FCW and PC at FPE_ID+2
+(1)     38C : 1CF9 000D                  ldm     @r15, r0, #14
+(1)     390 : 6FFE 001C                  ld      FPE_NR14(r15), r14
+(1)     394 : 7D07                       ldctl   r0, nsp
+(1)     396 : 6FF0 001E                  ld      FPE_NR15(r15), r0
+(1)     39A : 61F0 0022                  ld      r0, FPE_ID+2(r15)
+(1)     39E : 6FF0 0020                  ld      FPE_ID(r15), r0
+(1)     3A2 : 61F0 0024                  ld      r0, FPE_FCW+2(r15)
+(1)     3A6 : 6FF0 0022                  ld      FPE_FCW(r15), r0
+(1)     3AA : 4DF8 0024                  clr     FPE_PCSEG(r15)
+(1)     3AE : 0DF9 0000                  push    @r15, #0
+(1)     3B2 : 5F00 59EA                  call    fp_epu          ; runs the instruction, the PC past it
+(1)     3B6 : A9F1                       inc     r15, #2
+(1)     3B8 : 61F0 0022                  ld      r0, FPE_FCW(r15)
+(1)     3BC : 6FF0 0024                  ld      FPE_FCW+2(r15), r0      ; the flags a comparison set
+(1)     3C0 : 1CF1 000D                  ldm     r0, @r15, #14
+(1)     3C4 : 61FE 001C                  ld      r14, FPE_NR14(r15)
+(1)     3C8 : 010F 0022                  add     r15, #FPE_ID+2
+(1)     3CC : 7B00                       iret
+(1)     3CE :
+(1)     3CE :                    ;;; Where the frame keeps R0, the identifier, the FCW and the PC's
+(1)     3CE :                    ;;; segment, as offsets from FPE's stack.
+(1)     3CE : 0004               stareg:         word    FPE_R0+FPE_CO
+(1)     3D0 : 0024               staevnt:        word    FPE_ID+FPE_CO
+(1)     3D2 : 0026               stafcw:         word    FPE_FCW+FPE_CO
+(1)     3D4 : 0028               stapcsg:        word    FPE_PCSEG+FPE_CO
+(1)     3D6 :
+(1)     3D6 :                    ;;; R3=the instruction word at R7, the trapped program's PC.
+(1)     3D6 :                    gettext:
+(1)     3D6 : 2173                       ld      r3, @r7
+(1)     3D8 : 8CA8                       clrb    rl2
+(1)     3DA : 9E08                       ret
+(1)     3DC :
+(1)     3DC :                    ;;; R3 bytes from the program's R7 to FPE's R5, and back.
+(1)     3DC :                    getmem:
+(1)     3DC :                    putmem:
+(1)     3DC : 8D34                       test    r3
+(1)     3DE : 9E06                       ret     z
+(1)     3E0 : 93F3                       push    @r15, r3
+(1)     3E2 : 93F5                       push    @r15, r5
+(1)     3E4 : 93F7                       push    @r15, r7
+(1)     3E6 : BA71 0350                  ldirb   @r5, @r7, r3
+(1)     3EA : 97F7                       pop     r7, @r15
+(1)     3EC : 97F5                       pop     r5, @r15
+(1)     3EE : 97F3                       pop     r3, @r15
+(1)     3F0 : 9E08                       ret
+        3F2 :                            include "io.inc"
+(1)     3F2 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     3F2 :                    ;;; Console through the USART's interrupts: received characters queue
+(1)     3F2 :                    ;;; at rx_queue, characters to send at tx_queue. The USART interrupts on
+(1)     3F2 :                    ;;; VI with identifier RX_ID or TX_ID, which usart.inc defines. The queues
+(1)     3F2 :                    ;;; are offsets in the data area DATA.
+(1)     3F2 : =2000              rx_queue:       equ     2000H
+(1)     3F2 : =80                rx_queue_size:  equ     128
+(1)     3F2 : =2080              tx_queue:       equ     2080H
+(1)     3F2 : =80                tx_queue_size:  equ     128
+(1)     3F2 :
+(1)     3F2 :                    ;;; Initialize the queues and the USART
+(1)     3F2 :                    ;;; @clobber R0 R1
+(1)     3F2 :                    init_io:
+(1)     3F2 : 2101 2000                  ld      r1, #rx_queue
+(1)     3F6 : C880                       ldb     rl0, #rx_queue_size
+(1)     3F8 : 5F00 04FE                  call    queue_init
+(1)     3FC : 2101 2080                  ld      r1, #tx_queue
+(1)     400 : C880                       ldb     rl0, #tx_queue_size
+(1)     402 : 5F00 04FE                  call    queue_init
+(1)     406 : 8C88                       clrb    rl0
+(1)     408 : 3A86 0141                  outb    USARTC, rl0
+(1)     40C : 3A86 0141                  outb    USARTC, rl0
+(1)     410 : 3A86 0141                  outb    USARTC, rl0     ; safest way to sync mode
+(1)     414 : C840                       ldb     rl0, #CMD_IR_bm
+(1)     416 : 3A86 0141                  outb    USARTC, rl0     ; reset
+(1)     41A : 8D07                       nop
+(1)     41C : 8D07                       nop
+(1)     41E : C84E                       ldb     rl0, #ASYNC_MODE
+(1)     420 : 3A86 0141                  outb    USARTC, rl0
+(1)     424 : 8D07                       nop
+(1)     426 : 8D07                       nop
+(1)     428 : C836                       ldb     rl0, #RX_EN_TX_DIS
+(1)     42A : 3A86 0141                  outb    USARTC, rl0
+(1)     42E : C802                       ldb     rl0, #RX_ID
+(1)     430 : 3A86 0142                  outb    USARTRV, rl0    ; RxRDY interrupt identifier
+(1)     434 : C804                       ldb     rl0, #TX_ID
+(1)     436 : 3A86 0143                  outb    USARTTV, rl0    ; TxRDY interrupt identifier
+(1)     43A : 9E08                       ret
+(1)     43C :
+(1)     43C :                    ;;; Get character
+(1)     43C :                    ;;; @return RL0
+(1)     43C :                    ;;; @return FLAGS.C 0 if no character
+(1)     43C :                    getchar:
+(1)     43C : 93F1                       push    @sp, r1
+(1)     43E : 2101 2000                  ld      r1, #rx_queue
+(1)     442 : 7C01                       di      vi
+(1)     444 : 5F00 054C                  call    queue_remove
+(1)     448 : 7C05                       ei      vi
+(1)     44A : 97F1                       pop     r1, @sp
+(1)     44C : 9E08                       ret
+(1)     44E :
+(1)     44E :                    ;;; Put newline
+(1)     44E :                    ;;; @clobber RL0
+(1)     44E :                    newline:
+(1)     44E : C80D                       ldb     rl0, #0DH
+(1)     450 : 5F00 0456                  call    putchar
+(1)     454 : C80A                       ldb     rl0, #0AH
+(1)     456 :                    ;;; Put character
+(1)     456 :                    ;;; @param RL0
+(1)     456 :                    putchar:
+(1)     456 : 93F1                       push    @sp, r1
+(1)     458 : 2101 2080                  ld      r1, #tx_queue
+(1)     45C :                    putchar_retry:
+(1)     45C : 7C01                       di      vi
+(1)     45E : 5F00 0514                  call    queue_add
+(1)     462 : 7C05                       ei      vi
+(1)     464 : EFFB                       jr      nc, putchar_retry ; branch if queue is full
+(1)     466 : 97F1                       pop     r1, @sp
+(1)     468 : 93F0                       push    @sp, r0
+(1)     46A : C837                       ldb     rl0, #RX_EN_TX_EN ; enable Tx
+(1)     46C : 3A86 0141                  outb    USARTC, rl0
+(1)     470 : 97F0                       pop     r0, @sp
+(1)     472 : 9E08                       ret
+(1)     474 :
+(1)     474 :                    ;;; Put space
+(1)     474 :                    ;;; @clobber RL0
+(1)     474 :                    putspace:
+(1)     474 : C820                       ldb     rl0, #' '
+(1)     476 : E8EF                       jr      putchar
+(1)     478 :
+(1)     478 :                    ;;; RxRDY interrupt: queue the received character
+(1)     478 :                    isr_rx:
+(1)     478 : 93F0                       push    @sp, r0
+(1)     47A : 93F1                       push    @sp, r1
+(1)     47C : 3A84 0141                  inb     rl0, USARTS
+(1)     480 : A681                       bitb    rl0, #ST_RxRDY_bp
+(1)     482 : E606                       jr      z, isr_rx_exit
+(1)     484 : 3A84 0140                  inb     rl0, USARTD     ; receive character
+(1)     488 : 2101 2000                  ld      r1, #rx_queue
+(1)     48C : 5F00 0514                  call    queue_add
+(1)     490 :                    isr_rx_exit:
+(1)     490 : 97F1                       pop     r1, @sp
+(1)     492 : 97F0                       pop     r0, @sp
+(1)     494 : 5E08 0586                  jp      isr_return
+(1)     498 :
+(1)     498 :                    ;;; TxRDY interrupt: send the next queued character, or disable Tx
+(1)     498 :                    isr_tx:
+(1)     498 : 93F0                       push    @sp, r0
+(1)     49A : 93F1                       push    @sp, r1
+(1)     49C : 3A84 0141                  inb     rl0, USARTS
+(1)     4A0 : A680                       bitb    rl0, #ST_TxRDY_bp
+(1)     4A2 : E60B                       jr      z, isr_tx_exit
+(1)     4A4 : 2101 2080                  ld      r1, #tx_queue
+(1)     4A8 : 5F00 054C                  call    queue_remove
+(1)     4AC : EF03                       jr      nc, isr_tx_empty
+(1)     4AE : 3A86 0140                  outb    USARTD, rl0     ; send character
+(1)     4B2 : E803                       jr      isr_tx_exit
+(1)     4B4 :                    isr_tx_empty:
+(1)     4B4 : C836                       ldb     rl0, #RX_EN_TX_DIS
+(1)     4B6 : 3A86 0141                  outb    USARTC, rl0     ; disable Tx
+(1)     4BA :                    isr_tx_exit:
+(1)     4BA : 97F1                       pop     r1, @sp
+(1)     4BC : 97F0                       pop     r0, @sp
+(1)     4BE : 5E08 0586                  jp      isr_return
+(1)     4C2 :
+(1)     4C2 :                    ;;; System calls for a program in normal mode, which may not do I/O:
+(1)     4C2 :                    ;;; SC #n with the arguments and results of the routine n names.
+(1)     4C2 : =1                 SC_GETCHAR:     equ     1       ; getchar
+(1)     4C2 : =2                 SC_PUTCHAR:     equ     2       ; putchar
+(1)     4C2 : =3                 SC_NEWLINE:     equ     3       ; newline
+(1)     4C2 :
+(1)     4C2 :                    ;;; The frame lies above R1 pushed here: the SC's identifier at 2, the
+(1)     4C2 :                    ;;; caller's FCW at 4, which getchar's carry goes back in.
+(1)     4C2 :                    isr_sc:
+(1)     4C2 : 93F1                       push    @sp, r1
+(1)     4C4 : 31F1 0002                  ld      r1, sp(#2)      ; SC #n: 7F00H|n
+(1)     4C8 : 0A09 0101                  cpb     rl1, #SC_GETCHAR
+(1)     4CC : E60C                       jr      eq, isr_sc_getchar
+(1)     4CE : 0A09 0202                  cpb     rl1, #SC_PUTCHAR
+(1)     4D2 : E606                       jr      eq, isr_sc_putchar
+(1)     4D4 : 0A09 0303                  cpb     rl1, #SC_NEWLINE
+(1)     4D8 : EE0F                       jr      ne, isr_sc_exit
+(1)     4DA : 5F00 044E                  call    newline
+(1)     4DE : E80C                       jr      isr_sc_exit
+(1)     4E0 :                    isr_sc_putchar:
+(1)     4E0 : 5F00 0456                  call    putchar
+(1)     4E4 : E809                       jr      isr_sc_exit
+(1)     4E6 :                    isr_sc_getchar:
+(1)     4E6 : 5F00 043C                  call    getchar
+(1)     4EA : 31F1 0004                  ld      r1, sp(#4)
+(1)     4EE : A317                       res     r1, #7          ; FCW C
+(1)     4F0 : EF01                       jr      nc, isr_sc_return
+(1)     4F2 : A517                       set     r1, #7
+(1)     4F4 :                    isr_sc_return:
+(1)     4F4 : 33F1 0004                  ld      sp(#4), r1
+(1)     4F8 :                    isr_sc_exit:
+(1)     4F8 : 97F1                       pop     r1, @sp
+(1)     4FA : 5E08 0586                  jp      isr_return
+(1)     4FE :
+(1)     4FE :                            include "queue.inc"
+(2)     4FE :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)     4FE :                    ;;; [queue] queue structure: the queues live in the data area DATA, a
+(2)     4FE :                    ;;; pointer their offset there
+(2)     4FE : =0                 queue_len:      equ     0       ; queue length
+(2)     4FE : =1                 queue_size:     equ     1       ; buffer size
+(2)     4FE : =2                 queue_put:      equ     2       ; queue put index
+(2)     4FE : =3                 queue_get:      equ     3       ; queue get index
+(2)     4FE : =4                 queue_buf:      equ     4       ; buffer start offset
+(2)     4FE :
+(2)     4FE :                    ;;; [queue] Initialize queue
+(2)     4FE :                    ;;; @param R1 queue work space pointer
+(2)     4FE :                    ;;; @param RL0 queue work space size
+(2)     4FE :                    ;;; @clobber RL0
+(2)     4FE :                    queue_init:
+(2)     4FE : 4C18 4000                  clrb    DATA+queue_len(r1)
+(2)     502 : 0208 0404                  subb    rl0, #queue_buf
+(2)     506 : 6E18 4001                  ldb     DATA+queue_size(r1), rl0
+(2)     50A : 4C18 4002                  clrb    DATA+queue_put(r1)
+(2)     50E : 4C18 4003                  clrb    DATA+queue_get(r1)
+(2)     512 : 9E08                       ret
+(2)     514 :
+(2)     514 :                    ;;; [queue] Add an element to queue
+(2)     514 :                    ;;; @param R1 queue work space pointer
+(2)     514 :                    ;;; @param RL0 an element
+(2)     514 :                    ;;; @return FLAGS.C 0 if queue is full
+(2)     514 :                    queue_add:
+(2)     514 : 93F2                       push    @sp, r2
+(2)     516 : 601A 4000                  ldb     rl2, DATA+queue_len(r1)
+(2)     51A : 4A1A 4001                  cpb     rl2, DATA+queue_size(r1)
+(2)     51E : E703                       jr      c, queue_add_store ; queue_len < queue_size
+(2)     520 : 97F2                       pop     r2, @sp
+(2)     522 : 8D83                       resflg  c
+(2)     524 : 9E08                       ret
+(2)     526 :                    queue_add_store:
+(2)     526 : 6810 4000                  incb    DATA+queue_len(r1), #1
+(2)     52A : 8D28                       clr     r2
+(2)     52C : 601A 4002                  ldb     rl2, DATA+queue_put(r1)
+(2)     530 : 8112                       add     r2, r1
+(2)     532 : 6E28 4004                  ldb     DATA+queue_buf(r2), rl0 ; store an element
+(2)     536 : 8312                       sub     r2, r1
+(2)     538 : A8A0                       incb    rl2, #1            ; queue_put++
+(2)     53A : 4A1A 4001                  cpb     rl2, DATA+queue_size(r1)
+(2)     53E : E701                       jr      c, queue_add_update ; queue_put < queue_size
+(2)     540 : 8CA8                       clrb    rl2                 ; wrap around
+(2)     542 :                    queue_add_update:
+(2)     542 : 6E1A 4002                  ldb     DATA+queue_put(r1), rl2
+(2)     546 : 97F2                       pop     r2, @sp
+(2)     548 : 8D81                       setflg  c
+(2)     54A : 9E08                       ret
+(2)     54C :
+(2)     54C :                    ;;; [queue] Remove an element from queue
+(2)     54C :                    ;;; @param R1 queue work space pointer
+(2)     54C :                    ;;; @return RL0 an element
+(2)     54C :                    ;;; @return FLAGS.C 0 if queue is empty
+(2)     54C :                    queue_remove:
+(2)     54C : 4C14 4000                  testb   DATA+queue_len(r1)
+(2)     550 : EE02                       jr      nz, queue_remove_elem
+(2)     552 : 8D83                       resflg  c
+(2)     554 : 9E08                       ret
+(2)     556 :                    queue_remove_elem:
+(2)     556 : 93F2                       push    @sp, r2
+(2)     558 : 6A10 4000                  decb    DATA+queue_len(r1), #1
+(2)     55C : 8D28                       clr     r2
+(2)     55E : 601A 4003                  ldb     rl2, DATA+queue_get(r1)
+(2)     562 : 8112                       add     r2, r1
+(2)     564 : 6028 4004                  ldb     rl0, DATA+queue_buf(r2) ; read an element
+(2)     568 : 8312                       sub     r2, r1
+(2)     56A : A8A0                       incb    rl2, #1            ; queue_get++
+(2)     56C : 4A1A 4001                  cpb     rl2, DATA+queue_size(r1)
+(2)     570 : E701                       jr      c, queue_remove_update ; queue_get < queue_size
+(2)     572 : 8CA8                       clrb    rl2                    ; wrap around
+(2)     574 :                    queue_remove_update:
+(2)     574 : 6E1A 4003                  ldb     DATA+queue_get(r1), rl2
+(2)     578 : 97F2                       pop     r2, @sp
+(2)     57A : 8D81                       setflg  c
+(2)     57C : 9E08                       ret
+        57E :                            include "queue_wait.inc"
+(1)     57E :                    ;;; [queue] Wait until queue is empty
+(1)     57E :                    ;;; @param R1 queue work space pointer
+(1)     57E :                    queue_wait_empty:
+(1)     57E : 4C14 4000                  testb   DATA+queue_len(r1)
+(1)     582 : EEFD                       jr      nz, queue_wait_empty
+(1)     584 : 9E08                       ret
+        586 :
+        586 :                    ;;; Return from an interrupt handler.
+        586 :                    isr_return:
+        586 : 7B00                       iret

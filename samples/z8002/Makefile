@@ -1,12 +1,13 @@
 ASM=asm
 
 .PHONY: clean distclean cpm8000 pcpm8000 cpm8000-sd pcpm8000-sd \
-	pcpm8000-build
+	pcpm8000-build fmandel
 
 # The samples and the CP/M-8000 BIOSes; the systems and their disks are
 # `make cpm8000` and `make pcpm8000`.
 all: echo.hex echoir.hex echoitr.hex arith.hex mandelbrot.hex \
-	cpm8000.lst cpm8000bios.hex cpm8000glue.hex pcpm8000bios.hex
+	cpm8000.lst cpm8000bios.hex cpm8000glue.hex pcpm8000bios.hex fpefix.hex \
+	fmandel.ihx
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<
@@ -135,14 +136,40 @@ pcpm8002a.dsk: cpm8002a.dsk
 pcpm8002b.dsk: $(CPM8000B)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM8000B)
 
+# samples/arith/fmandel.c in Z8070 instructions for L fmandel.hex:
+# fmandel.asm, assembled to fmandel.ihx, linked by xout-link.py with
+# Zilog's emulator, FPE.O, at 5000H, which takes the extended
+# instruction trap, fixed by fpefix.hex. `make fmandel` makes it,
+# fetching DRI's files once.
+FPE_ORG = 0x5000
+FPE_PROVIDES = $(addprefix --provide ,gettext getmem putmem stareg staevnt \
+	stafcw stapcsg)
+
+fmandel: fmandel.hex
+
+# FPE's entry and the instruction fpefix.hex replaces, remade only once
+# DRI's files are fetched.
+fpesys.inc: $(if $(wildcard $(CPM8000)/.fetched),$(CPM8000)/.fetched $(LINK))
+	$(LINK) --org $(FPE_ORG) $(FPE_PROVIDES) --map $@.map $(CPM8000)/FPE.O
+	grep -e '^;;; [Ms]' -e '^fp_epu:' -e '^fpepu553:' $@.map > $@
+	rm -f $@.map
+fmandel.ihx fpefix.hex: fpesys.inc
+
+fmandel.ihx: fmandel.asm fmandel8070.inc fpe.inc z8002.inc usart.inc io.inc queue_wait.inc
+	$(ASM) -l fmandel.lst -o $@ $<
+
+fmandel.hex: fmandel.ihx fpefix.hex $(CPM8000)/.fetched $(LINK)
+	$(LINK) --symbols fmandel.lst --org $(FPE_ORG) --patch fpefix.hex \
+	    --overlay fmandel.ihx -o $@ $(CPM8000)/FPE.O
+
 clean:
-	-rm -f *.lst *.hex
+	-rm -f *.lst *.hex *.ihx
 
 # Everything not in the repository, and nothing that is: the systems, the
 # disks, the build tree, DRI's files the fetch downloaded and the
 # objects the board built.
 distclean:
-	-rm -f cpm8002.hex pcpm8002.hex bld8002.hex *.dsk imandel.inc fmandel.inc
+	-rm -f cpm8002.hex pcpm8002.hex bld8002.hex fmandel.hex fmandel.ihx *.dsk imandel.inc fmandel.inc
 	-rm -rf bld8002 $(CPM8000) $(CPM8012)
 
 include ../deps.mk
