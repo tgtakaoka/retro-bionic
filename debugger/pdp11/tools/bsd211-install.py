@@ -12,7 +12,8 @@ the tape, the boot block, /usr and the sources by tar, the mounts in
 the kernel is to look for. Each FILE goes into /usr/root, from a tar on
 a second tape. Then boots the disk from its block 0 as the board will,
 to the single-user prompt, and halts. IMAGE is the RD54's 311200
-blocks; IMAGE.log is the console's transcript.
+blocks; IMAGE.log is the console's transcript, which goes to stdout
+too.
 """
 import io
 import os
@@ -47,6 +48,22 @@ def tape_of(files, path):
                       struct.pack('<I', RECORD))
         out.write(struct.pack('<I', 0) * 2)
 
+
+class Tee:
+    """The console to the log and to stdout."""
+
+    def __init__(self, *files):
+        self.files = files
+
+    def write(self, data):
+        for f in self.files:
+            f.write(data)
+
+    def flush(self):
+        for f in self.files:
+            f.flush()
+
+
 ROOT_BLOCKS = 15884
 SWAP_BLOCKS = 16720
 
@@ -56,14 +73,15 @@ def main(argv):
         sys.exit(__doc__)
     pdp11, tape, image = argv[:3]
     files = argv[3:]
-    pdp11, tape = os.path.abspath(pdp11), os.path.abspath(tape)
-    files_tape = os.path.abspath(image + '.files.tap')
+    # Relative paths, as the simulator's console shows them.
+    pdp11, tape = os.path.relpath(pdp11), os.path.relpath(tape)
+    files_tape = os.path.relpath(image + '.files.tap')
     if files:
         tape_of(files, files_tape)
-    new = os.path.abspath(image + '.new')
+    new = os.path.relpath(image + '.new')
     if os.path.exists(new):
         os.remove(new)
-    ini = os.path.abspath(image + '.ini')
+    ini = os.path.relpath(image + '.ini')
     with open(ini, 'w') as f:
         f.write(f"""set cpu 11/73
 set cpu 4m
@@ -80,18 +98,23 @@ set rx disable
 set tq disable
 set xq disable
 set dz disable
-attach rq0 {new}
-attach -r ts0 {tape}
 """)
     log = open(image + '.log', 'wb')
+    out = Tee(log, sys.stdout.buffer)
     t0 = time.time()
 
     def mark(what):
-        print(f'{time.time() - t0:6.0f} s  {what}', flush=True)
+        out.write(f'\n[{time.time() - t0:.0f} s  {what}]\n'.encode())
+        out.flush()
 
-    c = pexpect.spawn(pdp11, [ini], timeout=600, logfile=log, encoding=None)
-    c.expect(rb'sim> ')
-    c.sendline(b'boot ts0')
+    print('+', pdp11, ini, flush=True)
+    c = pexpect.spawn(pdp11, [ini], timeout=600, encoding=None)
+    c.logfile_read = out
+    # At the prompt, not in the ini, whose lines the simulator echoes with
+    # its absolute path.
+    for cmd in (f'attach rq0 {new}', f'attach -r ts0 {tape}', 'boot ts0'):
+        c.expect(rb'sim> ')
+        c.sendline(cmd.encode())
     c.expect(rb'Boot from ts\(0,0,0\) at 017252[02]')
     c.expect(rb': ')
     mark('tape boot')
@@ -240,12 +263,12 @@ attach -r ts0 {tape}
     c.expect(rb'sim> ', timeout=120)
     c.sendline(b'exit')
     c.expect(pexpect.EOF)
-    log.close()
     os.remove(ini)
     if files:
         os.remove(files_tape)
     os.replace(new, image)
     mark(f'{image} written')
+    log.close()
 
 
 if __name__ == '__main__':
