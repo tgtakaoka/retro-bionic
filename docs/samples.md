@@ -94,7 +94,7 @@ Z380's address mask register, so its memory wraps at 64K as CP/M's programs expe
 
 On a V20 or V30, `L v30/cpm80.hex` loads a native harness that enters 8080
 emulation at 1000:0000 with the 8080's cold boot, and mounts `v30/cpm80a.dsk`, a copy
-of the 8080's (`make` in `samples/v30`).
+of the 8080's (`make cpm80` in `samples/v30`).
 
 **BDS C** (public domain, [bdsoft.com](https://www.bdsoft.com/resources/bdsc.html))
 compiles on the 8080; A: has `bdsc160/`'s files from `bdsc-all.zip` and
