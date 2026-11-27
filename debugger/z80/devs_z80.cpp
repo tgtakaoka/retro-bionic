@@ -6,7 +6,10 @@
 namespace debugger {
 
 DevsZ80::DevsZ80(uint16_t addr, const Mems *mems)
-    : _usart(new I8251()), _disk(mems ? new Cpm80Disk(mems) : nullptr) {
+    : DevsZ80(addr, mems ? new Cpm80Disk(mems) : nullptr) {}
+
+DevsZ80::DevsZ80(uint16_t addr, SectorDisk *disk)
+    : _usart(new I8251()), _disk(disk) {
     _usart->setBaseAddr(addr);
     if (_disk)
         _disk->setBaseAddr(addr + 0x10);

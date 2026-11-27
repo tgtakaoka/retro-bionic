@@ -8,9 +8,9 @@
 namespace debugger {
 
 struct Mems;
-struct Cpm80Disk;
+struct SectorDisk;
 
-struct DevsZ80 final : Devs {
+struct DevsZ80 : Devs {
     // With |mems|, the CP/M disk is there too, 10H above the USART.
     DevsZ80(uint16_t addr = USART_BASE, const Mems *mems = nullptr);
     ~DevsZ80();
@@ -26,11 +26,15 @@ struct DevsZ80 final : Devs {
     Device *parseDevice(const char *name) const override;
     void enableDevice(Device *dev) override;
     void printDevices() const override;
+    // With |disk|, owned, 10H above the USART: a target with its own
+    // sector disk, such as the Z8000.
+    DevsZ80(uint16_t addr, SectorDisk *disk);
+
     Disk *disk() const override;
 
 private:
     Device *_usart;
-    Cpm80Disk *_disk;
+    SectorDisk *_disk;
 };
 
 }  // namespace debugger

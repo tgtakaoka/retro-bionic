@@ -57,6 +57,12 @@ struct Signals final : SignalsBase<Signals> {
     bool byteAccess() const { return bw(); }
     bool wordAccess() const { return !bw(); }
     bool systemMode() const { return !ns(); }
+    // An instruction or program-space read, as against a data or stack
+    // access: which 64K a split instruction/data program reaches.
+    bool programSpace() const {
+        const auto status = st();
+        return status == ST_PROGRAM || status == ST_FETCH;
+    }
     // Z8001 cycles carry seg<<16|off addresses.
     bool segmented() const { return !(_signals[2] & NONSEG); }
 

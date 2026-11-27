@@ -45,6 +45,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | CP/M 2.2, in 8080 emulation | P8086 with a V20 or V30 | `v30/cpm80.hex` | A: and B:, sector disk at 50H | |
 | [CP/M-86 1.1](#cpm-86-on-the-8086) | P8086, D8087 | `i8086/cpm86.hex` | A: and B:, sector disk at 50H | [80C86](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86.cast), [80C86 and 8087](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86_8087.cast) |
 | [CP/M-68K 1.3](#cpm-68k-on-the-68000) | MC68000P, MC68000FN, MC68008P, MC68008FN | `mc68000/cpm68k.s19` | A: and B:, sector disk at FFFFE0H | [MC68000P](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k_mc68000p.cast) |
+| [CP/M-8000 1.1](#cpm-8000-on-the-z8002) | Z8002 | `z8002/cpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/cpm8000.cast) |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -366,6 +367,59 @@ kernel, from Elliott's 2.00 tree, which gives the release's MSDOS.SYS with MASM 
 MASM 5.10 makes it 3 bytes shorter: it encodes three `AND reg,imm16` whose immediates
 fit in a byte in the short form, and everything else only moves.
 The 2.0 disks themselves need no board: `make msdos200` builds them on the host.
+
+## CP/M-8000 on the Z8002
+
+[`samples/z8002/cpm8000bios.asm`](../samples/z8002/cpm8000bios.asm) is a CP/M-8000 1.1
+BIOS for the Z8002: the console on the i8251 at 0140H and four drives on the sector
+disk at 0150H, both polled. The kernel is DRI's `CPMSYS.REL`, the CCP and BDOS as one
+relocatable object, which
+[`debugger/z8000/tools/xout-link.py`](../debugger/z8000/tools/xout-link.py) links with
+what it needs from `LIBCPM.A` above the BIOS, writing the Z8002 forms of its trap glue from
+[`cpm8000glue.asm`](../samples/z8002/cpm8000glue.asm) over the Z8001 ones DRI shipped
+(see [docs/arch/z8000.md](arch/z8000.md)). `L` loads kernel and BIOS from one HEX file;
+no system tracks are read.
+
+DRI's files stay out of the repository: `make cpm8000` downloads
+[cpm8k11.zip](http://www.cpm.z80.de/download/cpm8k11.zip) with
+`debugger/z8000/tools/cpm8000-fetch.py` into `samples/z8002/cpm8000.fetch/`
+([license](http://www.cpm.z80.de/license.html)), checks its sha256, keeps it in
+`cpm8000.fetch/dl/` so later builds work offline, and makes `cpm8002.hex`,
+`cpm8002a.dsk` and `cpm8002b.dsk`:
+
+```sh
+cd samples/z8002
+make cpm8000
+make cpm8000-sd
+```
+
+`make cpm8000-sd`, with the Z8002's bench locked or the only one on USB, puts them in
+`z8002/` on its SD card, B: only onto a card without one, so files saved there stay,
+unless `NEWB=1`; or copy them there by hand. `L z8002/cpm8002.hex` mounts both disks
+beside it; `R`, then `G` boots to `A>`. A: is an 8 MB `hd8` with DRI's tools, B: one
+with `imandel.c`. `make` alone builds the samples and the BIOS, `make clean` removes
+what it built, and `make distclean` everything not in the repository, and nothing that
+is: the system, the disks and the downloads.
+
+The TPA is the 34K below the BIOS, and a program is linked at 0, where the reset
+vector is: after a program has run, `L` the system again before `R`. The program's
+stack and base page take the top of memory, above the kernel. PIP, STAT and DUMP
+run there. ED, the C compiler, assembler and linker are split instruction and data
+programs: the BIOS gives each a 64K code segment and a 64K data segment of its own
+through the debugger's split I/D device at 0160H (see
+[docs/arch/z8000.md](arch/z8000.md)), so they run too, and C programs build on the
+board:
+
+```
+A>ZCC -C -M1 B:IMANDEL.C
+A>LD8K -W -I -O B:IMANDEL.Z8K STARTUP.O B:IMANDEL.O -LCPM
+A>B:IMANDEL
+```
+
+draws the integer mandelbrot: [`imandel.c`](../samples/z8002/imandel.c) includes
+`samples/arith/imandel.c` as `IMANDEL.INC`, adding the `stdio.h` DRI's `putchar` needs.
+DRI's C compiles `float` to Z8070 instructions, which no board here runs, so `fmandel.c`
+is not on B:. DDT is a 58K program that is not split, which the 34K TPA cannot hold.
 
 ## Unix V6 on the DCJ11
 

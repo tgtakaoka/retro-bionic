@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pins the CP/M disk layout that samples/i8080/cpm80bios.asm,
-samples/i8086/cpm86bios.asm, scripts/cpm-disk.py and
-debugger/sector_disk.cpp share.
+samples/i8086/cpm86bios.asm, samples/z8002/cpm8000bios.asm,
+scripts/cpm-disk.py and debugger/sector_disk.cpp share.
 
     python3 -m unittest discover -s test/cpm
 """
@@ -14,6 +14,7 @@ import unittest
 PROJ = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SAMPLES = os.path.join(PROJ, 'samples', 'i8080')
 SAMPLES86 = os.path.join(PROJ, 'samples', 'i8086')
+SAMPLES8000 = os.path.join(PROJ, 'samples', 'z8002')
 
 spec = importlib.util.spec_from_file_location(
     'cpm_disk', os.path.join(PROJ, 'scripts', 'cpm-disk.py'))
@@ -35,11 +36,13 @@ def labels(lst):
     found = {}
     with open(lst) as f:
         lines = f.readlines()
+    # The address, or an EQU's value after '=', before byte or word
+    # columns and the label.
     for line in lines:
-        m = re.match(r'(?:\(\d+\))?\s*([0-9A-F]{4}) :\s+(?:[0-9A-F]{2} )*\s*(\w+):',
-                     line)
+        m = re.match(r'(?:\(\d+\))?\s*([0-9A-F]{1,8}) :\s+(?:=([0-9A-F]+)\s+)?'
+                     r'(?:[0-9A-F]{2,4} )*\s*(\w+):', line)
         if m:
-            found[m.group(2)] = int(m.group(1), 16)
+            found[m.group(3)] = int(m.group(2) or m.group(1), 16)
     return found
 
 
@@ -96,6 +99,53 @@ class BiosTables(unittest.TestCase):
                         top = max(top, ((rec[1] << 8) | rec[2]) + rec[0])
             self.assertLessEqual(top, at['dirbuf'])
             self.assertLessEqual(top, 0xFA00 + 7 * 128)
+
+
+class Bios8000Tables(unittest.TestCase):
+    # Big-endian words; a DPB is CP/M-68K's layout, then the physical
+    # sector shift and mask.
+    def setUp(self):
+        self.mem = memory(os.path.join(SAMPLES8000, 'cpm8000bios.hex'))
+        self.at = labels(os.path.join(SAMPLES8000, 'cpm8000bios.lst'))
+
+    def word(self, at):
+        return self.mem[at] << 8 | self.mem[at + 1]
+
+    def test_skew(self):
+        xlt = self.at['xlt']
+        self.assertEqual(list(self.mem[xlt:xlt + 26]), DRI_TRANS)
+
+    def test_dpb(self):
+        dpb = self.at['dpb']
+        self.assertEqual(bytes(self.mem[dpb:dpb + 16]), bytes(
+            [0, 26, 3, 7, 0, 0, 0, 242, 0, 63, 0xC0, 0, 0, 16, 0, 2]))
+
+    def test_hd8_dpb(self):
+        dpb = self.at['dpb_hd8']
+        self.assertEqual(bytes(self.mem[dpb:dpb + 16]), bytes(
+            [1, 0, 6, 63, 3, 0, 0x03, 0xF7, 0x03, 0xFF, 0xF0, 0, 0, 0, 0, 2]))
+
+    def test_alv_fits_hd8(self):
+        # A 16-byte DPH with 16-bit pointers, ALV last.
+        alv = [self.word(self.at['dph0'] + 16 * d + 14) for d in range(4)]
+        self.assertEqual(alv[0], self.at['alv'])
+        self.assertTrue(all(b - a >= 1015 // 8 + 1 for a, b in zip(alv, alv[1:])))
+        self.assertLessEqual(self.at['bss_end'], self.at['SYSSTK'] - 1024)
+
+    def test_reset_vector(self):
+        # The debugger serves the FCW at 0002H; the PC at 0004H starts the BIOS.
+        self.assertEqual(self.word(4), self.at['start'])
+
+    def test_layout(self):
+        # The TPA ends at the BIOS, whose PSA is on a 256-byte boundary;
+        # the kernel the link lays out follows the system stack, and ends
+        # below the program's stack and base page at FD00H.
+        self.assertEqual(self.at['PSA'] & 0xFF, 0)
+        self.assertEqual(self.word(self.at['mrt'] + 8), self.at['BIOS_ORG'])
+        self.assertLessEqual(self.at['bss_end'], self.at['SYSSTK'] - 1024)
+        with open(os.path.join(SAMPLES8000, 'cpm8000sys.inc')) as f:
+            end = int(re.search(r'ending at ([0-9A-F]+)H', f.read()).group(1), 16)
+        self.assertLessEqual(end, 0xFD00 - 1024)
 
 
 class Bios86Tables(unittest.TestCase):
