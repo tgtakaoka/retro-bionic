@@ -3,8 +3,8 @@
 
     debugger/z8000/tools/xout-link.py --org ADDR [--symbols LISTING...]
         [--define NAME=VALUE...] [--provide NAME...] [--patch HEX...]
-        [--keep NAME...] [--overlay HEX...] [--map OUT.inc] [-o OUT.hex]
-        OBJECT... [ARCHIVE...]
+        [--keep NAME...] [--overlay HEX...] [--map OUT.inc] [--export NAME...]
+        [-o OUT.hex] OBJECT... [ARCHIVE...]
 
 The objects are DRI's relocatable x.out files (xout.h of the P-CP/M-Z8K
 sources), such as CP/M-8000 1.1's CPMSYS.REL, and the archives ar8k's,
@@ -22,8 +22,8 @@ name one of them. --patch writes a HEX file's bytes over the kernel's, which is 
 the Z8002 glue replaces its routines, and --keep names a symbol a patch
 must not reach; --overlay adds a HEX file, the BIOS, where the kernel
 has nothing. --map writes the first object's symbols, its commons too, as EQUs
-for the BIOS to include; with --map alone, undefined symbols are
-allowed.
+for the BIOS to include, and each --export NAME, a global of another
+object; with --map alone, undefined symbols are allowed.
 
 Only non-segmented objects link: a segmented relocation stops the link.
 """
@@ -164,13 +164,14 @@ def main(argv):
     patches = []
     keeps = []
     provides = set()
+    exports = set()
     overlays = []
     files = []
     i = 0
     while i < len(argv):
         arg = argv[i]
         if arg in ('--org', '-o', '--map', '--symbols', '--define', '--provide',
-                   '--patch', '--keep', '--overlay'):
+                   '--patch', '--keep', '--overlay', '--export'):
             i += 1
             if i >= len(argv):
                 sys.exit(__doc__)
@@ -192,6 +193,8 @@ def main(argv):
                 patches.append(val)
             elif arg == '--keep':
                 keeps.append(val)
+            elif arg == '--export':
+                exports.add(val)
             else:
                 overlays.append(val)
         elif arg.startswith('-'):
@@ -335,7 +338,7 @@ def main(argv):
                     f';;; symbols of the system linked at {org:04X}H,'
                     f' ending at {end:04X}H.\n')
             for name, value in sorted(symbols.items(), key=lambda kv: kv[1]):
-                if name in exported and name not in provided:
+                if (name in exported or name in exports) and name not in provided:
                     f.write(f'{name}:\tequ\t0{value:04X}H\n')
             f.write(';;; The kernel\'s locals.\n')
             for name, value in sorted(locals_.items(), key=lambda kv: kv[1] or 0):

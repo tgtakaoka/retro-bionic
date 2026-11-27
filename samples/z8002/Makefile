@@ -30,9 +30,12 @@ cpm8000-sd: cpm8000
 
 FETCH = ../../debugger/z8000/tools/cpm8000-fetch.py
 LINK = ../../debugger/z8000/tools/xout-link.py
-KERNEL = $(CPM8000)/CPMSYS.REL $(CPM8000)/LIBCPM.A
+# The kernel and Zilog's Z8070 emulator, which takes the extended
+# instruction trap.
+KERNEL = $(CPM8000)/CPMSYS.REL $(CPM8000)/FPE.O $(CPM8000)/LIBCPM.A
 # What the BIOS defines for the kernel.
-PROVIDES = $(addprefix --provide ,_bios _bdos _map_adr _mem_cpy _xfer _sysseg)
+PROVIDES = $(addprefix --provide ,_bios _bdos _map_adr _mem_cpy _xfer _sysseg \
+	gettext getmem putmem stareg staevnt stafcw stapcsg)
 
 $(CPM8000)/.fetched: $(FETCH)
 	$(FETCH) $(CPM8000)
@@ -44,7 +47,8 @@ cpm8000.lst: cpm8000.inc z8002.inc
 # The kernel's symbols, which the BIOS and the glue include, remade only
 # once DRI's files are fetched, so `make all` downloads nothing.
 cpm8000sys.inc: $(if $(wildcard $(CPM8000)/.fetched),cpm8000.lst $(CPM8000)/.fetched $(LINK))
-	$(LINK) --symbols cpm8000.lst --org SYSTEM $(PROVIDES) --map $@ $(KERNEL)
+	$(LINK) --symbols cpm8000.lst --org SYSTEM $(PROVIDES) --export fp_epu \
+	    --map $@ $(KERNEL)
 cpm8000bios.hex cpm8000glue.hex: cpm8000sys.inc
 
 # The link checks the BIOS listing's copy of every kernel symbol against
@@ -55,18 +59,17 @@ cpm8002.hex: cpm8000bios.hex cpm8000glue.hex cpm8000.lst $(CPM8000)/.fetched $(L
 	    --overlay cpm8000bios.hex -o $@ $(KERNEL)
 
 # A: holds DRI's tools, the files in $(CPM8000)/a/; B: is the user disk,
-# with imandel.c, which includes ../arith/imandel.c as imandel.inc,
-# adding the stdio.h DRI's putchar needs. Both are 8 MB hd8 disks. DRI's
-# C compiles float to Z8070 instructions, which no Z8002 board here
-# runs, so fmandel.c stays off.
+# with imandel.c and fmandel.c, which include ../arith/imandel.c and
+# fmandel.c as imandel.inc and fmandel.inc, adding the stdio.h DRI's
+# putchar needs. Both are 8 MB hd8 disks.
 cpm8002a.dsk: $(CPM8000)/.fetched
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM8000)/a/*
 
-CPM8000B = imandel.c imandel.inc
+CPM8000B = imandel.c imandel.inc fmandel.c fmandel.inc
 cpm8002b.dsk: $(CPM8000B)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM8000B)
 
-imandel.inc: ../arith/imandel.c
+imandel.inc fmandel.inc: %.inc: ../arith/%.c
 	cp $< $@
 
 # CP/M-8000 1.2 for L pcpm8002.hex: the CCP and BDOS of P-CP/M-Z8K's
@@ -90,13 +93,13 @@ pcpm8000-sd: pcpm8000
 BUILD8000 = ../../debugger/z8000/tools/pcpm8000-build.py
 KERNEL12 = $(addprefix $(CPM8012)/,$(addsuffix .o,ccpif ccp go bdosif2 \
 	exceptn2 bdosmain bdosmisc bdosrw conbdos dskutil fileio iosys pgmld)) \
-	$(CPM8000)/LIBCPM.A
+	$(CPM8000)/FPE.O $(CPM8000)/LIBCPM.A
 
 $(CPM8000)/.fetched-source: $(FETCH)
 	$(FETCH) --source $(CPM8000)
 
 bld8002/.tree: $(CPM8000)/.fetched-source $(CPM8000)/.fetched $(BUILD8000)
-	$(BUILD8000) tree $(CPM8000) $(@D)
+	$(BUILD8000) tree Z8002 $(CPM8000) $(@D)
 
 bld8002.hex: cpm8002.hex
 	cp $< $@
@@ -109,7 +112,7 @@ bld8002a.dsk: bld8002/.tree
 # just for it.
 .SECONDARY: bld8002/.tree bld8002a.dsk bld8002.hex
 $(CPM8012)/.built: bld8002a.dsk | bld8002.hex
-	$(BUILD8000) bench $(CPM8012)
+	$(BUILD8000) bench Z8002 $(CPM8012)
 
 pcpm8000-build: $(CPM8012)/.built
 
@@ -118,7 +121,7 @@ pcpm8000-build: $(CPM8012)/.built
 # segment from the BIOS.
 pcpm8000sys.inc: $(if $(wildcard $(CPM8012)/.built),cpm8000.lst $(KERNEL12) $(LINK))
 	$(LINK) --symbols cpm8000.lst --org SYSTEM $(PROVIDES) \
-	    --provide _usrseg --map $@ $(KERNEL12)
+	    --provide _usrseg --export fp_epu --map $@ $(KERNEL12)
 pcpm8000bios.hex: pcpm8000sys.inc
 
 pcpm8002.hex: pcpm8000bios.hex cpm8000.lst $(CPM8012)/.built $(CPM8000)/.fetched \
@@ -139,7 +142,7 @@ clean:
 # disks, the build tree, DRI's files the fetch downloaded and the
 # objects the board built.
 distclean:
-	-rm -f cpm8002.hex pcpm8002.hex bld8002.hex *.dsk imandel.inc
+	-rm -f cpm8002.hex pcpm8002.hex bld8002.hex *.dsk imandel.inc fmandel.inc
 	-rm -rf bld8002 $(CPM8000) $(CPM8012)
 
 include ../deps.mk

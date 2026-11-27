@@ -11,8 +11,8 @@
 ;;; it. So the BIOS comes first, the kernel, CCP and BDOS as DRI linked
 ;;; them with its commons linked after it at SYSTEM by xout-link.py, and
 ;;; the memory above the kernel is the program's stack.
-BIOS_ORG:       equ     8800H
-SYSTEM:         equ     9800H
+BIOS_ORG:       equ     7400H
+SYSTEM:         equ     8400H
 TPA_SIZE:       equ     BIOS_ORG
 ;;; The Program Status Area, on a 256-byte boundary: FCW and PC pairs
 ;;; through the vectored interrupts' table, identifiers 0 to 15.
