@@ -74,6 +74,10 @@ struct DiskCache {
     // slots go: the blocks of the range then cached, those already in
     // counted. For the prompt, not a bus cycle.
     uint32_t preload(uint8_t file, uint32_t at, uint32_t len);
+    // The bytes [at, at+len) of |file| in the arena, for a copy that
+    // never touches the card: null when one cached block does not hold
+    // them all. |dirty| marks the block written, under write-back only.
+    uint8_t *cached(uint8_t file, uint32_t at, uint16_t len, bool dirty);
     // Slots never filled, or freed since.
     uint32_t free() const { return _free; }
     // Forgets the blocks over [at, at+len): the caller wrote the store

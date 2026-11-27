@@ -40,6 +40,9 @@ protected:
     // exactly that size; false when none fits.
     virtual bool place(uint8_t unit, uint32_t bytes,
             const DiskGeometry *&format, uint32_t &offset) const;
+    // Whether a mount grows a short image to its format's size at once,
+    // for a controller that cannot grow it inside a bus cycle.
+    virtual bool reserveOnMount() const { return false; }
     // Mounts |path| on |unit|, placed by its size. Prints
     // the drive's line when it mounts, or that the unit's previous image
     // is unmounted when it does not.

@@ -25,6 +25,10 @@ union {
 
 }  // namespace
 
+uint8_t *DmaMemory::byteAt(uint32_t addr) {
+    return addr < MEM_SIZE ? &DMA_MEMORY.BYTE[addr] : nullptr;
+}
+
 uint16_t DmaMemory::read_byte(uint32_t byte_addr) const {
     return byte_addr < MEM_SIZE ? DMA_MEMORY.BYTE[byte_addr] : 0;
 }

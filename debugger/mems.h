@@ -160,6 +160,8 @@ struct DmaMemory : Mems {
     void write_word(uint32_t addr, uint16_t data) const override;
     Area cacheArea() const override;
     void writeBack(uint32_t byte_addr, uint32_t len) const override;
+    // The byte at |addr| itself, for a DMA engine; null past the end.
+    static uint8_t *byteAt(uint32_t addr);
 
     static constexpr uint32_t MEM_SIZE = 128U * 1024U;
 
