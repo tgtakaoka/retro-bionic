@@ -374,12 +374,14 @@ the image's slots.
 
 ```sh
 cd samples/dcj11
-make unix_v6.dsk
+make unix_v6
+make unix_v6-sd
 ```
 
-does all of it in under a minute, and the image goes to the card over the console
-(`scripts/bionic-control.py sd put unix_v6.dsk dcj11/unix_v6.dsk`, and `unix_v6.hex`
-to `dcj11/unix_v6.hex` beside it).
+does all of it in under a minute, and puts `unix_v6.hex` and the image in `dcj11/` on
+the SD card of the bench the session holds, once `probe` finds a DCJ11 at its prompt.
+The disk holds the user's files too, so it goes only onto a card without one; `NEWB=1`
+replaces it.
 
 `L dcj11/unix_v6.hex`, `R`, `G`, Enter, then `unix` at the bootstrap's `@` boots single-user to `#`; `stty
 -lcase` makes the console lower-case. `/usr/mandel` holds
@@ -420,14 +422,14 @@ installed disk.
 
 ```sh
 cd samples/dcj11
-make bsd211.dsk
+make bsd211
+make bsd211-sd
 ```
 
-does it in a few minutes, and the image goes to the card over the console
-(`scripts/bionic-control.py sd put bsd211.dsk dcj11/bsd211.dsk`, and `bsd211.hex`
-to `dcj11/bsd211.hex` beside it).
-`make` alone builds both systems' disk images along with the samples, `make clean`
-removes them, and `make distclean` the tapes and the simulator too.
+does it in a few minutes, and puts `bsd211.hex` and the image in `dcj11/` on the card as
+`make unix_v6-sd` does V6's, kept likewise unless `NEWB=1`.
+Plain `make` builds the samples and both loaders alone, offline; `make clean` undoes it,
+and `make distclean` removes the disks, the tapes and the simulator.
 
 `L dcj11/bsd211.hex`, `R`, `I DL11 177` (the console sends each character with a parity bit, as V6's
 does), `G`: the bootstrap reads block 0, rauboot prints
