@@ -333,17 +333,31 @@ def sha256(path):
     return hashlib.sha256(read(path)).hexdigest()
 
 
-def run(*argv, **kw):
-    print('+', ' '.join(argv), flush=True)
+def shown(arg):
+    """|arg| as the echo shows it: a path relative to where make runs."""
+    return os.path.relpath(arg) if os.path.isabs(arg) else arg
+
+
+def run(*argv, echo=True, **kw):
+    """Runs |argv| as echoed, so that what it prints, errors too, names
+    paths as make's directory sees them."""
+    argv = [shown(a) for a in argv]
+    if echo:
+        print('+', ' '.join(argv), flush=True)
     return subprocess.run(argv, check=True, **kw)
 
 
 def console(lines):
-    """Types |lines|, scenario directives, at the board's prompt."""
+    """Types |lines|, scenario directives, at the board's prompt; echoes
+    the debugger commands they type."""
+    typed = [line.split(' ', 1)[1] for line in lines
+             if line.startswith('command ')]
+    print('+ O', ', O '.join(typed), flush=True)
     with tempfile.NamedTemporaryFile('w', suffix='.scenario') as f:
         f.write('\n'.join(lines) + '\n')
         f.flush()
-        run(os.path.join(SCRIPTS, 'record-scenario.py'), f.name, '--nopace')
+        run(os.path.join(SCRIPTS, 'record-scenario.py'), f.name, '--nopace',
+            echo=False)
 
 
 def bench(version, out, cast=None):
@@ -354,7 +368,7 @@ def bench(version, out, cast=None):
     rom = os.path.join(SAMPLES, f'bld{tag}.hex')
     for path in (disk, rom):
         if not os.path.exists(path):
-            sys.exit(f'{path}: make bld{tag}.hex bld{tag}c.dsk first')
+            sys.exit(f'{shown(path)}: make bld{tag}.hex bld{tag}c.dsk first')
     control = os.path.join(SCRIPTS, 'bionic-control.py')
     card = f'i8086/bld{tag}c.dsk'
     # The block cache stays off from before the copy to the card until
@@ -373,8 +387,10 @@ def bench(version, out, cast=None):
     else:
         # Shown as it comes, so the half hour of BUILD can be followed,
         # and kept for the check.
-        p = subprocess.Popen([os.path.join(SCRIPTS, 'record-scenario.py'),
-                              scenario], stdout=subprocess.PIPE,
+        argv = [shown(os.path.join(SCRIPTS, 'record-scenario.py')),
+                shown(scenario)]
+        print('+', ' '.join(argv), flush=True)
+        p = subprocess.Popen(argv, stdout=subprocess.PIPE,
                              env=dict(os.environ, PYTHONUNBUFFERED='1'))
         chunks = []
         for chunk in iter(lambda: p.stdout.read1(4096), b''):
@@ -382,7 +398,7 @@ def bench(version, out, cast=None):
             sys.stdout.buffer.flush()
             chunks.append(chunk)
         if p.wait():
-            sys.exit(f'{scenario}: failed')
+            sys.exit(f'{shown(scenario)}: failed')
         printed = b''.join(chunks).decode(errors='replace')
     if 'BUILD OK' not in printed:
         sys.exit('BUILD failed')
