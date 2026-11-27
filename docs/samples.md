@@ -61,23 +61,26 @@ The disks: A: the system, an 8 MB `hd8` disk with the CP/M tools and MBASIC; B: 
 user disk, an 8 MB `hd8` with `fmandel.bas`. The BIOS has C: and D: too, for
 disks mounted with `O`, such as an `ibm-3740` floppy; an empty file is a blank one.
 
-The CP/M binaries stay out of the repository: the first `make` downloads them
+The CP/M binaries stay out of the repository: `make cpm80` downloads them
 with `debugger/i8080/tools/cpm80-fetch.py` into `samples/i8080/cpm80.fetch/`, checks
 each archive's sha256, and keeps the archives in its `dl/` so later builds work
 offline. It fetches CP/M 2.2 from [cpm.z80.de](http://www.cpm.z80.de/download/)
 ([license](http://www.cpm.z80.de/license.html)), BDS C, HI-TECH C, and Microsoft's
 MBASIC 5.21 from a [textfiles.com](https://discmaster.textfiles.com/) mirror of an old
 CP/M archive. Every port's downloads are in a `*.fetch/` folder,
-so `rsync --exclude='*.fetch/'` keeps them off the SD card.
-Then:
+and `make distclean` removes them with the disks. Plain `make` builds the samples
+and `cpm80.hex` alone, offline. Then:
 
 ```sh
 cd samples/i8080
-make
+make cpm80
+make cpm80-sd
 ```
 
-makes `cpm80.hex`, `cpm80a.dsk` and `cpm80b.dsk`; copy them into `i8080/` on the SD card, and `L i8080/cpm80.hex`,
-`R`, `G` boots to `A>`; `B>A:MBASIC FMANDEL` draws the set. The 8085, Z80, NSC800 and
+makes `cpm80.hex`, `cpm80a.dsk` and `cpm80b.dsk`, and puts them in `i8080/` on the SD
+card of the bench the session holds, once `probe` finds one of their boards at its prompt;
+B: only onto a card without one, so files saved there stay (`NEWB=1` replaces it).
+`L i8080/cpm80.hex`, `R`, `G` boots to `A>`; `B>A:MBASIC FMANDEL` draws the set. The 8085, Z80, NSC800 and
 KL5C80 boot the same files.
 
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mbasic_kl5c80.cast)
