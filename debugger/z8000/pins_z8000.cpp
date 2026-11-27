@@ -178,8 +178,8 @@ inline bool ds_asserted() {
 }  // namespace
 
 PinsZ8000::PinsZ8000(bool segmented) : _segmented(segmented) {
-    _devs = new DevsZ80(USART_BASE);
     const auto mems = new MemsZ8000(segmented);
+    _devs = new DevsZ8000(mems);
     const auto regs = new RegsZ8000(this);
     mems->setRegs(regs);
     _mems = mems;
@@ -404,15 +404,27 @@ Signals *PinsZ8000::completeCycle(Signals *s) {
     return s;
 }
 
+// The segment a Z8002 cycle synthesizes: the system segment unless split
+// routing is on and the CPU is in normal mode, where a program-space
+// access takes the code segment and a data or stack access the data
+// segment. A Z8001 keeps split off and carries its segment in the address.
+static uint8_t segOf(const MemsZ8000 *mems, const Signals *s) {
+    if (!mems->split() || s->systemMode())
+        return MemsZ8000::SYS;
+    return s->programSpace() ? MemsZ8000::CODE : MemsZ8000::DATA;
+}
+
 // A read's data from memory, a device, or an acknowledge's identifier.
 void PinsZ8000::retrieveData(Signals *s) {
     if (s->memReq()) {
         if (s->readMemory()) {
+            const auto mems = static_cast<MemsZ8000 *>(_mems);
+            const auto seg = segOf(mems, s);
             if (s->wordAccess()) {
-                s->data = _mems->read16(s->addr & ~1);
+                s->data = mems->readSeg(s->addr & ~1, seg);
             } else {
                 // Both halves: the CPU takes the one A0 picks.
-                const uint16_t v = _mems->read_byte(s->addr);
+                const uint16_t v = mems->readByteSeg(s->addr, seg);
                 s->data = v | (v << 8);
             }
         }
@@ -429,12 +441,15 @@ void PinsZ8000::retrieveData(Signals *s) {
 void PinsZ8000::storeData(Signals *s) {
     if (s->memReq()) {
         if (s->writeMemory()) {
+            const auto mems = static_cast<MemsZ8000 *>(_mems);
+            const auto seg = segOf(mems, s);
             if (s->wordAccess()) {
-                _mems->write16(s->addr & ~1, s->data);
+                mems->writeSeg(s->addr & ~1, s->data, seg);
             } else {
                 // Driven on both halves; A0 picks.
-                _mems->write_byte(
-                        s->addr, (s->addr & 1) ? lo(s->data) : hi(s->data));
+                mems->writeByteSeg(
+                        s->addr, (s->addr & 1) ? lo(s->data) : hi(s->data),
+                        seg);
             }
         }
     } else if (s->ioReq() && _devs->isSelected(s->addr) && s->writeMemory()) {

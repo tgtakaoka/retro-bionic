@@ -1,0 +1,106 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; CP/M-8000 1.1 on the Z8002: where everything sits in the 64K, shared
+          0 :                    ;;; by cpm8000bios.asm, cpm8000glue.asm and the Makefile's link.
+          0 :                            include "z8002.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; Z8002
+(1)       0 :                            cpu     z8002
+(1)       0 :
+(1)       0 :                    ;;; Reset reads the FCW at 0002H and the PC at 0004H, the reset entry of
+(1)       0 :                    ;;; a Program Status Area at 0000H.
+(1)       0 : =0                 ORG_RESET:      equ     0000H
+(1)       0 :                    ;;; Program Status Area offsets: an FCW, then a PC.
+(1)       0 : =4                 PSA_EPA:        equ     04H     ; extended instruction trap
+(1)       0 : =8                 PSA_PRIV:       equ     08H     ; privileged instruction trap
+(1)       0 : =C                 PSA_SC:         equ     0CH     ; system call
+(1)       0 : =14                PSA_NMI:        equ     14H     ; non-maskable interrupt
+(1)       0 : =18                PSA_NVI:        equ     18H     ; non-vectored interrupt
+(1)       0 : =1C                PSA_VI:         equ     1CH     ; vectored interrupt: the FCW, then a PC
+(1)       0 :                                                    ; for each identifier from 1EH, the one
+(1)       0 :                                                    ; for identifier n at PSA_VI+2+2*n
+(1)       0 :                    ;;; Flag and Control Word
+(1)       0 : =4000              FCW_SN:         equ     4000H   ; system mode
+(1)       0 : =2000              FCW_EPA:        equ     2000H   ; extended processor architecture
+(1)       0 : =1000              FCW_VIE:        equ     1000H   ; vectored interrupt enable
+(1)       0 : =800               FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
+(1)       0 :
+(1)       0 :                    ;;; The data area: queues and variables.
+(1)       0 : =4000              DATA:           equ     4000H
+(1)       0 :
+(1)       0 :                    ;;; SC #SC_EXIT hands control back to the debugger, as a breakpoint does.
+(1)       0 : =FF                SC_EXIT:        equ     0FFH
+          0 :
+          0 :                    ;;; The TPA runs from 0: a program is linked at 0 and the loader moves
+          0 :                    ;;; nothing, so the reset vector at 0004H belongs to the program once one
+          0 :                    ;;; has loaded. The loader also takes the TPA for a whole 64K segment: it
+          0 :                    ;;; puts the base page at 0FE00H and the program's stack below 0FD00H,
+          0 :                    ;;; whatever the memory region table says, and only sizes the program by
+          0 :                    ;;; it. So the BIOS comes first, the kernel, CCP and BDOS as DRI linked
+          0 :                    ;;; them with its commons linked after it at SYSTEM by xout-link.py, and
+          0 :                    ;;; the memory above the kernel is the program's stack.
+          0 : =8800              BIOS_ORG:       equ     8800H
+          0 : =9800              SYSTEM:         equ     9800H
+          0 : =8800              TPA_SIZE:       equ     BIOS_ORG
+          0 :                    ;;; The Program Status Area, on a 256-byte boundary: FCW and PC pairs
+          0 :                    ;;; through the vectored interrupts' table, identifiers 0 to 15.
+          0 : =8800              PSA:            equ     BIOS_ORG
+          0 : =40                PSA_SIZE:       equ     40H
+          0 :                    ;;; The system stack grows down from the kernel to the BIOS's data.
+          0 : =97FE              SYSSTK:         equ     SYSTEM-2
+          0 :
+          0 :                    ;;; System call numbers: SC #n.
+          0 : =1                 MEM_SC:         equ     1       ; memory management and context switch
+          0 : =2                 BDOS_SC:        equ     2
+          0 : =3                 BIOS_SC:        equ     3
+          0 :                    ;;; The exception vector the BIOS keeps: 48 longs, traps 0-31 and system
+          0 :                    ;;; calls 0-15 as 32-47, numbered as CP/M-68K's.
+          0 : =30                NTRAPS:         equ     48
+          0 : =20                SC0TRAP:        equ     32
+          0 : =1                 EPUTRAP:        equ     1
+          0 : =2                 SEGTRAP:        equ     2
+          0 : =8                 PITRAP:         equ     8
+          0 : =0                 NMITRAP:        equ     0
+          0 :
+          0 :                    ;;; The trap frame the dispatcher builds on the system stack, offsets
+          0 :                    ;;; from R15 in the dispatcher; a handler, called with CO bytes of return
+          0 :                    ;;; address on top, sees each CO higher. DRI's Z8002 glue (biosdefs2.z8k)
+          0 :                    ;;; shares it: R0-R14, the normal R15, then what the CPU pushed, the SC
+          0 :                    ;;; identifier, FCW and PC.
+          0 : =0                 FR_R0:          equ     0
+          0 : =C                 FR_R6:          equ     12
+          0 : =E                 FR_R7:          equ     14
+          0 : =1C                FR_R14:         equ     28
+          0 : =1E                FR_NR15:        equ     30
+          0 : =20                FR_ID:          equ     32
+          0 : =22                FR_FCW:         equ     34
+          0 : =24                FR_PC:          equ     36
+          0 : =26                FRAME:          equ     38
+          0 :                    ;;; A program's startup context (the CCP's go.c), which xfer loads: R0-R15,
+          0 :                    ;;; a word it ignores, the FCW and the PC as segment and offset.
+          0 : =22                CTX_FCW:        equ     34
+          0 : =26                CTX_PC:         equ     38
+          0 : =2                 CO:             equ     2
+          0 :
+          0 :                    ;;; The firmware's synthesized segments for a split instruction/data
+          0 :                    ;;; program: the system (the kernel and a merged program), the running
+          0 :                    ;;; program's code, and its data. A segment is the high half of the
+          0 :                    ;;; EXTMEM address the debugger forms, segment<<16 | offset.
+          0 : =0                 SEG_SYS:        equ     0
+          0 : =1                 SEG_CODE:       equ     1
+          0 : =2                 SEG_DATA:       equ     2
+          0 :
+          0 :                    ;;; The SPLIT device: a control port that turns the routing on for a
+          0 :                    ;;; split program, and a copy engine that moves bytes across the
+          0 :                    ;;; segments so the BIOS, in system mode, can load a program's code and
+          0 :                    ;;; data and reach a split program's disk buffers.
+          0 : =160               SPLIT:          equ     160H
+          0 : =160               SPLIT_CTRL:     equ     SPLIT+0
+          0 : =161               SPLIT_SRCSEG:   equ     SPLIT+1
+          0 : =162               SPLIT_SRCL:     equ     SPLIT+2
+          0 : =163               SPLIT_SRCH:     equ     SPLIT+3
+          0 : =164               SPLIT_DSTSEG:   equ     SPLIT+4
+          0 : =165               SPLIT_DSTL:     equ     SPLIT+5
+          0 : =166               SPLIT_DSTH:     equ     SPLIT+6
+          0 : =167               SPLIT_COUNTL:   equ     SPLIT+7
+          0 : =168               SPLIT_COUNTH:   equ     SPLIT+8
+          0 : =1                 SPLIT_ON:       equ     1
