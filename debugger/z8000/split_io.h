@@ -26,8 +26,9 @@ struct MemsZ8000;
  *   +7 COUNT    write: copy that many bytes (0 means 64K) across the
  *               segments, in EXTMEM, while the CPU waits
  *
- * A Z8001 needs neither: its cycles carry a real segment, and a
- * segmented BIOS copies with long addresses.
+ * A Z8001's cycles carry a real segment and its BIOS copies with long
+ * addresses, so it needs only CONTROL: on, a normal-mode program fetch
+ * in segment 8 reads segment 0BH, the Olivetti M20's instruction space.
  */
 struct SplitIo final : Device {
     explicit SplitIo(MemsZ8000 *mems) : _mems(mems) { _enabled = true; }

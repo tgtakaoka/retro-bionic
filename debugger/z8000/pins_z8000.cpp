@@ -404,27 +404,33 @@ Signals *PinsZ8000::completeCycle(Signals *s) {
     return s;
 }
 
-// The segment a Z8002 cycle synthesizes: the system segment unless split
-// routing is on and the CPU is in normal mode, where a program-space
-// access takes the code segment and a data or stack access the data
-// segment. A Z8001 keeps split off and carries its segment in the address.
-static uint8_t segOf(const MemsZ8000 *mems, const Signals *s) {
+// The memory address of a cycle. With split routing off, or in system
+// mode, it is the address on the bus. On, in normal mode, a Z8002's
+// program-space access takes the code segment and a data or stack access
+// the data segment; a Z8001's program-space access in ISEG takes ISPACE,
+// as the Olivetti M20's instruction space for segment 8.
+static uint32_t memAddr(const MemsZ8000 *mems, const Signals *s) {
     if (!mems->split() || s->systemMode())
-        return MemsZ8000::SYS;
-    return s->programSpace() ? MemsZ8000::CODE : MemsZ8000::DATA;
+        return s->addr;
+    if (s->segmented()) {
+        if (s->programSpace() && (s->addr >> 16) == MemsZ8000::ISEG)
+            return (s->addr & 0xFFFF) | (uint32_t(MemsZ8000::ISPACE) << 16);
+        return s->addr;
+    }
+    const auto seg = s->programSpace() ? MemsZ8000::CODE : MemsZ8000::DATA;
+    return seg * MemsZ8000::SEG_SIZE + s->addr;
 }
 
 // A read's data from memory, a device, or an acknowledge's identifier.
 void PinsZ8000::retrieveData(Signals *s) {
     if (s->memReq()) {
         if (s->readMemory()) {
-            const auto mems = static_cast<MemsZ8000 *>(_mems);
-            const auto seg = segOf(mems, s);
+            const auto addr = memAddr(static_cast<MemsZ8000 *>(_mems), s);
             if (s->wordAccess()) {
-                s->data = mems->readSeg(s->addr & ~1, seg);
+                s->data = _mems->read16(addr & ~1);
             } else {
                 // Both halves: the CPU takes the one A0 picks.
-                const uint16_t v = mems->readByteSeg(s->addr, seg);
+                const uint16_t v = _mems->read_byte(addr);
                 s->data = v | (v << 8);
             }
         }
@@ -441,15 +447,13 @@ void PinsZ8000::retrieveData(Signals *s) {
 void PinsZ8000::storeData(Signals *s) {
     if (s->memReq()) {
         if (s->writeMemory()) {
-            const auto mems = static_cast<MemsZ8000 *>(_mems);
-            const auto seg = segOf(mems, s);
+            const auto addr = memAddr(static_cast<MemsZ8000 *>(_mems), s);
             if (s->wordAccess()) {
-                mems->writeSeg(s->addr & ~1, s->data, seg);
+                _mems->write16(addr & ~1, s->data);
             } else {
                 // Driven on both halves; A0 picks.
-                mems->writeByteSeg(
-                        s->addr, (s->addr & 1) ? lo(s->data) : hi(s->data),
-                        seg);
+                _mems->write_byte(
+                        addr, (s->addr & 1) ? lo(s->data) : hi(s->data));
             }
         }
     } else if (s->ioReq() && _devs->isSelected(s->addr) && s->writeMemory()) {
