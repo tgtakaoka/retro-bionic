@@ -17,7 +17,7 @@
 * Created for Corsham 6809
 *   2      2026/11/27  Tadashi G. Takaoka
 * Bionic MC6809 boards: no DAT, no console init, Krn's entry from
-* its header
+* its header; native mode on the HD6309
 
                     nam       REL
                     ttl       Reset entry
@@ -42,6 +42,9 @@ name                fcs       /REL/
 * The console ACIA's receive interrupt is IRQ, as sc6850 counts on;
 * then into Krn, the first module of the kernel track.
 start               orcc      #IntMasks
+                    IFNE      H6309
+                    ldmd      #1                  native mode
+                    ENDC
                     lda       #IRQ.Name
                     sta       >ACIA.Intr
                     ldx       #Krn.Start
