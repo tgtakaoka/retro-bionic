@@ -30,9 +30,12 @@ cpm8000-sd: cpm8000
 
 FETCH = ../../debugger/z8000/tools/cpm8000-fetch.py
 LINK = ../../debugger/z8000/tools/xout-link.py
-KERNEL = $(CPM8000)/CPMSYS.REL $(CPM8000)/LIBCPM.A
-# What the BIOS defines for the kernel.
-PROVIDES = $(addprefix --provide ,_bios _bdos _map_adr _mem_cpy _xfer _sysseg)
+# The kernel and Zilog's Z8070 emulator, which takes the extended
+# instruction trap.
+KERNEL = $(CPM8000)/CPMSYS.REL $(CPM8000)/FPE.O $(CPM8000)/LIBCPM.A
+# What the BIOS defines for the kernel and the emulator.
+PROVIDES = $(addprefix --provide ,_bios _bdos _map_adr _mem_cpy _xfer _sysseg \
+	gettext getmem putmem stareg staevnt stafcw stapcsg)
 
 $(CPM8000)/.fetched: $(FETCH)
 	$(FETCH) $(CPM8000)
@@ -44,7 +47,8 @@ cpm8000.lst: cpm8000.inc z8001.inc
 # The kernel's symbols, which the BIOS includes, remade only once DRI's
 # files are fetched, so `make all` downloads nothing.
 cpm8000sys.inc: $(if $(wildcard $(CPM8000)/.fetched),cpm8000.lst $(CPM8000)/.fetched $(LINK))
-	$(LINK) --symbols cpm8000.lst --org SYSTEM $(PROVIDES) --map $@ $(KERNEL)
+	$(LINK) --symbols cpm8000.lst --org SYSTEM $(PROVIDES) --export fp_epu \
+	    --map $@ $(KERNEL)
 cpm8000bios.hex: cpm8000sys.inc
 
 # The link checks the BIOS listing's copy of every kernel symbol against
@@ -54,16 +58,17 @@ cpm8001.hex: cpm8000bios.hex cpm8000.lst $(CPM8000)/.fetched $(LINK)
 	    --overlay cpm8000bios.hex -o $@ $(KERNEL)
 
 # A: holds DRI's tools, the files in $(CPM8000)/a/; B: is the user disk,
-# with samples/z8002's imandel.c, which includes ../arith/imandel.c as
-# imandel.inc. Both are 8 MB hd8 disks.
+# with samples/z8002's imandel.c and fmandel.c, which include
+# ../arith/imandel.c and fmandel.c as imandel.inc and fmandel.inc. Both
+# are 8 MB hd8 disks.
 cpm8001a.dsk: $(CPM8000)/.fetched
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM8000)/a/*
 
-CPM8000B = ../z8002/imandel.c imandel.inc
+CPM8000B = ../z8002/imandel.c imandel.inc ../z8002/fmandel.c fmandel.inc
 cpm8001b.dsk: $(CPM8000B)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM8000B)
 
-imandel.inc: ../arith/imandel.c
+imandel.inc fmandel.inc: %.inc: ../arith/%.c
 	cp $< $@
 
 clean:
@@ -72,7 +77,7 @@ clean:
 # Everything not in the repository, and nothing that is: the system, the
 # disks and DRI's files the fetch downloaded.
 distclean:
-	-rm -f cpm8001.hex *.dsk imandel.inc
+	-rm -f cpm8001.hex *.dsk imandel.inc fmandel.inc
 	-rm -rf $(CPM8000)
 
 include ../deps.mk
