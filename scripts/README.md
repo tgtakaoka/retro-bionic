@@ -9,6 +9,7 @@ usage.
 |---|---|
 | `bionic-bench.py` | Names each bench (`bench1`, `bench2`, ... by Teensy serial), watches power, flashes and the target seated, and locks a bench or a logic analyzer for one session, with a queue (`lock`, `reserve`, `unlock`, `status`, `watch`, `peek`, `daemon`). |
 | `bionic-control.py` | Drives one bench: `flash`, `reset`, `send`, `upload`, `run`, `abort`, `probe`, `recover`, and `sd put|sync|get|rm` for files on the SD card (YMODEM through lrzsz). Talks to the bench the session holds; the other bench tools build on it. |
+| `sample-sd.py` | Puts a sample directory's OS files (`make <os>-sd` in `samples/<dir>`) on the card of the bench the session holds, after `probe` finds one of the CPUs named at its prompt: unmounts every disk, then `sd sync` per file into `<dir>/`; a `--keep` file, a user disk, only onto a card without one. |
 | `bionic-regress.py` | Runs a target's regression suite from `samples/<dir>/bench/regress.toml`: reset, step, samples, haltgo, breakpoint, gountil, disasm, backtrace. |
 | `record-scenario.py` | Plays a `.scenario` console demo live, or records it as an asciinema cast with `--save`. |
 | `mandelbrot-timing.py` | Times the mandelbrot frames in recorded casts, as `docs/mandelbrot.md` rows. |

@@ -849,6 +849,25 @@ class Board:
             raise RuntimeError('Y rm %s: %s' % (remote, reply))
         return reply
 
+    def mounted(self):
+        """The names of the drives with a disk mounted, parsed from O's
+        listing: `  NAME FORMAT PATH...` per drive, then a `  cache` line,
+        or `  no disk mounted`. A change to that listing must keep this
+        working (sample-sd.py unmounts through it)."""
+        text = self._reply(b'O\r') or ''
+        names = []
+        for line in text.split('\n'):
+            f = line.split()
+            if line.startswith('  ') and len(f) >= 3 and f[0] != 'cache':
+                names.append(f[0])
+        return names
+
+    def unmount(self, drive):
+        """Unmount `drive`, an O listing's name."""
+        text = self._reply(b'O%s\r' % drive.encode()) or ''
+        if '%s unmounted' % drive not in text:
+            raise RuntimeError('O %s: %s' % (drive, text.strip() or 'no reply'))
+
     def sd_get(self, remote, local):
         """Read card file `remote` into `local`. Returns its size."""
         where = os.path.join(RUN_DIR, 'sd-get-%d' % os.getpid())
