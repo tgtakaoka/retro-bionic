@@ -475,9 +475,12 @@ make cpm8000-sd
 ```
 
 makes and puts on the card `z8001/cpm8001.hex`, `cpm8001a.dsk` with DRI's tools and
-`cpm8001b.dsk` with `imandel.c`; `L z8001/cpm8001.hex`, `R`, `G` boots to `A>`. Merged
-programs get the whole 64K, and the C compiler builds `imandel.c` as on the Z8002. DDT
-loads into its own segment, 9, but stops while it lists a program.
+`cpm8001b.dsk` with `imandel.c` and `fmandel.c`; `L z8001/cpm8001.hex`, `R`, `G` boots to
+`A>`. Merged programs get the whole 64K, and the C compiler builds `imandel.c` as on the
+Z8002. It compiles `float` to Z8070 instructions, which the BIOS hands to Zilog's
+floating-point emulator, `FPE.O` from the release, linked into the system: `fmandel.c`
+builds the same way and draws the set in about seven minutes. DDT loads into its own
+segment, 9, but stops while it lists a program.
 
 ## Unix V6 on the DCJ11
 

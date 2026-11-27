@@ -70,8 +70,9 @@ start:
         jp      ccp
 
 ;;; The exception vector: cleared, then the memory management and BIOS
-;;; system calls, and the extended instruction trap no EPU takes, each a
-;;; long address in segment 0.
+;;; system calls, and the extended instruction trap no EPU takes, which
+;;; Zilog's floating-point emulator serves, each a long address in
+;;; segment 0.
 trapinit:
         ld      r2, #trapvec
         ld      r0, #NTRAPS
@@ -85,7 +86,7 @@ trapinit_clear:
         ldl     trapvec+4*(SC0TRAP+MEM_SC), rr2
         ld      r3, #biossc
         ldl     trapvec+4*(SC0TRAP+BIOS_SC), rr2
-        ld      r3, #epu_exc
+        ld      r3, #fp_epu
         ldl     trapvec+4*EPUTRAP, rr2
         ret
 
@@ -304,28 +305,57 @@ xfersc:
         ldir    @rr4, @rr6, r2
         jr      trap_ret
 
-;;; An extended instruction with no EPU, called segmented: skipped. The C
-;;; start-up clears the Z8070's registers with them; a program that
-;;; computes in floating point gets nothing back. The trap's identifier is
-;;; the instruction's first word, whose mode bits say how long it is:
-;;; direct and indexed addressing take a word more, in segmented mode a
-;;; long address two.
-epu_exc:
-        ldctl   r0, fcw
-        res     r0, #15
-        ldctl   fcw, r0
+;;; Zilog's Z8070 emulator, FPE.O, linked after the kernel, takes the
+;;; extended instruction trap at fp_epu, called segmented as the M20's
+;;; BIOS called it. What it needs of the system: where the frame keeps
+;;; R0, the trap's identifier (the instruction's first word), the FCW and
+;;; the PC's segment, offsets from its stack, and the trapped program's
+;;; instruction words and memory, as long addresses in RR6 and RR4.
         cpu     z8002
-        ld      r0, FR_ID+CO(r15)
-        and     r0, #0C000H
-        ld      r1, #4
-        cp      r0, #4000H
-        jr      ne, epu_skip
-        ld      r1, #6
-epu_skip:
-        ld      r0, FR_PC+CO(r15)
-        add     r0, r1
-        ld      FR_PC+CO(r15), r0
-        jr      seg_ret
+stareg:         word    FR_R0+CO
+staevnt:        word    FR_ID+CO
+stafcw:         word    FR_FCW+CO
+stapcsg:        word    FR_PCSEG+CO
+
+;;; R3=the instruction word at RR6, the trapped program's PC, which the
+;;; emulator goes on using. A split program's code is in its instruction
+;;; space, reached as data in 0BH.
+gettext:
+        pushl   @r15, rr6
+        ld      r0, r6
+        and     r0, #7F00H
+        cp      r0, #SEG_SPLIT
+        jr      ne, gettext_copy
+        ldb     rh6, #SEG_ISPACE>>8
+gettext_copy:
+        clr     r4
+        ld      r5, #gttxt
+        clr     r2
+        ld      r3, #2
+        sc      #MEM_SC
+        popl    rr6, @r15
+        ld      r3, gttxt
+        clrb    rl2
+        ret
+
+;;; R3 bytes from the program's R7, in its TPA segment, to the
+;;; emulator's R5, in segment 0. FPE's segment for an operand through
+;;; R15 would be the normal R14, not the program's.
+getmem:
+        ld      r6, usrseg
+        clr     r4
+        clr     r2
+        sc      #MEM_SC
+        ret
+
+;;; R3 bytes from the emulator's R7, in segment 0, to the program's R5,
+;;; in its TPA segment.
+putmem:
+        ld      r4, usrseg
+        clr     r6
+        clr     r2
+        sc      #MEM_SC
+        ret
 
 ;;; What the kernel calls as C functions, the arguments on the stack
 ;;; above the return address, leftmost first: long bios(code, p1, p2),
@@ -620,6 +650,8 @@ dma_off:
         word    0
 dma_seg:
         byte    0
+        align   2
+gttxt:  word    0
 
 ;;; Uninitialised areas: the exception vector, then the BDOS's scratch.
         align   2
