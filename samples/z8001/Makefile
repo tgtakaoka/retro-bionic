@@ -1,12 +1,13 @@
 ASM=asm
 
-.PHONY: clean distclean cpm8000 cpm8000-sd
+.PHONY: clean distclean cpm8000 pcpm8000 cpm8000-sd pcpm8000-sd \
+	pcpm8000-build
 
-# The samples and the CP/M-8000 BIOS; the system and its disks are
-# `make cpm8000`.
+# The samples and the CP/M-8000 BIOSes; the systems and their disks are
+# `make cpm8000` and `make pcpm8000`.
 all: echo.hex echoir.hex echoitr.hex arith.hex mandelbrot.hex \
 	echo_nonseg.hex echoir_nonseg.hex echoitr_nonseg.hex arith_nonseg.hex \
-	mandelbrot_nonseg.hex cpm8000.lst cpm8000bios.hex
+	mandelbrot_nonseg.hex cpm8000.lst cpm8000bios.hex pcpm8000bios.hex
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<
@@ -71,13 +72,76 @@ cpm8001b.dsk: $(CPM8000B)
 imandel.inc fmandel.inc: %.inc: ../arith/%.c
 	cp $< $@
 
+# CP/M-8000 1.2 for L pcpm8001.hex: the CCP and BDOS of P-CP/M-Z8K's
+# sources with the M20's Z8001 glue, compiled on the board by DRI's
+# compiler, linked at SYSTEM with the same BIOS as 1.1's. bld8001a.dsk
+# is the disk the board builds on, which L bld8001.hex, the 1.1 system,
+# mounts alone. With the Z8001's bench locked, or the only one on USB,
+# `make pcpm8000`, when $(CPM8012)/ has no build yet, runs
+# pcpm8000-build.py's bench, which compiles there, in a few minutes, and
+# puts the objects in $(CPM8012)/, then links the kernel; `make
+# pcpm8000-build` does only the board's part. pcpm8001a.dsk and
+# pcpm8001b.dsk are 1.1's A: and B:.
+CPM8012 ?= pcpm8000.built
+
+pcpm8000: pcpm8001.hex pcpm8001a.dsk pcpm8001b.dsk
+
+# Likewise for `make pcpm8000-sd`.
+pcpm8000-sd: pcpm8000
+	$(SD) pcpm8001.hex pcpm8001a.dsk $(if $(NEWB),,--keep) pcpm8001b.dsk
+
+BUILD8000 = ../../debugger/z8000/tools/pcpm8000-build.py
+KERNEL12 = $(addprefix $(CPM8012)/,$(addsuffix .o,ccpif ccp go bdosif \
+	exceptn bdosmain bdosmisc bdosrw conbdos dskutil fileio iosys pgmld)) \
+	$(CPM8000)/FPE.O $(CPM8000)/LIBCPM.A
+
+$(CPM8000)/.fetched-source: $(FETCH)
+	$(FETCH) --source $(CPM8000)
+
+bld8001/.tree: $(CPM8000)/.fetched-source $(CPM8000)/.fetched $(BUILD8000)
+	$(BUILD8000) tree Z8001 $(CPM8000) $(@D)
+
+bld8001.hex: cpm8001.hex
+	cp $< $@
+
+bld8001a.dsk: bld8001/.tree
+	../../scripts/cpm-disk.py make $@ --format hd8 bld8001/*
+
+# The board's build, marked done once its objects are the known build;
+# the 1.1 system only hosts it, and a removed build disk is not remade
+# just for it.
+.SECONDARY: bld8001/.tree bld8001a.dsk bld8001.hex
+$(CPM8012)/.built: bld8001a.dsk | bld8001.hex
+	$(BUILD8000) bench Z8001 $(CPM8012)
+
+pcpm8000-build: $(CPM8012)/.built
+
+# The 1.2 kernel's symbols, which its BIOS includes, remade once the
+# board has built the kernel.
+pcpm8000sys.inc: $(if $(wildcard $(CPM8012)/.built),cpm8000.lst $(KERNEL12) $(LINK))
+	$(LINK) --symbols cpm8000.lst --org SYSTEM $(PROVIDES) --export fp_epu \
+	    --map $@ $(KERNEL12)
+pcpm8000bios.hex: pcpm8000sys.inc
+
+pcpm8001.hex: pcpm8000bios.hex cpm8000.lst $(CPM8012)/.built $(CPM8000)/.fetched \
+	    $(LINK)
+	$(LINK) --symbols cpm8000.lst --symbols pcpm8000bios.lst --org SYSTEM \
+	    --overlay pcpm8000bios.hex -o $@ $(KERNEL12)
+
+pcpm8001a.dsk: cpm8001a.dsk
+	cp $< $@
+
+pcpm8001b.dsk: $(CPM8000B)
+	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM8000B)
+
 clean:
 	-rm -f *.lst *.hex
 
-# Everything not in the repository, and nothing that is: the system, the
-# disks and DRI's files the fetch downloaded.
+# Everything not in the repository, and nothing that is: the systems, the
+# disks, the build tree, DRI's files the fetch downloaded and the
+# objects the board built.
 distclean:
-	-rm -f cpm8001.hex *.dsk imandel.inc fmandel.inc
-	-rm -rf $(CPM8000)
+	-rm -f cpm8001.hex pcpm8001.hex bld8001.hex *.dsk imandel.inc fmandel.inc
+	-rm -rf bld8001 $(CPM8000) $(CPM8012)
 
 include ../deps.mk

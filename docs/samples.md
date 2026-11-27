@@ -48,6 +48,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | [CP/M-8000 1.1](#cpm-8000-on-the-z8002) | Z8002 | `z8002/cpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/cpm8000.cast) |
 | [CP/M-8000 1.2](#cpm-8000-12-from-source), built on the board | Z8002 | `z8002/pcpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/pcpm8000.cast) |
 | [CP/M-8000 1.1](#cpm-8000-on-the-z8001) | Z8001 | `z8001/cpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/cpm8000.cast) |
+| [CP/M-8000 1.2](#cpm-8000-12-on-the-z8001), built on the board | Z8001 | `z8001/pcpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/pcpm8000.cast) |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -481,6 +482,30 @@ Z8002. It compiles `float` to Z8070 instructions, which the BIOS hands to Zilog'
 floating-point emulator, `FPE.O` from the release, linked into the system: `fmandel.c`
 builds the same way and draws the set in about seven minutes. DDT loads into its own
 segment, 9, but stops while it lists a program.
+
+### CP/M-8000 1.2 on the Z8001
+
+`z8001/pcpm8001.hex` is the 1.2 kernel of P-CP/M-Z8K's sources, as on the Z8002, but with
+the M20's Z8001 glue, `bdos/bdosif.z8k` and `exceptn.z8k`, compiled and assembled on the
+Z8001 itself and linked with the same BIOS through
+[`pcpm8000bios.asm`](../samples/z8001/pcpm8000bios.asm). With the Z8001's bench locked, or
+the only one on USB,
+
+```sh
+make pcpm8000
+make pcpm8000-sd
+```
+
+boots 1.1 on a build disk alone, compiles there, checks the objects against the known
+build, and links the kernel; `make pcpm8000-sd` puts it and its disks, 1.1's, on the card.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/pcpm8000_build.cast)
+of the build on the Z8001, from the host shell, booting the result at its end, recorded in
+`samples/z8001` by
+
+```sh
+../../scripts/record-build-cast.py pcpm8000_build.cast 'make pcpm8000-sd' \
+    '../../scripts/record-scenario.py pcpm8000_boot.scenario --nopace'
+```
 
 ## Unix V6 on the DCJ11
 

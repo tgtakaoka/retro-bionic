@@ -15,7 +15,7 @@ includes a PORTAB.H that 1.1's disks lack, so A: gets the one of the
 1.3 sources, cpm8k13.zip.
 
 With --source, it downloads P-CP/M-Z8K, DRI's 1983 sources, instead
-and extracts the CCP, BDOS and Z8002 glue that
+and extracts the CCP, BDOS and the Z8002 and Z8001 glue that
 pcpm8000-build.py builds a 1.2 kernel from into DIR/src/, writing
 DIR/.fetched-source; also, for reference, Zilog's Z8070 emulator, whose
 binary FPE.O is linked, and its system-dependent parts for Kontron's
@@ -50,6 +50,7 @@ SOURCES = (
         'bdosmain.c', 'bdosmisc.c', 'bdosrw.c', 'conbdos.c', 'dskutil.c',
         'fileio.c', 'iosys.c', 'pgmld.c', 'basepage.h', 'bdosdef.h',
         'biosdef.h', 'pktio.h', 'stdio.h')] +
+    ['bdos/bdosif.z8k', 'bdos/exceptn.z8k'] +
     ['ccp/' + n for n in ('ccp.c', 'go.c', 'ccpdef.h', 'ccpif.z8k')] +
     ['newos/' + n for n in ('bdosif2.z8k', 'exceptn2.z8k', 'biosdefs2.z8k',
                             'xout.h', 'stdio.h', 'fpe.z8k', 'fpedep.z8k')] +

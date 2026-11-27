@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Compile CP/M-8000 1.2 from P-CP/M-Z8K's sources on the Z8002.
+"""Compile CP/M-8000 1.2 from P-CP/M-Z8K's sources on a Z8002 or Z8001.
 
     debugger/z8000/tools/pcpm8000-build.py tree CPU FETCHED OUT
     debugger/z8000/tools/pcpm8000-build.py bench CPU OUT
     debugger/z8000/tools/pcpm8000-build.py check CPU OUT
 
-CPU is Z8002, which picks samples/z8002 and Kontron's Z8002 BDOS and
-exception glue. FETCHED is the folder cpm8000-fetch.py and its --source
-filled (the samples folder's cpm8000.fetch).
+CPU is Z8002 or Z8001, and picks samples/z8002 or samples/z8001 and the
+BDOS and exception glue: Kontron's Z8002 forms or the M20's Z8001 ones.
+FETCHED is the folder cpm8000-fetch.py and its --source filled (the
+samples folder's cpm8000.fetch).
 
 `tree` writes into OUT/ the files of a build disk: the CCP, the BDOS
 and the glue, patched as below, and the DRI compiler and assembler that
-build them. The samples folder's Makefile puts them on bld8002a.dsk,
-which the 1.1 system, bld8002.hex, mounts alone as A:.
+build them. The samples folder's Makefile puts them on bld8002a.dsk (or
+bld8001a.dsk), which the 1.1 system, bld8002.hex (bld8001.hex), mounts
+alone as A:.
 
 `bench` builds on the bench the bench tools pick: BIONIC_BENCH, the one
 the session holds (scripts/bionic-bench.py lock NAME) or the only one.
@@ -31,8 +33,8 @@ no CP/M name, and uses X_SG_DATA, which XOUT.H calls X_SG_DAT;
 BIOSDEFS2.Z8K is a 9-letter name. Kontron's Z8002 has one address
 space, so its BDOS entry passes a program's parameter as is; here the
 lines it left commented out give it the program's data segment,
-_usrseg of the BIOS. The CCP compiles with the BDOS's headers, the same
-but for declarations it does not use.
+_usrseg of the BIOS; the M20's Z8001 glue needs none. The CCP compiles
+with the BDOS's headers, the same but for declarations it does not use.
 """
 import hashlib
 import os
@@ -47,9 +49,10 @@ PROJ = os.path.normpath(os.path.join(HERE, '..', '..', '..'))
 SCRIPTS = os.path.join(PROJ, 'scripts')
 # Per CPU: its samples folder, which names the build disk, the 1.1 system
 # the board builds on and the card folder, and the BDOS and exception
-# glue, Kontron's for the Z8002.
+# glue: Kontron's for the Z8002, the M20's for the Z8001.
 CPUS = {
     'Z8002': ('z8002', ('bdosif2', 'exceptn2')),
+    'Z8001': ('z8001', ('bdosif', 'exceptn')),
 }
 
 C_MODULES = ('ccp go bdosmain bdosmisc bdosrw conbdos dskutil fileio '
@@ -60,6 +63,10 @@ TOOLS = ('ZCC.Z8K ZCC1.Z8K ZCC2.Z8K ZCC3.Z8K ASZ8K.Z8K ASZ8K.PD '
 
 # sha256 of each object's x.out, the known build.
 BUILT = {
+    'bdosif':
+        '296b69c96b665c735932afababe5d16d7d3dbdcccd37c9deeaacd53de24f8350',
+    'exceptn':
+        '8e2d7366ec30bd23fb42a976ddf3e37c44b8776f48771917e5b3ea9192e3d0d2',
     'bdosif2':
         '60784540addf4ae18c441ca6c56572ecbf701480108d8e5ee6e57a39cc067a93',
     'bdosmain':
@@ -146,7 +153,12 @@ def tree(cpu, fetched, out):
     files['XOUT.H'] = (text(read(os.path.join(src, 'newos', 'xout.h'))) +
                        b'#define X_SG_DATA X_SG_DAT\r\n')
     files['CCPIF.8KN'] = text(read(os.path.join(src, 'ccp', 'ccpif.z8k')))
-    z8002_glue(src, files)
+    if folder == 'z8001':
+        for m in ('bdosif', 'exceptn'):
+            files[f'{m.upper()}.8KN'] = text(read(os.path.join(
+                src, 'bdos', f'{m}.z8k')))
+    else:
+        z8002_glue(src, files)
     for t in TOOLS:
         files[t] = read(os.path.join(fetched, 'a', t))
     os.makedirs(out, exist_ok=True)
