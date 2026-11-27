@@ -1,0 +1,76 @@
+# Scenario for scripts/record-scenario.py: the bare Z8001 fmandel,
+# segmented like mandelbrot, its float arithmetic in Z8070 instructions,
+# each of which traps without an EPU into Zilog's emulator, FPE.O, in
+# segment 0. Disassemble the inner loop, break on its FMULD, step it
+# into fpe.inc's trap shim and on into FPE, run to the shim's IRET and
+# step it back to the next Z8070 instruction, then let the frame finish.
+#
+# Needs samples/z8001/fmandel.hex (make fmandel). ADDRESSES ARE PINNED TO
+# IT, as seg<<16|off, each shown by a D first: 1019C is fmandel_i, 101A8
+# its FMULD (A*A), 100 fpe_trap, 10E its CALL of fp_epu and 11C its
+# IRET. If fmandel.asm, ../z8002/fmandel8070.inc or fpe.inc change,
+# re-check them against the fresh fmandel.lst before recording.
+
+key ?
+pace 2.0
+
+key R
+upload samples/z8001/fmandel.hex
+# Reset again: the FCW and PC come from the program just loaded, whose
+# FCW says whether to decode it segmented.
+key R
+
+# The inner loop in Z8070 instructions: FLDS loads a float, FLDD
+# stores a double, FMULD multiplies in double.
+type D
+wait Disassemble?
+command 1019C 10
+pace 1.5
+
+# A breakpoint on the FMULD that squares A, then up to it.
+type B
+wait Break addr?
+command 101A8
+pace 0.6
+type G
+wait backtrace?
+type 4\r
+waitfor 60 SP=
+wait >
+pace 1.5
+
+# With no EPU, the FMULD traps to fpe_trap, which saves the registers
+# under the frame and calls FPE.
+step 1
+pace 1.5
+type D
+wait Disassemble?
+command 100 8
+pace 1.5
+type g
+wait Go until?
+command 10E 5
+pace 1.5
+
+# Into FPE, then on to fpe_trap's IRET: FPE returns, turns segmented
+# again, and the shim restores the registers with LDM.
+step 1
+pace 1.5
+type g
+wait Go until?
+command 11C 10
+pace 1.5
+
+# The IRET lands on the next Z8070 instruction, the FMULD's PC moved
+# past it.
+step 1
+pace 2.0
+
+# The rest of the frame, live, a few minutes, with the breakpoint
+# cleared.
+type b
+wait clear?
+command 1
+pace 1.0
+run 1 600
+pace 2.0

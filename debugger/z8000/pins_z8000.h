@@ -104,6 +104,7 @@ private:
     void resetPins() override;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
+    void backtraceModes(uint_fast8_t cycles, uint8_t *modes) const;
 
     Signals *prepareCycle();
     Signals *resumeCycle(uint32_t addr);

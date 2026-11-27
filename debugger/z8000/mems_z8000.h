@@ -48,6 +48,18 @@ struct MemsZ8000 : ExtMemory {
         write_byte(seg * SEG_SIZE + addr, data);
     }
 
+    // How a Z8001 instruction is disassembled: in the mode the FCW now
+    // says, or, for a backtrace line, the mode it ran in.
+    enum Decode : uint8_t { DECODE_FCW = 0, DECODE_NONSEG, DECODE_SEG };
+    void setDecode(Decode mode) const { _decode = mode; }
+#ifdef WITH_DISASSEMBLER
+    // The words of the instruction at |addr| decoded in |mode|, 0 if it
+    // does not decode.
+    uint_fast8_t insnWords(uint32_t addr, Decode mode) const;
+    // Nonsegmented code outside segment 0 decodes at its offsets.
+    uint32_t disassemble(uint32_t addr, uint8_t numInsn) const override;
+#endif
+
     // The disk cache sits above the three synthesized segments, not in them.
     Area cacheArea() const override {
         return _segmented ? ExtMemory::cacheArea()
@@ -67,7 +79,9 @@ private:
     const uint32_t _maxAddr;
     bool _split = false;
     const RegsZ8000 *_regs = nullptr;
-    // A Z8001 program with SEG clear in its FCW is Z8002 code.
+    mutable Decode _decode = DECODE_FCW;
+    // Z8002 code: a Z8001 program with SEG clear in its FCW, or a
+    // backtrace line that ran so.
     bool nonsegmented() const;
 };
 
