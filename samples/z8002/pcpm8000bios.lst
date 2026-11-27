@@ -1,0 +1,872 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; The BIOS of cpm8000bios.inc for the CP/M-8000 1.2 kernel built from
+          0 :                    ;;; P-CP/M-Z8K's sources.
+          0 :                            include "cpm8000.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; CP/M-8000 1.1 on the Z8002: where everything sits in the 64K, shared
+(1)       0 :                    ;;; by cpm8000bios.asm, cpm8000glue.asm and the Makefile's link.
+(1)       0 :                            include "z8002.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; Z8002
+(2)       0 :                            cpu     z8002
+(2)       0 :
+(2)       0 :                    ;;; Reset reads the FCW at 0002H and the PC at 0004H, the reset entry of
+(2)       0 :                    ;;; a Program Status Area at 0000H.
+(2)       0 : =0                 ORG_RESET:      equ     0000H
+(2)       0 :                    ;;; Program Status Area offsets: an FCW, then a PC.
+(2)       0 : =4                 PSA_EPA:        equ     04H     ; extended instruction trap
+(2)       0 : =8                 PSA_PRIV:       equ     08H     ; privileged instruction trap
+(2)       0 : =C                 PSA_SC:         equ     0CH     ; system call
+(2)       0 : =14                PSA_NMI:        equ     14H     ; non-maskable interrupt
+(2)       0 : =18                PSA_NVI:        equ     18H     ; non-vectored interrupt
+(2)       0 : =1C                PSA_VI:         equ     1CH     ; vectored interrupt: the FCW, then a PC
+(2)       0 :                                                    ; for each identifier from 1EH, the one
+(2)       0 :                                                    ; for identifier n at PSA_VI+2+2*n
+(2)       0 :                    ;;; Flag and Control Word
+(2)       0 : =4000              FCW_SN:         equ     4000H   ; system mode
+(2)       0 : =2000              FCW_EPA:        equ     2000H   ; extended processor architecture
+(2)       0 : =1000              FCW_VIE:        equ     1000H   ; vectored interrupt enable
+(2)       0 : =800               FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
+(2)       0 :
+(2)       0 :                    ;;; The data area: queues and variables.
+(2)       0 : =4000              DATA:           equ     4000H
+(2)       0 :
+(2)       0 :                    ;;; SC #SC_EXIT hands control back to the debugger, as a breakpoint does.
+(2)       0 : =FF                SC_EXIT:        equ     0FFH
+(1)       0 :
+(1)       0 :                    ;;; The TPA runs from 0: a program is linked at 0 and the loader moves
+(1)       0 :                    ;;; nothing, so the reset vector at 0004H belongs to the program once one
+(1)       0 :                    ;;; has loaded. The loader also takes the TPA for a whole 64K segment: it
+(1)       0 :                    ;;; puts the base page at 0FE00H and the program's stack below 0FD00H,
+(1)       0 :                    ;;; whatever the memory region table says, and only sizes the program by
+(1)       0 :                    ;;; it. So the BIOS comes first, the kernel, CCP and BDOS as DRI linked
+(1)       0 :                    ;;; them with its commons linked after it at SYSTEM by xout-link.py, and
+(1)       0 :                    ;;; the memory above the kernel is the program's stack.
+(1)       0 : =8800              BIOS_ORG:       equ     8800H
+(1)       0 : =9800              SYSTEM:         equ     9800H
+(1)       0 : =8800              TPA_SIZE:       equ     BIOS_ORG
+(1)       0 :                    ;;; The Program Status Area, on a 256-byte boundary: FCW and PC pairs
+(1)       0 :                    ;;; through the vectored interrupts' table, identifiers 0 to 15.
+(1)       0 : =8800              PSA:            equ     BIOS_ORG
+(1)       0 : =40                PSA_SIZE:       equ     40H
+(1)       0 :                    ;;; The system stack grows down from the kernel to the BIOS's data.
+(1)       0 : =97FE              SYSSTK:         equ     SYSTEM-2
+(1)       0 :
+(1)       0 :                    ;;; System call numbers: SC #n.
+(1)       0 : =1                 MEM_SC:         equ     1       ; memory management and context switch
+(1)       0 : =2                 BDOS_SC:        equ     2
+(1)       0 : =3                 BIOS_SC:        equ     3
+(1)       0 :                    ;;; The exception vector the BIOS keeps: 48 longs, traps 0-31 and system
+(1)       0 :                    ;;; calls 0-15 as 32-47, numbered as CP/M-68K's.
+(1)       0 : =30                NTRAPS:         equ     48
+(1)       0 : =20                SC0TRAP:        equ     32
+(1)       0 : =1                 EPUTRAP:        equ     1
+(1)       0 : =2                 SEGTRAP:        equ     2
+(1)       0 : =8                 PITRAP:         equ     8
+(1)       0 : =0                 NMITRAP:        equ     0
+(1)       0 :
+(1)       0 :                    ;;; The trap frame the dispatcher builds on the system stack, offsets
+(1)       0 :                    ;;; from R15 in the dispatcher; a handler, called with CO bytes of return
+(1)       0 :                    ;;; address on top, sees each CO higher. DRI's Z8002 glue (biosdefs2.z8k)
+(1)       0 :                    ;;; shares it: R0-R14, the normal R15, then what the CPU pushed, the SC
+(1)       0 :                    ;;; identifier, FCW and PC.
+(1)       0 : =0                 FR_R0:          equ     0
+(1)       0 : =C                 FR_R6:          equ     12
+(1)       0 : =E                 FR_R7:          equ     14
+(1)       0 : =1C                FR_R14:         equ     28
+(1)       0 : =1E                FR_NR15:        equ     30
+(1)       0 : =20                FR_ID:          equ     32
+(1)       0 : =22                FR_FCW:         equ     34
+(1)       0 : =24                FR_PC:          equ     36
+(1)       0 : =26                FRAME:          equ     38
+(1)       0 :                    ;;; A program's startup context (the CCP's go.c), which xfer loads: R0-R15,
+(1)       0 :                    ;;; a word it ignores, the FCW and the PC as segment and offset.
+(1)       0 : =22                CTX_FCW:        equ     34
+(1)       0 : =26                CTX_PC:         equ     38
+(1)       0 : =2                 CO:             equ     2
+(1)       0 :
+(1)       0 :                    ;;; The firmware's synthesized segments for a split instruction/data
+(1)       0 :                    ;;; program: the system (the kernel and a merged program), the running
+(1)       0 :                    ;;; program's code, and its data. A segment is the high half of the
+(1)       0 :                    ;;; EXTMEM address the debugger forms, segment<<16 | offset.
+(1)       0 : =0                 SEG_SYS:        equ     0
+(1)       0 : =1                 SEG_CODE:       equ     1
+(1)       0 : =2                 SEG_DATA:       equ     2
+(1)       0 :
+(1)       0 :                    ;;; The SPLIT device: a control port that turns the routing on for a
+(1)       0 :                    ;;; split program, and a copy engine that moves bytes across the
+(1)       0 :                    ;;; segments so the BIOS, in system mode, can load a program's code and
+(1)       0 :                    ;;; data and reach a split program's disk buffers.
+(1)       0 : =160               SPLIT:          equ     160H
+(1)       0 : =160               SPLIT_CTRL:     equ     SPLIT+0
+(1)       0 : =161               SPLIT_SRCSEG:   equ     SPLIT+1
+(1)       0 : =162               SPLIT_SRCL:     equ     SPLIT+2
+(1)       0 : =163               SPLIT_SRCH:     equ     SPLIT+3
+(1)       0 : =164               SPLIT_DSTSEG:   equ     SPLIT+4
+(1)       0 : =165               SPLIT_DSTL:     equ     SPLIT+5
+(1)       0 : =166               SPLIT_DSTH:     equ     SPLIT+6
+(1)       0 : =167               SPLIT_COUNTL:   equ     SPLIT+7
+(1)       0 : =168               SPLIT_COUNTH:   equ     SPLIT+8
+(1)       0 : =1                 SPLIT_ON:       equ     1
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =140               USART:  equ     140H
+(1)       0 : =140               USARTD: equ     USART+0         ; Data register
+(1)       0 : =141               USARTS: equ     USART+1         ; Status register
+(1)       0 : =141               USARTC: equ     USART+1         ; Control register
+(1)       0 : =142               USARTRV:        equ     USART+2 ; Receive interrupt identifier
+(1)       0 : =143               USARTTV:        equ     USART+3 ; Transmit interrupt identifier
+(1)       0 :                    ;;; The identifiers the USART answers its vectored interrupts with: even,
+(1)       0 :                    ;;; as the Z8001 requires.
+(1)       0 : =2                 RX_ID:          equ     2
+(1)       0 : =4                 TX_ID:          equ     4
+(1)       0 :                            include "../z80/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(2)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(2)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :                            include "pcpm8000sys.inc"
+(1)       0 :                    ;;; Made by xout-link.py from pcpm8000.built/ccpif.o pcpm8000.built/ccp.o pcpm8000.built/go.o pcpm8000.built/bdosif2.o pcpm8000.built/exceptn2.o pcpm8000.built/bdosmain.o pcpm8000.built/bdosmisc.o pcpm8000.built/bdosrw.o p
+(1)       0 :                    ;;; symbols of the system linked at 9800H, ending at EC9CH.
+(1)       0 : =9800              ccp:	equ	09800H
+(1)       0 : =E462              _autost:	equ	0E462H
+(1)       0 : =E464              _submit:	equ	0E464H
+(1)       0 : =E465              _morecmd:	equ	0E465H
+(1)       0 : =E792              _usercmd:	equ	0E792H
+(1)       0 : =E90E              _subcom:	equ	0E90EH
+(1)       0 : =E990              _subdma:	equ	0E990H
+(1)       0 : =EA10              _save_su:	equ	0EA10H
+(1)       0 : =EA92              _subfcb:	equ	0EA92H
+(1)       0 : =EAB6              _cmdfcb:	equ	0EAB6H
+(1)       0 : =EADA              _dma:	equ	0EADAH
+(1)       0 : =EB5E              _parm:	equ	0EB5EH
+(1)       0 : =EBC6              _LPB:	equ	0EBC6H
+(1)       0 : =EBDC              _sstack:	equ	0EBDCH
+(1)       0 : =EBE4              _tpa_lp:	equ	0EBE4H
+(1)       0 : =EBE8              _tpa_lt:	equ	0EBE8H
+(1)       0 : =EBEC              _tpa_hp:	equ	0EBECH
+(1)       0 : =EBF0              _tpa_ht:	equ	0EBF0H
+(1)       0 : =EBF4              _gbls:	equ	0EBF4H
+(1)       0 : =EC36              _x_sg:	equ	0EC36H
+(1)       0 : =EC76              _mylpb:	equ	0EC76H
+(1)       0 : =EC8C              _x_hdr:	equ	0EC8CH
+(1)       0 :                    ;;; The kernel's locals.
+(1)       0 : =9806              ccpclear:	equ	09806H
+(1)       0 : =980A              ccpstart:	equ	0980AH
+(1)       0 : =9818              ccploop:	equ	09818H
+(1)       0 : =E43C              copy:	equ	0E43CH
+(1)       0 : =E463              sysinit:	equ	0E463H
+(1)       0 : =E814              stackp:	equ	0E814H
+          0 :                            include "cpm8000bios.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; The CP/M-8000 BIOS for the Z8002: the console on the i8251 and four
+(1)       0 :                    ;;; drives on the debugger's sector disk, both polled, byte I/O at
+(1)       0 :                    ;;; 16-bit port addresses. cpm8000bios.asm links it with DRI's 1.1 kernel
+(1)       0 :                    ;;; and the Z8002 glue of cpm8000glue.asm, pcpm8000bios.asm with the 1.2
+(1)       0 :                    ;;; kernel built from P-CP/M-Z8K's sources; either, at SYSTEM by
+(1)       0 :                    ;;; xout-link.py, calls the BIOS with SC #3: R3 the function, RR4 and RR6
+(1)       0 :                    ;;; the parameters, the result back in RR6 (R7 for a word). SC #2 is the
+(1)       0 :                    ;;; BDOS, SC #1 memory management and the context switch that starts a
+(1)       0 :                    ;;; program. All traps go through the exception vector, 48 longs the BDOS
+(1)       0 :                    ;;; fills with BIOS function 22, as CP/M-68K's.
+(1)       0 :
+(1)       0 : =150               DISK:   equ     150H
+(1)       0 :                            include "../i8080/sector_disk.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; The debugger's paravirtual sector disk (debugger/sector_disk.h).
+(2)       0 :                    ;;; DISK is its base port.
+(2)       0 : =150               DISK_DRIVE:     equ     DISK+0  ; 0-3
+(2)       0 : =151               DISK_TRACK:     equ     DISK+1  ; 0-76
+(2)       0 : =152               DISK_SECTOR:    equ     DISK+2  ; 1-26, physical
+(2)       0 : =153               DISK_DMAL:      equ     DISK+3  ; DMA address, low byte
+(2)       0 : =154               DISK_DMAH:      equ     DISK+4  ; high byte
+(2)       0 : =155               DISK_COMMAND:   equ     DISK+5  ; write a command, read its status
+(2)       0 : =156               DISK_MOUNTED:   equ     DISK+6  ; bit n: drive n has its image
+(2)       0 : =157               DISK_DMAX:      equ     DISK+7  ; DMA address bits 16-23
+(2)       0 : =1                 CMD_READ:       equ     1
+(2)       0 : =2                 CMD_WRITE:      equ     2
+(1)       0 : =4                 NDISKS: equ     4
+(1)       0 :                    ;;; A Disk Parameter Header with the kernel's 16-bit pointers: XLT, three
+(1)       0 :                    ;;; scratch words, DIRBUF, DPB, CSV and ALV.
+(1)       0 : =10                DPH_SIZE:       equ     16
+(1)       0 : =0                 DPH_XLT:        equ     0
+(1)       0 : =A                 DPH_DPB:        equ     10
+(1)       0 : =7F                ALV_SIZE:       equ     127     ; hd8's 1016 blocks, a bit each
+(1)       0 : =10                CSV_SIZE:       equ     16      ; the 8" disk's 64 directory entries
+(1)       0 :
+(1)       0 :                    ;;; The reset vector: the debugger serves the FCW itself. A program
+(1)       0 :                    ;;; loaded at 0 overwrites it, so L the system again before R.
+(1)       0 :                            org     ORG_RESET
+(1)       0 : 0000                       word    0
+(1)       2 : 4000                       word    FCW_SN
+(1)       4 : 8840                       word    start
+(1)       6 :
+(1)       6 :                    ;;; The Program Status Area. The debugger takes #NMI itself and serves
+(1)       6 :                    ;;; its own vector. The vectored and non-vectored interrupt handlers
+(1)       6 :                    ;;; leave the interrupt disabled in the interrupted FCW: nothing here
+(1)       6 :                    ;;; asks for one.
+(1)    8800 :                            org     PSA
+(1)    8800 : 0000 0000                  word    0, 0
+(1)    8804 : 4000 88C6                  word    FCW_SN, epu_trap        ; extended instruction
+(1)    8808 : 4000 88CC                  word    FCW_SN, pi_trap         ; privileged instruction
+(1)    880C : 4000 88C0                  word    FCW_SN, sc_trap         ; system call
+(1)    8810 : 4000 88D2                  word    FCW_SN, seg_trap        ; segmentation, none on a Z8002
+(1)    8814 : 4000 88D8                  word    FCW_SN, nmi_trap
+(1)    8818 : 4000 891E                  word    FCW_SN, isr_nvi
+(1)    881C : 4000                       word    FCW_SN                  ; vectored interrupts: a PC an
+(1)    881E : 8918 8918 8918             word    isr_vi, isr_vi, isr_vi, isr_vi, isr_vi, isr_vi, isr_vi, isr_vi
+       8824 : 8918 8918 8918
+       882A : 8918 8918
+(1)    882E : 8918 8918 8918             word    isr_vi, isr_vi, isr_vi, isr_vi, isr_vi, isr_vi, isr_vi, isr_vi
+       8834 : 8918 8918 8918
+       883A : 8918 8918
+(1)    883E :
+(1)    8840 :                            org     PSA+PSA_SIZE
+(1)    8840 :                    ;;; Cold boot: the system stack, the PSA, the traps and the console, then
+(1)    8840 :                    ;;; the CCP, which warm boots if it ever returns. The CCP initialises the
+(1)    8840 :                    ;;; BDOS only once, by a flag after autost it sets; cleared, a reset
+(1)    8840 :                    ;;; without a reload boots too.
+(1)    8840 :                    start:
+(1)    8840 : 7C00                       di      vi, nvi
+(1)    8842 : 210F 97FE                  ld      r15, #SYSSTK
+(1)    8846 : 2100 8800                  ld      r0, #PSA
+(1)    884A : 7D0D                       ldctl   psap, r0
+(1)    884C : 4C08 E463                  clrb    _autost+1
+(1)    8850 : 5F00 8860                  call    trapinit
+(1)    8854 : 5F00 888C                  call    biosinit
+(1)    8858 : 0DF9 8A66                  push    @r15, #wboot
+(1)    885C : 5E08 9800                  jp      ccp
+(1)    8860 :
+(1)    8860 :                    ;;; The exception vector: cleared, then the memory management and BIOS
+(1)    8860 :                    ;;; system calls, and the extended instruction trap no EPU takes.
+(1)    8860 :                    trapinit:
+(1)    8860 : 2102 8D20                  ld      r2, #trapvec
+(1)    8864 : 2100 0030                  ld      r0, #NTRAPS
+(1)    8868 : 9244                       subl    rr4, rr4
+(1)    886A :                    trapinit_clear:
+(1)    886A : 1D24                       ldl     @r2, rr4
+(1)    886C : A923                       inc     r2, #4
+(1)    886E : F083                       djnz    r0, trapinit_clear
+(1)    8870 : 8D28                       clr     r2
+(1)    8872 : 2103 893A                  ld      r3, #memsc
+(1)    8876 : 5D02 8DA4                  ldl     trapvec+4*(SC0TRAP+MEM_SC), rr2
+(1)    887A : 2103 8924                  ld      r3, #biossc
+(1)    887E : 5D02 8DAC                  ldl     trapvec+4*(SC0TRAP+BIOS_SC), rr2
+(1)    8882 : 2103 8C56                  ld      r3, #epu_exc
+(1)    8886 : 5D02 8D24                  ldl     trapvec+4*EPUTRAP, rr2
+(1)    888A : 9E08                       ret
+(1)    888C :
+(1)    888C :                    ;;; The console: asynchronous, 8 bits, 1 stop bit, polled. Its interrupt
+(1)    888C :                    ;;; identifiers, which a reset leaves as a sample set them, go to 0: a
+(1)    888C :                    ;;; program runs with interrupts enabled.
+(1)    888C :                    biosinit:
+(1)    888C : 8C88                       clrb    rl0
+(1)    888E : 3A86 0141                  outb    USARTC, rl0
+(1)    8892 : 3A86 0141                  outb    USARTC, rl0
+(1)    8896 : 3A86 0141                  outb    USARTC, rl0     ; safest way to sync mode
+(1)    889A : C840                       ldb     rl0, #CMD_IR_bm
+(1)    889C : 3A86 0141                  outb    USARTC, rl0     ; reset
+(1)    88A0 : 8D07                       nop
+(1)    88A2 : 8D07                       nop
+(1)    88A4 : C84E                       ldb     rl0, #ASYNC_MODE
+(1)    88A6 : 3A86 0141                  outb    USARTC, rl0
+(1)    88AA : 8D07                       nop
+(1)    88AC : 8D07                       nop
+(1)    88AE : C837                       ldb     rl0, #RX_EN_TX_EN
+(1)    88B0 : 3A86 0141                  outb    USARTC, rl0
+(1)    88B4 : 8C88                       clrb    rl0
+(1)    88B6 : 3A86 0142                  outb    USARTRV, rl0
+(1)    88BA : 3A86 0143                  outb    USARTTV, rl0
+(1)    88BE : 9E08                       ret
+(1)    88C0 :
+(1)    88C0 :                    ;;; The trap dispatcher. Each trap pushes its number below what the CPU
+(1)    88C0 :                    ;;; pushed, then saves R0-R14 under it and swaps it for the normal R15,
+(1)    88C0 :                    ;;; the frame of cpm8000.inc, and calls the exception vector's handler
+(1)    88C0 :                    ;;; with the frame at CO(R15); a zero vector resumes the program. A
+(1)    88C0 :                    ;;; system call's number comes from the SC instruction word the CPU
+(1)    88C0 :                    ;;; pushed.
+(1)    88C0 :                    sc_trap:
+(1)    88C0 : 0DF9 7F00                  push    @r15, #7F00H
+(1)    88C4 : E80B                       jr      trap
+(1)    88C6 :                    epu_trap:
+(1)    88C6 : 0DF9 0001                  push    @r15, #EPUTRAP
+(1)    88CA : E808                       jr      trap
+(1)    88CC :                    pi_trap:
+(1)    88CC : 0DF9 0008                  push    @r15, #PITRAP
+(1)    88D0 : E805                       jr      trap
+(1)    88D2 :                    seg_trap:
+(1)    88D2 : 0DF9 0002                  push    @r15, #SEGTRAP
+(1)    88D6 : E802                       jr      trap
+(1)    88D8 :                    nmi_trap:
+(1)    88D8 : 0DF9 0000                  push    @r15, #NMITRAP
+(1)    88DC :                    trap:
+(1)    88DC : 030F 001E                  sub     r15, #FR_NR15
+(1)    88E0 : 1CF9 000E                  ldm     @r15, r0, #15
+(1)    88E4 : 7D17                       ldctl   r1, nsp
+(1)    88E6 : 6DF1 001E                  ex      r1, FR_NR15(r15)
+(1)    88EA : 0A01 7F7F                  cpb     rh1, #7FH
+(1)    88EE : EE05                       jr      ne, trap_disp
+(1)    88F0 : 61F1 0020                  ld      r1, FR_ID(r15)  ; SC #n: 7F00H|n
+(1)    88F4 : 8C18                       clrb    rh1
+(1)    88F6 : 0101 0020                  add     r1, #SC0TRAP
+(1)    88FA :                    trap_disp:
+(1)    88FA : B311 0002                  sll     r1, #2
+(1)    88FE : 5410 8D20                  ldl     rr0, trapvec(r1)
+(1)    8902 : 9C08                       testl   rr0
+(1)    8904 : E601                       jr      z, trap_ret
+(1)    8906 : 1F10                       call    @r1
+(1)    8908 :                    trap_ret:
+(1)    8908 : 61F1 001E                  ld      r1, FR_NR15(r15)
+(1)    890C : 7D1F                       ldctl   nsp, r1
+(1)    890E : 1CF1 000E                  ldm     r0, @r15, #15
+(1)    8912 : 010F 0020                  add     r15, #FR_ID
+(1)    8916 : 7B00                       iret
+(1)    8918 :
+(1)    8918 :                    ;;; Interrupts: disable the kind in the interrupted FCW and return.
+(1)    8918 :                    isr_vi:
+(1)    8918 : 63FC 0002                  res     2(r15), #12     ; VIE
+(1)    891C : 7B00                       iret
+(1)    891E :                    isr_nvi:
+(1)    891E : 63FB 0002                  res     2(r15), #11     ; NVIE
+(1)    8922 : 7B00                       iret
+(1)    8924 :
+(1)    8924 :                    ;;; SC #3: the BIOS function R3 with R5 (RR4) and RR6, its RR6 to the
+(1)    8924 :                    ;;; caller's.
+(1)    8924 :                    biossc:
+(1)    8924 : 0B03 0017                  cp      r3, #NFUNCS
+(1)    8928 : EF07                       jr      uge, biossc_ret
+(1)    892A : B331 0001                  sll     r3, #1
+(1)    892E : 6131 8A38                  ld      r1, functions(r3)
+(1)    8932 : 1F10                       call    @r1
+(1)    8934 : 5DF6 000E                  ldl     FR_R6+CO(r15), rr6
+(1)    8938 :                    biossc_ret:
+(1)    8938 : 9E08                       ret
+(1)    893A :
+(1)    893A :                    ;;; SC #1: with RR2 the length, mem_cpy copies RR2 bytes from RR6 to RR4,
+(1)    893A :                    ;;; each a segmented address seg<<16|offset, through the SPLIT copy port.
+(1)    893A :                    ;;; With RR2 zero, map_adr returns RR6 in the segment the space R5 names:
+(1)    893A :                    ;;; 2 and 3 the system; 4 and 5 (and 0, 1 from a user caller) the running
+(1)    893A :                    ;;; program's data and code; -1 sets the program's code segment from the
+(1)    893A :                    ;;; region the loader passes, -2 is the context switch.
+(1)    893A :                    memsc:
+(1)    893A : 9C28                       testl   rr2
+(1)    893C : E612                       jr      z, mem_map
+(1)    893E : 3AE6 0161                  outb    SPLIT_SRCSEG, rl6       ; rr6 source, seg in R6, offset R7
+(1)    8942 : 3AF6 0162                  outb    SPLIT_SRCL, rl7
+(1)    8946 : 3A76 0163                  outb    SPLIT_SRCH, rh7
+(1)    894A : 3AC6 0164                  outb    SPLIT_DSTSEG, rl4       ; rr4 dest
+(1)    894E : 3AD6 0165                  outb    SPLIT_DSTL, rl5
+(1)    8952 : 3A56 0166                  outb    SPLIT_DSTH, rh5
+(1)    8956 : 3AB6 0167                  outb    SPLIT_COUNTL, rl3       ; r3 count, 0 means 64K
+(1)    895A : 3A36 0168                  outb    SPLIT_COUNTH, rh3       ; triggers the copy
+(1)    895E : 9446                       ldl     rr6, rr4
+(1)    8960 : E822                       jr      mem_ret
+(1)    8962 :                    mem_map:
+(1)    8962 : 0B05 FFFE                  cp      r5, #-2
+(1)    8966 : E625                       jr      eq, xfersc
+(1)    8968 : 0B05 FFFF                  cp      r5, #-1
+(1)    896C : E61F                       jr      eq, set_usrseg
+(1)    896E : 0705 00FF                  and     r5, #0FFH               ; drop the instruction-address bit
+(1)    8972 : 0B05 0004                  cp      r5, #4                  ; TPA data
+(1)    8976 : E610                       jr      eq, mem_data
+(1)    8978 : 0B05 0005                  cp      r5, #5                  ; TPA program
+(1)    897C : E610                       jr      eq, mem_prog
+(1)    897E : 0B05 0002                  cp      r5, #2                  ; system data
+(1)    8982 : E610                       jr      eq, mem_sys
+(1)    8984 : 0B05 0003                  cp      r5, #3                  ; system program
+(1)    8988 : E60D                       jr      eq, mem_sys
+(1)    898A : 61F1 0024                  ld      r1, FR_FCW+CO(r15)      ; caller data or program
+(1)    898E : A71E                       bit     r1, #14                 ; a system caller stays system
+(1)    8990 : EE09                       jr      nz, mem_sys
+(1)    8992 : 0B05 0001                  cp      r5, #1                  ; user program
+(1)    8996 : E603                       jr      eq, mem_prog
+(1)    8998 :                    mem_data:
+(1)    8998 : CE02                       ldb     rl6, #SEG_DATA
+(1)    899A : 8C68                       clrb    rh6
+(1)    899C : E804                       jr      mem_ret
+(1)    899E :                    mem_prog:
+(1)    899E : 6106 8D1C                  ld      r6, usrseg              ; SEG_SYS for a merged program
+(1)    89A2 : E801                       jr      mem_ret
+(1)    89A4 :                    mem_sys:
+(1)    89A4 : 8D68                       clr     r6
+(1)    89A6 :                    mem_ret:
+(1)    89A6 : 5DF6 000E                  ldl     FR_R6+CO(r15), rr6      ; the caller's RR6
+(1)    89AA : 9E08                       ret
+(1)    89AC :                    set_usrseg:
+(1)    89AC : 6F06 8D1C                  ld      usrseg, r6              ; the region's high word is the segment
+(1)    89B0 : 9E08                       ret
+(1)    89B2 :
+(1)    89B2 :                    ;;; The context switch starts a program: turn the split routing on for a
+(1)    89B2 :                    ;;; split program (its code segment is not the system's) and off for a
+(1)    89B2 :                    ;;; merged one, then copy the context block at R7, R0-R15, a word to
+(1)    89B2 :                    ;;; ignore, the FCW and a long PC, over the caller's frame, which never
+(1)    89B2 :                    ;;; resumes, and return into it.
+(1)    89B2 :                    xfersc:
+(1)    89B2 : 8C88                       clrb    rl0
+(1)    89B4 : 2102 0000                  ld      r2, #SEG_SYS
+(1)    89B8 : 6101 8D1C                  ld      r1, usrseg
+(1)    89BC : 0B01 0000                  cp      r1, #SEG_SYS
+(1)    89C0 : E603                       jr      eq, xfer_routing
+(1)    89C2 : C801                       ldb     rl0, #SPLIT_ON
+(1)    89C4 : 2102 0002                  ld      r2, #SEG_DATA
+(1)    89C8 :                    xfer_routing:
+(1)    89C8 : 3A86 0160                  outb    SPLIT_CTRL, rl0
+(1)    89CC : 6F02 8D1E                  ld      _usrseg, r2
+(1)    89D0 : A9F1                       inc     r15, #CO
+(1)    89D2 : A1F5                       ld      r5, r15
+(1)    89D4 : 2102 0010                  ld      r2, #FR_ID/2
+(1)    89D8 : BB71 0250                  ldir    @r5, @r7, r2
+(1)    89DC : 6170 0002                  ld      r0, CTX_FCW-FR_ID(r7)
+(1)    89E0 : 6FF0 0022                  ld      FR_FCW(r15), r0
+(1)    89E4 : 6170 0006                  ld      r0, CTX_PC-FR_ID(r7)
+(1)    89E8 : 6FF0 0024                  ld      FR_PC(r15), r0
+(1)    89EC : E88D                       jr      trap_ret
+(1)    89EE :
+(1)    89EE :                    ;;; What the kernel calls as C functions, the arguments on the stack
+(1)    89EE :                    ;;; above the return address, leftmost first: long bios(code, p1, p2),
+(1)    89EE :                    ;;; long bdos(code, p1), long map_adr(addr, space), mem_cpy(src, dst,
+(1)    89EE :                    ;;; len) and xfer(context).
+(1)    89EE :                    _bios:
+(1)    89EE : 61F3 0002                  ld      r3, 2(r15)
+(1)    89F2 : 54F4 0004                  ldl     rr4, 4(r15)
+(1)    89F6 : 54F6 0008                  ldl     rr6, 8(r15)
+(1)    89FA : 7F03                       sc      #BIOS_SC
+(1)    89FC : 9E08                       ret
+(1)    89FE :                    _bdos:
+(1)    89FE : 61F5 0002                  ld      r5, 2(r15)
+(1)    8A02 : 54F6 0004                  ldl     rr6, 4(r15)
+(1)    8A06 : 7F02                       sc      #BDOS_SC
+(1)    8A08 : 9E08                       ret
+(1)    8A0A :                    _map_adr:
+(1)    8A0A : 54F6 0002                  ldl     rr6, 2(r15)
+(1)    8A0E : 61F5 0006                  ld      r5, 6(r15)
+(1)    8A12 : 9222                       subl    rr2, rr2
+(1)    8A14 : 7F01                       sc      #MEM_SC
+(1)    8A16 : 9E08                       ret
+(1)    8A18 :                    _mem_cpy:
+(1)    8A18 : 54F6 0002                  ldl     rr6, 2(r15)
+(1)    8A1C : 54F4 0006                  ldl     rr4, 6(r15)
+(1)    8A20 : 54F2 000A                  ldl     rr2, 10(r15)
+(1)    8A24 : 7F01                       sc      #MEM_SC
+(1)    8A26 : 9E08                       ret
+(1)    8A28 :                    _xfer:
+(1)    8A28 : 54F6 0002                  ldl     rr6, 2(r15)
+(1)    8A2C : 1404 FFFF FFFE             ldl     rr4, #-2
+(1)    8A32 : 9222                       subl    rr2, rr2
+(1)    8A34 : 7F01                       sc      #MEM_SC
+(1)    8A36 : 9E08                       ret
+(1)    8A38 :
+(1)    8A38 :                    ;;; The BIOS functions.
+(1)    8A38 :                    functions:
+(1)    8A38 : 888C                       word    biosinit        ; 0 cold boot, done before the CCP
+(1)    8A3A : 8A66                       word    wboot
+(1)    8A3C : 8A76                       word    const
+(1)    8A3E : 8A8A                       word    conin
+(1)    8A40 : 8A9E                       word    conout
+(1)    8A42 : 8AAC                       word    list
+(1)    8A44 : 8AAC                       word    auxout
+(1)    8A46 : 8AB6                       word    auxin
+(1)    8A48 : 8ABE                       word    home
+(1)    8A4A : 8AD6                       word    seldsk
+(1)    8A4C : 8AC0                       word    settrk
+(1)    8A4E : 8AC6                       word    setsec
+(1)    8A50 : 8ACC                       word    setdma
+(1)    8A52 : 8B2E                       word    read
+(1)    8A54 : 8B82                       word    write
+(1)    8A56 : 8AAE                       word    listst
+(1)    8A58 : 8C0A                       word    sectran
+(1)    8A5A : 8AAC                       word    unused
+(1)    8A5C : 8C1E                       word    getmrt
+(1)    8A5E : 8C26                       word    getiob
+(1)    8A60 : 8C30                       word    setiob
+(1)    8A62 : 8C36                       word    flush
+(1)    8A64 : 8C3A                       word    setexc
+(1)    8A66 : =17                NFUNCS: equ     ($-functions)/2
+(1)    8A66 :
+(1)    8A66 :                    ;;; CCP and BDOS stay in memory: a fresh system stack and the CCP.
+(1)    8A66 :                    wboot:
+(1)    8A66 : 5F00 888C                  call    biosinit
+(1)    8A6A : 210F 97FE                  ld      r15, #SYSSTK
+(1)    8A6E : 0DF9 8A66                  push    @r15, #wboot
+(1)    8A72 : 5E08 9800                  jp      ccp
+(1)    8A76 :
+(1)    8A76 :                    ;;; R7=FFH when a character is waiting, else 0.
+(1)    8A76 :                    const:
+(1)    8A76 : 8D68                       clr     r6
+(1)    8A78 : 3AF4 0141                  inb     rl7, USARTS
+(1)    8A7C : A6F1                       bitb    rl7, #ST_RxRDY_bp
+(1)    8A7E : 2107 0000                  ld      r7, #0
+(1)    8A82 : E602                       jr      z, const_ret
+(1)    8A84 : 2107 00FF                  ld      r7, #0FFH
+(1)    8A88 :                    const_ret:
+(1)    8A88 : 9E08                       ret
+(1)    8A8A :
+(1)    8A8A :                    conin:
+(1)    8A8A : 3AF4 0141                  inb     rl7, USARTS
+(1)    8A8E : A6F1                       bitb    rl7, #ST_RxRDY_bp
+(1)    8A90 : E6FC                       jr      z, conin
+(1)    8A92 : 3AF4 0140                  inb     rl7, USARTD
+(1)    8A96 : 0707 007F                  and     r7, #7FH
+(1)    8A9A : 8D68                       clr     r6
+(1)    8A9C : 9E08                       ret
+(1)    8A9E :
+(1)    8A9E :                    ;;; RL5 to the console.
+(1)    8A9E :                    conout:
+(1)    8A9E : 3A84 0141                  inb     rl0, USARTS
+(1)    8AA2 : A680                       bitb    rl0, #ST_TxRDY_bp
+(1)    8AA4 : E6FC                       jr      z, conout
+(1)    8AA6 : 3AD6 0140                  outb    USARTD, rl5
+(1)    8AAA : 9E08                       ret
+(1)    8AAC :
+(1)    8AAC :                    ;;; No list or auxiliary device.
+(1)    8AAC :                    list:
+(1)    8AAC :                    auxout:
+(1)    8AAC :                    unused:
+(1)    8AAC : 9E08                       ret
+(1)    8AAE :                    listst:
+(1)    8AAE : 8D68                       clr     r6
+(1)    8AB0 : 2107 00FF                  ld      r7, #0FFH       ; ready, to drop the output
+(1)    8AB4 : 9E08                       ret
+(1)    8AB6 :                    auxin:
+(1)    8AB6 : 8D68                       clr     r6
+(1)    8AB8 : 2107 001A                  ld      r7, #1AH        ; end of file
+(1)    8ABC : 9E08                       ret
+(1)    8ABE :
+(1)    8ABE :                    home:
+(1)    8ABE : 8D58                       clr     r5
+(1)    8AC0 :                    settrk:
+(1)    8AC0 : 3AD6 0151                  outb    DISK_TRACK, rl5
+(1)    8AC4 : 9E08                       ret
+(1)    8AC6 :
+(1)    8AC6 :                    setsec:
+(1)    8AC6 : 3AD6 0152                  outb    DISK_SECTOR, rl5
+(1)    8ACA : 9E08                       ret
+(1)    8ACC :
+(1)    8ACC :                    ;;; RR4, the DMA address: a split program's buffer is in another segment,
+(1)    8ACC :                    ;;; so keep the whole address and let read and write reach it.
+(1)    8ACC :                    setdma:
+(1)    8ACC : 6F04 909E                  ld      dma_seg, r4             ; R4 high word, segment in its low byte
+(1)    8AD0 : 6F05 909C                  ld      dma_off, r5
+(1)    8AD4 : 9E08                       ret
+(1)    8AD6 :
+(1)    8AD6 :                    ;;; RR6=the DPH of drive R5, or 0 when it has no image or a format this
+(1)    8AD6 :                    ;;; BIOS lacks. DRIVE reads back the drive's format in bits 4-7, whose
+(1)    8AD6 :                    ;;; skew table and DPB go in its DPH.
+(1)    8AD6 :                    seldsk:
+(1)    8AD6 : 0B05 0004                  cp      r5, #NDISKS
+(1)    8ADA : EF23                       jr      uge, seldsk_none
+(1)    8ADC : 3A84 0156                  inb     rl0, DISK_MOUNTED
+(1)    8AE0 : 2605 0800                  bitb    rl0, r5
+(1)    8AE4 : E61E                       jr      z, seldsk_none
+(1)    8AE6 : 3AD6 0150                  outb    DISK_DRIVE, rl5
+(1)    8AEA : 3A84 0150                  inb     rl0, DISK_DRIVE
+(1)    8AEE : B281 00FC                  srlb    rl0, #4
+(1)    8AF2 : 0A08 0202                  cpb     rl0, #NFORMATS
+(1)    8AF6 : EF15                       jr      uge, seldsk_none
+(1)    8AF8 : 8C08                       clrb    rh0
+(1)    8AFA : B301 0002                  sll     r0, #2
+(1)    8AFE : 0100 8B26                  add     r0, #formats
+(1)    8B02 : A102                       ld      r2, r0
+(1)    8B04 : A151                       ld      r1, r5
+(1)    8B06 : B311 0004                  sll     r1, #4
+(1)    8B0A : 0101 8CB6                  add     r1, #dph0
+(1)    8B0E : 2120                       ld      r0, @r2
+(1)    8B10 : 6F10 0000                  ld      DPH_XLT(r1), r0
+(1)    8B14 : 6120 0002                  ld      r0, 2(r2)
+(1)    8B18 : 6F10 000A                  ld      DPH_DPB(r1), r0
+(1)    8B1C : 8D68                       clr     r6
+(1)    8B1E : A117                       ld      r7, r1
+(1)    8B20 : 9E08                       ret
+(1)    8B22 :                    seldsk_none:
+(1)    8B22 : 9266                       subl    rr6, rr6
+(1)    8B24 : 9E08                       ret
+(1)    8B26 :
+(1)    8B26 :                    ;;; Each format's skew table, or 0 for none, and DPB, by the index DRIVE
+(1)    8B26 :                    ;;; reads back.
+(1)    8B26 :                    formats:
+(1)    8B26 : 8C78 8C92                  word    xlt, dpb        ; 0: 8" single density, IBM 3740
+(1)    8B2A : 0000 8CA4                  word    0, dpb_hd8      ; 1: hd8, 8 MB
+(1)    8B2E : =2                 NFORMATS:       equ     ($-formats)/4
+(1)    8B2E :
+(1)    8B2E :                    ;;; R7=0 when the sector moved, else 1. Every write goes through. A
+(1)    8B2E :                    ;;; buffer in the system segment (a merged program, the loader) moves
+(1)    8B2E :                    ;;; straight to or from the disk; one in another segment bounces through
+(1)    8B2E :                    ;;; a system-segment scratch and the SPLIT copy port, since the disk
+(1)    8B2E :                    ;;; reaches only the system segment.
+(1)    8B2E :                    read:
+(1)    8B2E : 6101 909E                  ld      r1, dma_seg
+(1)    8B32 : 8C94                       testb   rl1
+(1)    8B34 : EE0B                       jr      nz, read_split
+(1)    8B36 : 6101 909C                  ld      r1, dma_off             ; the system segment: DMA straight in
+(1)    8B3A : 3A96 0153                  outb    DISK_DMAL, rl1
+(1)    8B3E : 3A16 0154                  outb    DISK_DMAH, rh1
+(1)    8B42 : 8C98                       clrb    rl1
+(1)    8B44 : 3A96 0157                  outb    DISK_DMAX, rl1
+(1)    8B48 : C801                       ldb     rl0, #CMD_READ
+(1)    8B4A : E842                       jr      disk_go
+(1)    8B4C :                    read_split:
+(1)    8B4C : 5F00 8BF6                  call    dma_scratch
+(1)    8B50 : C801                       ldb     rl0, #CMD_READ
+(1)    8B52 : 3A86 0155                  outb    DISK_COMMAND, rl0
+(1)    8B56 : 3AF4 0155                  inb     rl7, DISK_COMMAND
+(1)    8B5A : 8CE8                       clrb    rl6                     ; scratch (system segment) -> buffer
+(1)    8B5C : 3AE6 0161                  outb    SPLIT_SRCSEG, rl6
+(1)    8B60 : 2101 90A0                  ld      r1, #scratch
+(1)    8B64 : 3A96 0162                  outb    SPLIT_SRCL, rl1
+(1)    8B68 : 3A16 0163                  outb    SPLIT_SRCH, rh1
+(1)    8B6C : 6101 909E                  ld      r1, dma_seg
+(1)    8B70 : 3A96 0164                  outb    SPLIT_DSTSEG, rl1
+(1)    8B74 : 6101 909C                  ld      r1, dma_off
+(1)    8B78 : 3A96 0165                  outb    SPLIT_DSTL, rl1
+(1)    8B7C : 3A16 0166                  outb    SPLIT_DSTH, rh1
+(1)    8B80 : E82E                       jr      sector_copy
+(1)    8B82 :                    write:
+(1)    8B82 : 6101 909E                  ld      r1, dma_seg
+(1)    8B86 : 8C94                       testb   rl1
+(1)    8B88 : EE0B                       jr      nz, write_split
+(1)    8B8A : 6101 909C                  ld      r1, dma_off             ; the system segment: DMA straight out
+(1)    8B8E : 3A96 0153                  outb    DISK_DMAL, rl1
+(1)    8B92 : 3A16 0154                  outb    DISK_DMAH, rh1
+(1)    8B96 : 8C98                       clrb    rl1
+(1)    8B98 : 3A96 0157                  outb    DISK_DMAX, rl1
+(1)    8B9C : C802                       ldb     rl0, #CMD_WRITE
+(1)    8B9E : E818                       jr      disk_go
+(1)    8BA0 :                    write_split:
+(1)    8BA0 : 6101 909E                  ld      r1, dma_seg             ; buffer -> scratch (system segment)
+(1)    8BA4 : 3A96 0161                  outb    SPLIT_SRCSEG, rl1
+(1)    8BA8 : 6101 909C                  ld      r1, dma_off
+(1)    8BAC : 3A96 0162                  outb    SPLIT_SRCL, rl1
+(1)    8BB0 : 3A16 0163                  outb    SPLIT_SRCH, rh1
+(1)    8BB4 : 8C88                       clrb    rl0
+(1)    8BB6 : 3A86 0164                  outb    SPLIT_DSTSEG, rl0
+(1)    8BBA : 2101 90A0                  ld      r1, #scratch
+(1)    8BBE : 3A96 0165                  outb    SPLIT_DSTL, rl1
+(1)    8BC2 : 3A16 0166                  outb    SPLIT_DSTH, rh1
+(1)    8BC6 : 5F00 8BE8                  call    sector_count
+(1)    8BCA : 5F00 8BF6                  call    dma_scratch
+(1)    8BCE : C802                       ldb     rl0, #CMD_WRITE
+(1)    8BD0 :                    disk_go:
+(1)    8BD0 : 3A86 0155                  outb    DISK_COMMAND, rl0
+(1)    8BD4 : 3AF4 0155                  inb     rl7, DISK_COMMAND
+(1)    8BD8 : 8C78                       clrb    rh7
+(1)    8BDA : 8D68                       clr     r6
+(1)    8BDC : 9E08                       ret
+(1)    8BDE :                    ;;; The scratch holds one 128-byte sector; copy that many and trigger.
+(1)    8BDE :                    sector_copy:
+(1)    8BDE : 5F00 8BE8                  call    sector_count
+(1)    8BE2 :                    disk_status:
+(1)    8BE2 : 8C78                       clrb    rh7
+(1)    8BE4 : 8D68                       clr     r6
+(1)    8BE6 : 9E08                       ret
+(1)    8BE8 :                    sector_count:
+(1)    8BE8 : C880                       ldb     rl0, #128
+(1)    8BEA : 3A86 0167                  outb    SPLIT_COUNTL, rl0
+(1)    8BEE : 8C88                       clrb    rl0
+(1)    8BF0 : 3A86 0168                  outb    SPLIT_COUNTH, rl0       ; triggers the copy
+(1)    8BF4 : 9E08                       ret
+(1)    8BF6 :                    ;;; Point the disk at the scratch, in the system segment.
+(1)    8BF6 :                    dma_scratch:
+(1)    8BF6 : 2101 90A0                  ld      r1, #scratch
+(1)    8BFA : 3A96 0153                  outb    DISK_DMAL, rl1
+(1)    8BFE : 3A16 0154                  outb    DISK_DMAH, rh1
+(1)    8C02 : 8C98                       clrb    rl1
+(1)    8C04 : 3A96 0157                  outb    DISK_DMAX, rl1
+(1)    8C08 : 9E08                       ret
+(1)    8C0A :
+(1)    8C0A :                    ;;; R7=the physical sector of logical sector R5, from 0, through the
+(1)    8C0A :                    ;;; table at R7, or R5 itself when R7 is 0.
+(1)    8C0A :                    sectran:
+(1)    8C0A : 8D68                       clr     r6
+(1)    8C0C : 8D74                       test    r7
+(1)    8C0E : E605                       jr      z, sectran_none
+(1)    8C10 : A171                       ld      r1, r7
+(1)    8C12 : 701F 0500                  ldb     rl7, r1(r5)
+(1)    8C16 : 8C78                       clrb    rh7
+(1)    8C18 : 9E08                       ret
+(1)    8C1A :                    sectran_none:
+(1)    8C1A : A157                       ld      r7, r5
+(1)    8C1C : 9E08                       ret
+(1)    8C1E :
+(1)    8C1E :                    getmrt:
+(1)    8C1E : 8D68                       clr     r6
+(1)    8C20 : 2107 8CF6                  ld      r7, #mrt
+(1)    8C24 : 9E08                       ret
+(1)    8C26 :
+(1)    8C26 :                    getiob:
+(1)    8C26 : 8D68                       clr     r6
+(1)    8C28 : 600F 8D18                  ldb     rl7, iobyte
+(1)    8C2C : 8C78                       clrb    rh7
+(1)    8C2E : 9E08                       ret
+(1)    8C30 :
+(1)    8C30 :                    setiob:
+(1)    8C30 : 6E0D 8D18                  ldb     iobyte, rl5
+(1)    8C34 : 9E08                       ret
+(1)    8C36 :
+(1)    8C36 :                    flush:
+(1)    8C36 : 9266                       subl    rr6, rr6
+(1)    8C38 : 9E08                       ret
+(1)    8C3A :
+(1)    8C3A :                    ;;; Sets exception vector R5 to RR6 and returns the old one in RR6.
+(1)    8C3A :                    setexc:
+(1)    8C3A : 0B05 0030                  cp      r5, #NTRAPS
+(1)    8C3E : EF09                       jr      uge, setexc_bad
+(1)    8C40 : A151                       ld      r1, r5
+(1)    8C42 : B311 0002                  sll     r1, #2
+(1)    8C46 : 5412 8D20                  ldl     rr2, trapvec(r1)
+(1)    8C4A : 5D16 8D20                  ldl     trapvec(r1), rr6
+(1)    8C4E : 9426                       ldl     rr6, rr2
+(1)    8C50 : 9E08                       ret
+(1)    8C52 :                    setexc_bad:
+(1)    8C52 : 9266                       subl    rr6, rr6
+(1)    8C54 : 9E08                       ret
+(1)    8C56 :
+(1)    8C56 :                    ;;; An extended instruction with no EPU: skipped. The C start-up clears
+(1)    8C56 :                    ;;; the Z8070's registers with them; a program that computes in floating
+(1)    8C56 :                    ;;; point gets nothing back. The trap's identifier is the instruction's
+(1)    8C56 :                    ;;; first word, whose mode bits say how long it is: direct and indexed
+(1)    8C56 :                    ;;; addressing take a word more.
+(1)    8C56 :                    epu_exc:
+(1)    8C56 : 61F0 0022                  ld      r0, FR_ID+CO(r15)
+(1)    8C5A : 0700 C000                  and     r0, #0C000H
+(1)    8C5E : 2101 0004                  ld      r1, #4
+(1)    8C62 : 0B00 4000                  cp      r0, #4000H
+(1)    8C66 : EE02                       jr      ne, epu_skip
+(1)    8C68 : 2101 0006                  ld      r1, #6
+(1)    8C6C :                    epu_skip:
+(1)    8C6C : 61F0 0026                  ld      r0, FR_PC+CO(r15)
+(1)    8C70 : 8110                       add     r0, r1
+(1)    8C72 : 6FF0 0026                  ld      FR_PC+CO(r15), r0
+(1)    8C76 : 9E08                       ret
+(1)    8C78 :
+(1)    8C78 :                    ;;; Skew 6, the 8" standard.
+(1)    8C78 :                    xlt:
+(1)    8C78 : 0107 0D13 1905             byte    1, 7, 13, 19, 25, 5, 11, 17, 23, 3, 9, 15, 21
+       8C7E : 0B11 1703 090F
+       8C84 : 15
+(1)    8C85 :   02 080E 141A 060C            byte    2, 8, 14, 20, 26, 6, 12, 18, 24, 4, 10, 16, 22
+       8C8C : 1218 040A 1016
+(1)    8C92 :
+(1)    8C92 :                    ;;; A Disk Parameter Block: SPT, BSH, BLM, EXM, a pad, DSM, DRM, AL0,
+(1)    8C92 :                    ;;; AL1, CKS, OFF, then the physical sector shift and mask, 128-byte
+(1)    8C92 :                    ;;; sectors here. The 8" single-density disk: 1K blocks, 243 of them, 64
+(1)    8C92 :                    ;;; directory entries, 2 system tracks.
+(1)    8C92 :                            align   2
+(1)    8C92 :                    dpb:
+(1)    8C92 : 001A                       word    26
+(1)    8C94 : 0307 0000                  byte    3, 7, 0, 0
+(1)    8C98 : 00F2                       word    242
+(1)    8C9A : 003F                       word    63
+(1)    8C9C : C000                       byte    0C0H, 0
+(1)    8C9E : 0010                       word    16
+(1)    8CA0 : 0002                       word    2
+(1)    8CA2 : 0000                       byte    0, 0
+(1)    8CA4 :                    ;;; hd8, the debugger's 8 MB format: 256 tracks of 256 sectors from 0,
+(1)    8CA4 :                    ;;; no skew, 8K blocks, 1024 directory entries, 2 system tracks. The
+(1)    8CA4 :                    ;;; values are the format's, the same under every CP/M.
+(1)    8CA4 :                    dpb_hd8:
+(1)    8CA4 : 0100                       word    256
+(1)    8CA6 : 063F 0300                  byte    6, 63, 3, 0
+(1)    8CAA : 03F7                       word    1015
+(1)    8CAC : 03FF                       word    1023
+(1)    8CAE : F000                       byte    0F0H, 0
+(1)    8CB0 : 0000                       word    0
+(1)    8CB2 : 0002                       word    2
+(1)    8CB4 : 0000                       byte    0, 0
+(1)    8CB6 :
+(1)    8CB6 :                    ;;; SELDSK sets each DPH's skew table and DPB by the drive's format.
+(1)    8CB6 : 8C78 0000 0000     dph0:   word    xlt, 0, 0, 0, dirbuf, dpb, csvs+CSV_SIZE*0, alv+ALV_SIZE*0
+       8CBC : 0000 8DE0 8C92
+       8CC2 : 8E60 8EA0
+(1)    8CC6 : 8C78 0000 0000             word    xlt, 0, 0, 0, dirbuf, dpb, csvs+CSV_SIZE*1, alv+ALV_SIZE*1
+       8CCC : 0000 8DE0 8C92
+       8CD2 : 8E70 8F1F
+(1)    8CD6 : 8C78 0000 0000             word    xlt, 0, 0, 0, dirbuf, dpb, csvs+CSV_SIZE*2, alv+ALV_SIZE*2
+       8CDC : 0000 8DE0 8C92
+       8CE2 : 8E80 8F9E
+(1)    8CE6 : 8C78 0000 0000             word    xlt, 0, 0, 0, dirbuf, dpb, csvs+CSV_SIZE*3, alv+ALV_SIZE*3
+       8CEC : 0000 8DE0 8C92
+       8CF2 : 8E90 901D
+(1)    8CF6 :
+(1)    8CF6 :                    ;;; The memory region table, by the segment in each region's high word:
+(1)    8CF6 :                    ;;; the merged TPA in the system segment, then a split program's 64K code
+(1)    8CF6 :                    ;;; and data segments, then the data view of the code segment, which the
+(1)    8CF6 :                    ;;; copy port reaches directly, so it is unused.
+(1)    8CF6 : 0004               mrt:    word    4
+(1)    8CF8 : 0000 0000 0000             long    SEG_SYS*10000H, TPA_SIZE
+       8CFE : 8800
+(1)    8D00 : 0001 0000 0001             long    SEG_CODE*10000H, 10000H
+       8D06 : 0000
+(1)    8D08 : 0002 0000 0001             long    SEG_DATA*10000H, 10000H
+       8D0E : 0000
+(1)    8D10 : 0000 0000 0000             long    0, 0
+       8D16 : 0000
+(1)    8D18 :
+(1)    8D18 : 00                 iobyte: byte    0
+(1)    8D19 :                    ;;; The kernel's: the system's segment, 0, and the program's code
+(1)    8D19 :                    ;;; segment, which map_adr -1 sets.
+(1)    8D1A :                            align   2
+(1)    8D1A :                    _sysseg:
+(1)    8D1A : 0000                       word    0
+(1)    8D1C : 0000               usrseg: word    0
+(1)    8D1E :                    ;;; The running program's data segment, which the BDOS entry gives its
+(1)    8D1E :                    ;;; parameters.
+(1)    8D1E :                    _usrseg:
+(1)    8D1E : 0000                       word    0
+(1)    8D20 :
+(1)    8D20 :                    ;;; Uninitialised areas: the exception vector, then the BDOS's scratch.
+(1)    8D20 : =8D20              bss:    equ     $
+(1)    8D20 : =8D20              trapvec:        equ     bss
+(1)    8D20 : =8DE0              dirbuf:         equ     trapvec+NTRAPS*4
+(1)    8D20 : =8E60              csvs:           equ     dirbuf+128
+(1)    8D20 : =8EA0              alv:            equ     csvs+CSV_SIZE*NDISKS
+(1)    8D20 :                    ;;; The disk's banked DMA target, and a system-segment scratch one sector
+(1)    8D20 :                    ;;; wide that a split program's read and write bounce through.
+(1)    8D20 : =909C              dma_off:        equ     alv+ALV_SIZE*NDISKS
+(1)    8D20 : =909E              dma_seg:        equ     dma_off+2
+(1)    8D20 : =90A0              scratch:        equ     dma_seg+2
+(1)    8D20 : =9120              bss_end:        equ     scratch+128
+(1)    8D20 :                            end

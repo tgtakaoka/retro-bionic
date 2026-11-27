@@ -46,6 +46,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | [CP/M-86 1.1](#cpm-86-on-the-8086) | P8086, D8087 | `i8086/cpm86.hex` | A: and B:, sector disk at 50H | [80C86](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86.cast), [80C86 and 8087](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86_8087.cast) |
 | [CP/M-68K 1.3](#cpm-68k-on-the-68000) | MC68000P, MC68000FN, MC68008P, MC68008FN | `mc68000/cpm68k.s19` | A: and B:, sector disk at FFFFE0H | [MC68000P](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k_mc68000p.cast) |
 | [CP/M-8000 1.1](#cpm-8000-on-the-z8002) | Z8002 | `z8002/cpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/cpm8000.cast) |
+| [CP/M-8000 1.2](#cpm-8000-12-from-source), built on the board | Z8002 | `z8002/pcpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/pcpm8000.cast) |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -370,10 +371,10 @@ The 2.0 disks themselves need no board: `make msdos200` builds them on the host.
 
 ## CP/M-8000 on the Z8002
 
-[`samples/z8002/cpm8000bios.asm`](../samples/z8002/cpm8000bios.asm) is a CP/M-8000 1.1
+[`samples/z8002/cpm8000bios.inc`](../samples/z8002/cpm8000bios.inc) is a CP/M-8000
 BIOS for the Z8002: the console on the i8251 at 0140H and four drives on the sector
-disk at 0150H, both polled. The kernel is DRI's `CPMSYS.REL`, the CCP and BDOS as one
-relocatable object, which
+disk at 0150H, both polled. For 1.1, `cpm8000bios.asm`, the kernel is DRI's
+`CPMSYS.REL`, the CCP and BDOS as one relocatable object, which
 [`debugger/z8000/tools/xout-link.py`](../debugger/z8000/tools/xout-link.py) links with
 what it needs from `LIBCPM.A` above the BIOS, writing the Z8002 forms of its trap glue from
 [`cpm8000glue.asm`](../samples/z8002/cpm8000glue.asm) over the Z8001 ones DRI shipped
@@ -397,9 +398,9 @@ make cpm8000-sd
 `z8002/` on its SD card, B: only onto a card without one, so files saved there stay,
 unless `NEWB=1`; or copy them there by hand. `L z8002/cpm8002.hex` mounts both disks
 beside it; `R`, then `G` boots to `A>`. A: is an 8 MB `hd8` with DRI's tools, B: one
-with `imandel.c`. `make` alone builds the samples and the BIOS, `make clean` removes
+with `imandel.c`. `make` alone builds the samples and the BIOSes, `make clean` removes
 what it built, and `make distclean` everything not in the repository, and nothing that
-is: the system, the disks and the downloads.
+is: the systems, the disks, the downloads and the 1.2 objects the board built.
 
 The TPA is the 34K below the BIOS, and a program is linked at 0, where the reset
 vector is: after a program has run, `L` the system again before `R`. The program's
@@ -420,6 +421,27 @@ draws the integer mandelbrot: [`imandel.c`](../samples/z8002/imandel.c) includes
 `samples/arith/imandel.c` as `IMANDEL.INC`, adding the `stdio.h` DRI's `putchar` needs.
 DRI's C compiles `float` to Z8070 instructions, which no board here runs, so `fmandel.c`
 is not on B:. DDT is a 58K program that is not split, which the 34K TPA cannot hold.
+
+### CP/M-8000 1.2 from source
+
+`z8002/pcpm8002.hex` is CP/M-8000 1.2: the CCP and BDOS of DRI's 1983 P-CP/M-Z8K
+sources, [8k0583.zip](http://www.cpm.z80.de/download/8k0583.zip), with the Z8002 glue
+of Kontron's port, compiled on the board by DRI's compiler, with the same BIOS through
+[`pcpm8000bios.asm`](../samples/z8002/pcpm8000bios.asm) and no binary patches.
+With the Z8002's bench locked, or the only one on USB,
+
+```sh
+make pcpm8000
+make pcpm8000-sd
+```
+
+fetches the sources and makes a build disk, the sources, patched by
+[`debugger/z8000/tools/pcpm8000-build.py`](../debugger/z8000/tools/pcpm8000-build.py),
+with the compiler and assembler; boots 1.1 on that disk alone, compiles there, in
+about five minutes, checks the objects against the known build, and links the kernel;
+`make pcpm8000-sd` puts it and its disks on the card. Its A: and B: are 1.1's.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/pcpm8000_build.cast)
+of the build on the Z8002, with the long silences cut.
 
 ## Unix V6 on the DCJ11
 
