@@ -224,6 +224,19 @@ def pc_from(buf, name=None):
     return matches[-1].replace(':', '') if matches else None
 
 
+def drives_of(listing):
+    """The drive names in O's listing: `  NAME FORMAT PATH...` per mounted
+    drive, then a `  cache ...` line; `  no disk mounted` when none is.
+    test/scripts/test_bionic_control.py pins it."""
+    names = []
+    for line in listing.split('\n'):
+        f = line.split()
+        if line.startswith('  ') and len(f) >= 3 and f[0] != 'cache' \
+                and line.strip() != 'no disk mounted':
+            names.append(f[0])
+    return names
+
+
 def at_prompt(buf):
     """True if `buf` ends at the CLI prompt rather than merely containing it."""
     return buf.replace(b'\r', b'').endswith(PROMPT)
@@ -850,17 +863,10 @@ class Board:
         return reply
 
     def mounted(self):
-        """The names of the drives with a disk mounted, parsed from O's
-        listing: `  NAME FORMAT PATH...` per drive, then a `  cache` line,
-        or `  no disk mounted`. A change to that listing must keep this
-        working (sample-sd.py unmounts through it)."""
-        text = self._reply(b'O\r') or ''
-        names = []
-        for line in text.split('\n'):
-            f = line.split()
-            if line.startswith('  ') and len(f) >= 3 and f[0] != 'cache':
-                names.append(f[0])
-        return names
+        """The names of the drives with a disk mounted, from O's listing
+        (drives_of(); sample-sd.py unmounts through it, so a change to the
+        listing must keep that parser working)."""
+        return drives_of(self._reply(b'O\r') or '')
 
     def unmount(self, drive):
         """Unmount `drive`, an O listing's name."""
