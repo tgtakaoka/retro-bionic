@@ -18,6 +18,11 @@ struct MemsZ8000 : ExtMemory {
     // running program's code, and its data, each a 64K segment.
     static constexpr uint32_t SEG_SIZE = 0x10000;
     enum Seg : uint8_t { SYS = 0, CODE = 1, DATA = 2, SEGS = 3 };
+    // A Z8001 has real segments; with routing on, a program in segment
+    // ISEG fetches from ISPACE and reads and writes data in ISEG, as on
+    // the Olivetti M20, the machine DRI's CP/M-8000 was released for.
+    static constexpr uint8_t ISEG = 0x08;
+    static constexpr uint8_t ISPACE = 0x0B;
 
     MemsZ8000(bool segmented);
     void setRegs(const RegsZ8000 *regs) { _regs = regs; }
@@ -31,18 +36,11 @@ struct MemsZ8000 : ExtMemory {
     }
 
     // Turns the split routing on or off; off (the reset state) leaves
-    // every access in the system segment, so main's samples are unchanged.
+    // every access where the bus puts it, so main's samples are unchanged.
     void setSplit(bool on) { _split = on; }
     bool split() const { return _split; }
 
-    // The running CPU's access in a synthesized segment; |seg| is 0 for a
-    // Z8001, whose address already carries the segment.
-    uint16_t readSeg(uint32_t addr, uint8_t seg) const {
-        return read16(seg * SEG_SIZE + (addr & ~1));
-    }
-    void writeSeg(uint32_t addr, uint16_t data, uint8_t seg) const {
-        write16(seg * SEG_SIZE + (addr & ~1), data);
-    }
+    // A byte in a synthesized segment, for the split device's copy.
     uint16_t readByteSeg(uint32_t addr, uint8_t seg) const {
         return read_byte(seg * SEG_SIZE + addr);
     }
