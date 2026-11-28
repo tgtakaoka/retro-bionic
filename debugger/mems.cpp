@@ -65,6 +65,21 @@ void ExtMemory::write_word(uint32_t word_addr, uint16_t data) const {
         EXT_MEMORY.WORD[word_addr] = data;
 }
 
+namespace {
+void writeBackBytes(uint8_t *mem, uint32_t size, uint32_t at, uint32_t len) {
+    if (at < size)
+        arm_dcache_flush(mem + at, len < size - at ? len : size - at);
+}
+}  // namespace
+
+void DmaMemory::writeBack(uint32_t byte_addr, uint32_t len) const {
+    writeBackBytes(DMA_MEMORY.BYTE, MEM_SIZE, byte_addr, len);
+}
+
+void ExtMemory::writeBack(uint32_t byte_addr, uint32_t len) const {
+    writeBackBytes(EXT_MEMORY.BYTE, MEM_SIZE, byte_addr, len);
+}
+
 Mems::Area DmaMemory::cacheArea() const {
     return {EXT_MEMORY.BYTE, ExtMemory::MEM_SIZE};
 }

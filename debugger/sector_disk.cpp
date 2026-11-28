@@ -149,6 +149,7 @@ void SectorDisk::transfer(bool toDisk) {
             return;
         for (auto i = 0U; i < format->sectorBytes; ++i)
             _mems->write_byte(dmaAt(i), buffer[i]);
+        _mems->writeBack(dmaAt(0), format->sectorBytes);
     }
     // Drain the copy's buffered stores into target memory: left queued,
     // they stall the next cycle's pin sample (an 8088 then read A16-A19 late).
