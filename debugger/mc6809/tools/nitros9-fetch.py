@@ -5,13 +5,15 @@
 
 Downloads each archive below into DIR/dl/ (kept, so later runs work
 offline), checks its sha256, and unpacks: the NitrOS-9 tree into
-DIR/nitros9/, ToolShed's os9 command into DIR/bin/, and LWTOOLS, built
-from source, into DIR/bin/ too. The port directory PORT, samples/
+DIR/nitros9/, its languages (BASIC09's sources) into DIR/languages/,
+ToolShed's os9 command into DIR/bin/, and LWTOOLS, built from source,
+into DIR/bin/ too. The port directory PORT, samples/
 mc6809/nitros9/ beside DIR unless given, is linked into the tree as
 level1/bionic, where NitrOS-9's own rules find a port's modules. Writes
 DIR/.fetched when done.
 
 NitrOS-9 is the NitrOS-9 Project's, GPLv2 (https://nitros9.org/);
+BASIC09 is Microware's, the sources as the NitrOS-9 Project keeps them;
 LWTOOLS is William Astle's (http://www.lwtools.ca/), GPLv3; ToolShed is
 the NitrOS-9 Project's too.
 """
@@ -29,6 +31,10 @@ NITROS9_COMMIT = '361dded240afab133216aa7f5cdab2681a29f6a3'  # 2026-11-25
 NITROS9 = ('https://github.com/nitros9project/nitros9/archive/'
            f'{NITROS9_COMMIT}.tar.gz',
            '5307acdc6d3fbdb9d7fe3a73075ac427761746ea6cb27cd8dfecb529cccdcc8f')
+LANGUAGES_COMMIT = 'cc5e42a15bff9ea69c31aea5b02ae8bfb3b67055'  # 2026-11-27
+LANGUAGES = ('https://github.com/nitros9project/nitros9-languages/archive/'
+             f'{LANGUAGES_COMMIT}.tar.gz',
+             '175b0df8cc13142f026410f217ee7b072308ed3b5dcc24244313d7dff490b132')
 LWTOOLS = ('http://www.lwtools.ca/releases/lwtools/lwtools-4.25.tar.gz',
            '9bb97e987d486d7abd85d04cb98a53f666f02785c108647b795c4a111c5eb09f')
 TOOLSHED = ('https://github.com/nitros9project/toolshed/releases/download/'
@@ -88,6 +94,8 @@ def main(argv):
     unpack(download(*NITROS9, cache), tree)
     link = os.path.join(tree, 'level1', 'bionic')
     os.symlink(os.path.relpath(port, os.path.dirname(link)), link)
+
+    unpack(download(*LANGUAGES, cache), os.path.join(top, 'languages'))
 
     toolshed = os.path.join(top, 'toolshed')
     unpack(download(*TOOLSHED, cache), toolshed)
