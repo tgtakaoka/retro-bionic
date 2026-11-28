@@ -4,6 +4,9 @@
 #
 #   make -f $(PORTDIR)/recipe.mak NITROS9DIR=... PORTDIR=... OUT=...
 #
+# BASIC09 and RunB, from the fetched nitros9-languages, go in CMDS, and
+# FMANDEL, a BASIC09 program, in the root.
+#
 # It makes OUT/nitros9.s19, the kernel track (Krn, KrnP2, Init, Boot at
 # Krn.Start) with REL and the hardware vectors at $FF00, which the
 # debugger's L loads; OUT/nitros9d0.dsk, /DD with OS9Boot, CMDS, SYS
@@ -38,7 +41,19 @@ SCF = scf sc6850 term
 PIPE = pipeman piper pipe
 CLOCK = clock_bionic clock2_soft
 BOOTMODS = ioman $(RBF) $(SCF) $(PIPE) $(CLOCK) sysgo_dd shell_21
-CMDS = $(STDCMDS)
+CMDS = $(STDCMDS) basic09 runb
+
+# BASIC09 and RunB for the CPU, built by basic09-build.py from Microware's
+# six source files in the fetched nitros9-languages.
+B09LANG = $(NITROS9DIR)/../languages
+B09SRC = $(B09LANG)/basic09/microware
+B09BUILD ?= $(PORTDIR)/../../../debugger/mc6809/tools/basic09-build.py
+$(MODDIR)/basic09: $(B09BUILD) | $(MODDIR)
+	$(B09BUILD) $(B09SRC) $(DEFSDIR) basic09 $@ $(B09FLAGS)
+$(MODDIR)/runb: $(B09BUILD) | $(MODDIR)
+	$(B09BUILD) $(B09SRC) $(DEFSDIR) runb $@ $(B09FLAGS)
+
+FMANDEL ?= $(PORTDIR)/../fmandel.b09
 
 STARTUP = $(PORTDIR)/startup
 SYS_FILES = $(L1D)/sys/errmsg $(L1D)/sys/motd $(L1D)/sys/password
@@ -67,7 +82,8 @@ bootfile: $(addprefix $(MODDIR)/,$(BOOTMODS))
 $(S19): kerneltrack $(MODDIR)/rel $(BIN2SREC)
 	$(BIN2SREC) $@ $(KRN_START) kerneltrack $(REL_START) $(MODDIR)/rel
 
-$(DD_IMAGE): bootfile $(addprefix $(MODDIR)/,$(CMDS)) $(STARTUP) $(SYS_FILES)
+$(DD_IMAGE): bootfile $(addprefix $(MODDIR)/,$(CMDS)) $(STARTUP) $(SYS_FILES) \
+		$(FMANDEL) $(PORTDIR)/recipe.mak
 	$(RM) $@
 	$(OS9FORMAT) -l32768 -q $@ -n"NitrOS-9/$(CPU) Level $(LEVEL)"
 	$(OS9GEN) $@ -b=bootfile
@@ -79,6 +95,8 @@ $(DD_IMAGE): bootfile $(addprefix $(MODDIR)/,$(CMDS)) $(STARTUP) $(SYS_FILES)
 	$(OS9ATTR_TEXT) $(foreach file,$(SYS_FILES) $(HELP_FILES),$@,SYS/$(notdir $(file)))
 	$(CPL) $(STARTUP) $@,startup
 	$(OS9ATTR_TEXT) $@,startup
+	$(CPL) $(FMANDEL) $@,fmandel
+	$(OS9ATTR_TEXT) $@,fmandel
 
 $(D1_IMAGE):
 	$(RM) $@
@@ -95,8 +113,9 @@ $(MODDIR)/d2: rbbdesc.asm | $(MODDIR)
 	$(AS) $(AFLAGS) $< $(ASOUT)$@ -DDNum=2
 $(MODDIR)/d3: rbbdesc.asm | $(MODDIR)
 	$(AS) $(AFLAGS) $< $(ASOUT)$@ -DDNum=3
+# No end-of-page pause: a terminal emulator scrolls back.
 $(MODDIR)/term: term_sc6850.asm | $(MODDIR)
-	$(AS) $(AFLAGS) $< $(ASOUT)$@
+	$(AS) $(AFLAGS) $< $(ASOUT)$@ -DPauses=0
 $(MODDIR)/sysgo_dd: sysgo.asm | $(MODDIR)
 	$(AS) $(AFLAGS) $< $(ASOUT)$@ -DDD=1
 $(MODDIR)/pwd: pd.asm | $(MODDIR)

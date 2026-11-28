@@ -1,0 +1,101 @@
+# Scenario for scripts/record-scenario.py: NitrOS-9 Level 1 on the MC6809
+# board: the kernel track uploaded, /DD and /D1 mounted from the SD card,
+# the boot to the shell, a look around, a file copied to /D1, the clock,
+# fmandel in BASIC09, then the halt that writes the disk cache back to
+# the card.
+#
+# Needs a fresh samples/mc6809/nitros9.s19, and the SD card's
+# mc6809/nitros9d0.dsk and nitros9d1.dsk (docs/samples.md).
+
+key ?
+pace 2.0
+
+key R
+upload samples/mc6809/nitros9.s19
+
+# The disks: /DD the system, /D1 the user disk.
+type O
+wait Disk?
+command D0 mc6809/nitros9d0.dsk
+type O
+wait Disk?
+command D1 mc6809/nitros9d1.dsk
+type O
+wait Disk?
+command
+pace 2.0
+
+# The devices NitrOS-9 runs on.
+type I
+wait which?
+command
+pace 2.0
+
+key R
+type G
+wait backtrace?
+type 5\r
+waitfor 30 Time ?
+pace 1.0
+type 2026/11/27 12:00:00\r
+waitfor 20 OS9:
+pace 2.0
+
+type mdir\r
+wait OS9:
+pace 2.5
+type procs\r
+wait OS9:
+pace 2.0
+type free\r
+wait OS9:
+pace 2.0
+type dir\r
+wait OS9:
+pace 1.5
+type dir cmds\r
+waitfor 20 OS9:
+pace 3.0
+
+# A write: to /D1, which stays in the disk cache until the halt.
+type copy startup /d1/startup\r
+wait OS9:
+type dir -e /d1\r
+wait OS9:
+pace 2.5
+type list /d1/startup\r
+wait OS9:
+pace 2.5
+
+# The clock, from the 60 Hz tick.
+type date -t\r
+wait OS9:
+pace 3.0
+type date -t\r
+wait OS9:
+pace 2.0
+
+# BASIC09: fmandel, the ASCII Mandelbrot of samples/arith/fmandel.bas,
+# loaded from /DD, listed, run in REAL arithmetic, then BYE.
+type basic09\r
+waitfor 30 B:
+pace 1.5
+type load fmandel\r
+waitfor 20 B:
+pace 1.0
+type list\r
+waitfor 20 B:
+pace 2.5
+type run fmandel\r
+waitfor 3600 B:
+pace 3.0
+type bye\r
+wait OS9:
+pace 1.5
+
+# The halt syncs the written blocks to the card: O then shows none dirty.
+halt
+type O
+wait Disk?
+command
+pace 3.0

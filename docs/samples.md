@@ -49,7 +49,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | [CP/M-8000 1.2](#cpm-8000-12-from-source), built on the board | Z8002 | `z8002/pcpm8002.hex` | A: and B:, sector disk at 0150H | [Z8002](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/pcpm8000.cast) |
 | [CP/M-8000 1.1](#cpm-8000-on-the-z8001) | Z8001 | `z8001/cpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/cpm8000.cast) |
 | [CP/M-8000 1.2](#cpm-8000-12-on-the-z8001), built on the board | Z8001 | `z8001/pcpm8001.hex` | A: and B:, sector disk at 0150H | [Z8001](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8001/pcpm8000.cast) |
-| [NitrOS-9 Level 1](#nitros-9-on-the-6809) | MC6809, MC6809E, HD6309, HD6309E | `mc6809/nitros9.s19` | /DD and /D1, RAM disk at DF10 | |
+| [NitrOS-9 Level 1](#nitros-9-on-the-6809) | MC6809, MC6809E, HD6309, HD6309E | `mc6809/nitros9.s19` | /DD and /D1, RAM disk at DF10 | [MC6809](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc6809/nitros9_mc6809.cast) |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -201,14 +201,21 @@ blocks written reach the card when the CPU stops, on `O sync` or at an unmount. 
 `OS9Boot` from the RAM disk), `rbbionic.asm` (the RBF driver, which polls for each copy to end) with
 `rbbdesc.asm` (its descriptors /DD and /D0-/D3), `clock_bionic.asm` (the clock, on the
 tick timer) and `defs/bionic.d`, with NitrOS-9's own kernel, IOMan, RBF, SCF, `sc6850`,
-`clock2_soft`, SysGo, the shell and the standard commands. NitrOS-9 is the NitrOS-9 Project's,
+`clock2_soft`, SysGo, the shell and the standard commands. `CMDS` also has BASIC09 and RunB, Microware's, built for the CPU from their six source files
+in the NitrOS-9 Project's [nitros9-languages](https://github.com/nitros9project/nitros9-languages)
+by `debugger/mc6809/tools/basic09-build.py`, and the root of /DD has `fmandel`,
+[`samples/mc6809/fmandel.b09`](../samples/mc6809/fmandel.b09), the ASCII Mandelbrot of
+`samples/arith/fmandel.bas` in BASIC09: `basic09 fmandel` runs it, or `load fmandel` and `run fmandel` at the `B:`
+prompt and `bye`. BASIC09 carries Motorola's and Microware's copyright, so like the system
+it is fetched and built, never committed. NitrOS-9 is the NitrOS-9 Project's,
 under the GNU General Public License version 2, and so are the port's files in that directory;
 the rest of this repository stays under its own license.
 
 The sources stay out of the repository: the first `make nitros9` downloads the NitrOS-9
 tree from [nitros9project/nitros9](https://github.com/nitros9project/nitros9), pinned to a
 commit, [LWTOOLS](http://www.lwtools.ca/) 4.25, which it builds, and ToolShed 2.7.0's `os9`
-command, each checked by sha256, into `samples/mc6809/nitros9.fetch/`, with
+command, each checked by sha256, with nitros9-languages, pinned to a commit too, into
+`samples/mc6809/nitros9.fetch/`, with
 `debugger/mc6809/tools/nitros9-fetch.py`, and links the port into the tree as `level1/bionic`.
 Then:
 
@@ -227,6 +234,9 @@ saved there stay (`NEWD1=1` replaces it). Memory from 0500 to DEFF is NitrOS-9's
 region begins at the I/O page, DF00, so no page of it is ever handed out.
 `L mc6809/nitros9.s19`, `R`, then `G` boots to the shell prompt on the console, after the
 `startup` script's `setime`, which asks for the date and time.
+[`samples/mc6809/nitros9_mc6809.cast`](../samples/mc6809/nitros9_mc6809.cast) records the
+boot on the MC68B09, a look around and fmandel in BASIC09, `scripts/record-scenario.py` driving
+`nitros9_mc6809.scenario`; the written blocks reach the card at the halt that ends it.
 
 ## CP/M-68K on the 68000
 
