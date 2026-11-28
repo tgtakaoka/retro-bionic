@@ -330,9 +330,19 @@ copies the BIOS and the build disk to the SD card, boots the disk as C:, the onl
 back, turns the cache on again and takes MSDOS.SYS, COMMAND.COM, SYSINIT.OBJ, SYSIMES.OBJ
 and the utilities off it into `msdos211.built/`: half an hour on the P80C86, and the
 same bytes each time, whose sha256 the script checks.
-[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos211_build_80c86.cast) on the P80C86, with the
-long silences cut, lists the build disk and runs BUILD, which echoes each MASM and LINK
-step. BUILD skips
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos211_build_80c86.cast) on the 80C86, with the
+long silences cut, runs it all from the host shell: make builds the tree and the build
+disk, the board lists the disk and runs BUILD, which echoes each MASM and LINK step, the
+outputs are checked against the known build, `make msdos211-sd` puts the system and its
+disks on the card, and `msdos211_80c86.scenario` boots it. It was recorded with
+
+```sh
+../../scripts/record-build-cast.py msdos211_build_80c86.cast \
+    'make msdos211 msdos211-sd' \
+    '../../scripts/record-scenario.py msdos211_80c86.scenario --nopace'
+```
+
+BUILD skips
 a module whose object is already on the disk, so a build that stopped picks up where it
 left off. With `msdos211.hex`, `msdos211a.dsk` and `msdos211c.dsk` in the
 card's `i8086/`, `L i8086/msdos211.hex` boots 2.11 as `L i8086/msdos200.hex` boots 2.0. C:
@@ -354,7 +364,7 @@ the compiler stops with fatal error C1015, unable to open a file.
 kernel, from Elliott's 2.00 tree, which gives the release's MSDOS.SYS with MASM 4.00.
 MASM 5.10 makes it 3 bytes shorter: it encodes three `AND reg,imm16` whose immediates
 fit in a byte in the short form, and everything else only moves.
-[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/msdos200_build_80c86.cast) on the P80C86, with the long silences cut. The 2.0 disks themselves need no board: `make msdos200` builds them on the host.
+The 2.0 disks themselves need no board: `make msdos200` builds them on the host.
 
 ## Unix V6 on the DCJ11
 
