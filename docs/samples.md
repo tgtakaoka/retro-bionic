@@ -609,11 +609,18 @@ HALT, stopping at the prompt. So multi-user is reached from `#`. Single-user, `m
 reaches `/usr/root`, where `as fmandel.s; ./a.out` and `cc -O -o fmandel fmandel.c;
 ./fmandel` each draw the set.
 [A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast):
-`U` uploads the bootstrap and `O` mounts the disk alone, 2.11BSD boots single-user,
+`make bsd211` installs the system under the simulator, its console scrolling by, and
+`make bsd211-sd NEWB=1` puts the fresh image on the card; then on the board
+`L dcj11/bsd211.hex` loads the bootstrap and mounts the disk, 2.11BSD boots single-user,
 `^D` takes it to multi-user and root logs in; its `cc` builds `fmandel`, which draws
 the set, `banner` and `hangman` from `/usr/games` follow, and `halt` stops it. The
-long silences are cut, each to a comment line saying what took the time. It's also on
-[asciinema.org](https://asciinema.org/a/0WgNmnQ790X4SB6m).
+long silences are cut, each to a comment line saying what took the time. It is
+recorded in `samples/dcj11`, with no `bsd211.dsk` built yet, by
+
+```sh
+../../scripts/record-build-cast.py bsd211.cast 'make bsd211' 'make bsd211-sd NEWB=1' \
+    '../../scripts/record-scenario.py bsd211.scenario'
+```
 
 ## The reference implementation
 
