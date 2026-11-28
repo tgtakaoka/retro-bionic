@@ -43,6 +43,11 @@ struct Mems : MatchMemory {
     };
     virtual Area cacheArea() const { return {nullptr, 0}; }
 
+    // Writes the data cache's lines over [byte_addr, byte_addr+len) back
+    // to memory, after a device copied there: left dirty, a line goes
+    // back during some later bus cycle, which then samples the bus late.
+    virtual void writeBack(uint32_t, uint32_t) const {}
+
     // Raw memory access for ADDRESS_BYTE
     virtual uint16_t read_byte(uint32_t byte_addr) const = 0;
     virtual void write_byte(uint32_t byte_addr, uint16_t data) const = 0;
@@ -154,6 +159,7 @@ struct DmaMemory : Mems {
     uint16_t read_word(uint32_t addr) const override;
     void write_word(uint32_t addr, uint16_t data) const override;
     Area cacheArea() const override;
+    void writeBack(uint32_t byte_addr, uint32_t len) const override;
 
     static constexpr uint32_t MEM_SIZE = 128U * 1024U;
 
@@ -173,6 +179,7 @@ struct ExtMemory : Mems {
     uint16_t read_word(uint32_t addr) const override;
     void write_word(uint32_t addr, uint16_t data) const override;
     Area cacheArea() const override;
+    void writeBack(uint32_t byte_addr, uint32_t len) const override;
 
     static constexpr uint32_t MEM_SIZE = 16U * 1024U * 1024U;
 
