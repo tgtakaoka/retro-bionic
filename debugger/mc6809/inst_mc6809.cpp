@@ -11,6 +11,12 @@ MatchWalker::Kind InstMc6809::cycleKind(const SignalsImpl *impl) const {
     return s->read() ? MatchWalker::K_READ : MatchWalker::K_WRITE;
 }
 
+// A read of FFFF, or SYNC's acknowledge, whose address floats.
+bool InstMc6809::isDummy(const SignalsImpl *impl) const {
+    return impl->addr == 0xFFFF ||
+           static_cast<const Signals *>(impl)->syncAck();
+}
+
 // A fetch marked with the cycles its instruction took.
 void InstMc6809::markCycle(
         SignalsImpl *impl, MatchWalker::Role role, uint_fast8_t span) const {

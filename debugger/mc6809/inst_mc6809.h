@@ -42,9 +42,7 @@ struct InstMc6809 : MatchWalker::Arch {
     bool isVectorTable(uint32_t addr) const override {
         return addr >= vectorBase();
     }
-    bool isDummy(const SignalsImpl *s) const override {
-        return s->addr == 0xFFFF;
-    }
+    bool isDummy(const SignalsImpl *s) const override;
     const char *interruptSequence() const override { return intrSequence(); }
     // CWAI's wait: dummy reads, then the vector, one more, and the
     // handler's fetch

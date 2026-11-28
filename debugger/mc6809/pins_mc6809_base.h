@@ -160,6 +160,10 @@ void Signals::inputMode() {
 // Longest instruction (HD6309 DIVQ) plus a context push, with margin.
 constexpr auto SUSPEND_CYCLES = 100;
 
+// The cycles of a wait the ring keeps, so a long one leaves what came
+// before it for the backtrace.
+constexpr uint8_t WAIT_CYCLES = 2;
+
 inline void assert_nmi() {
     digitalWriteFast(PIN_NMI, LOW);
 }
@@ -225,9 +229,23 @@ void PinsMc6809Engine<IMPL>::loop() {
 template <typename IMPL>
 void PinsMc6809Engine<IMPL>::loop() {
     const auto vec_swi = _inst->vec_swi();
+    // A wait is SYNC's acknowledge, or CWAI's dummy reads after its push.
+    uint8_t waits = 0;
+    auto pushed = false;
     while (true) {
         const auto serviced = devs<DevsMc6809>()->loop();
         const auto s = impl()->cycle();
+        if (s->syncAck() ||
+                (pushed && s->addr == 0xFFFF && !s->vector() && s->read())) {
+            if (waits < WAIT_CYCLES) {
+                ++waits;
+            } else {
+                Cycles::discard(s);
+            }
+        } else {
+            waits = 0;
+            pushed = s->write();
+        }
         if (s->vector() && s->addr == vec_swi) {
             impl()->cycle();  // read SWI low(vector);
             impl()->cycle();  // non-VMA
@@ -249,6 +267,7 @@ void PinsMc6809Engine<IMPL>::loop() {
 
 template <typename IMPL>
 void PinsMc6809Engine<IMPL>::suspend(bool show) {
+    const Signals *handler = nullptr;
     assert_nmi();
 reentry:
     auto s = Signals::put();
@@ -276,14 +295,18 @@ reentry:
         // edge.
         impl()->cycle();  // NMI lo(vector)
         impl()->cycle();  // non-VMA
-        injectCycle(InstMc6809::RTI);
+        handler = injectCycle(InstMc6809::RTI);
         assert_nmi();
         goto reentry;
     }
     impl()->cycle();  // NMI lo(vector)
     impl()->cycle();  // non-VMA
     regs<RegsMc6809>()->capture(frame, true);
-    if (show) {
+    if (show && handler) {
+        // The ring ends where CWAI's wait did, at the handler's fetch:
+        // the RTI injected there isn't in memory to match.
+        Cycles::discard(handler->next());
+    } else if (show) {
         // Keep prefetch cycle for bus cycle pattern matching.
         const auto last =
                 frame->prev(regs<RegsMc6809>()->contextLength() == 14 ? 3 : 2);

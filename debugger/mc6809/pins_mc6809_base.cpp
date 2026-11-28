@@ -134,14 +134,21 @@ const Signals *PinsMc6809Base::findFetch(Signals *begin, const Signals *end) {
     return begin->next(walker.start());
 }
 
+namespace {
+// The oldest cycle a walk can use: in a full ring, idle()'s BRA * can
+// overwrite the three oldest.
+Signals *walkable() {
+    const auto oldest = Signals::get();
+    return Cycles::cycles() < Cycles::MAX_CYCLES - 1 ? oldest : oldest->next(3);
+}
+}  // namespace
+
 // fetch() isn't live on either board: findFetch() marks it while matching
 // instructions against the captured cycles, so it must run before
 // backtraceStartFrom() counts fetches.
 const SignalsImpl *PinsMc6809Base::findBacktraceStart() {
     const auto end = Signals::put();
-    // Skip the oldest three cycles, which idle()'s BRA * can overwrite
-    // in a full ring.
-    const auto begin = findFetch(Signals::get()->next(3), end);
+    const auto begin = findFetch(walkable(), end);
     return backtraceStartFrom<Signals>(begin, _lineLimit);
 }
 
@@ -153,8 +160,7 @@ void PinsMc6809Base::printBacktrace() {
     findFetch(Signals::get(), _profileEnd ? _profileEnd : end);
     printCycles(end);
 #else
-    // Skip what idle() can overwrite, as findBacktraceStart() does.
-    const auto begin = findFetch(Signals::get()->next(3), end);
+    const auto begin = findFetch(walkable(), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
     if (Debugger.verbose()) {
