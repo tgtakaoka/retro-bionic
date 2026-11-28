@@ -17,6 +17,7 @@ struct Signals : SignalsBase<Signals, mc6800::Signals> {
     void print() const;
 
     inline bool vector() const;
+    bool syncAck() const;
 };
 }  // namespace mc6809
 }  // namespace debugger

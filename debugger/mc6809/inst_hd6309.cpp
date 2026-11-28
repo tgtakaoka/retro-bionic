@@ -42,7 +42,7 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "12xRxxN/12RxN",                                // 23
         "12x?/12?",                                     // 24
         "1nN/1N",                                       // 25
-        "1nXXN",                                        // 26
+        "1nXXN@1n{x}XN@1n{x}N",                         // 26
         "1nxxN",                                        // 27
         "122xxJ@122xxN/122xJ@122xN",                    // 28
         "122xxXxwWJ@122xxXxwWN/122xxwWJ@122xxwWN",      // 29
@@ -57,7 +57,7 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "1nRrxP/1nRrP",                                 // 38
         "1nxN/1N",                                      // 39
         "1nRrrrrrrrrrrrXP@1nRrrXP/1nRrrrrrrrrrrrrrXP",  // 40
-        "12nxwWWWWWWWWWWWN/12nxwWWWWWWWWWWWWWN",        // 41
+        "12nxw{W}{x}VrxP/12xxw{W}{x}VrxP",              // 41
         "1n{x}N",                                       // 42
         "1nxwWWWWWWWWWWWxVrxP/1nxwWWWWWWWWWWWWWXVrxP",  // 43
         "12#RxWN",                                      // 44
@@ -401,7 +401,7 @@ constexpr uint8_t P00_TABLE[] = {
         0,   // 10: P10       -      1+    1+   -
         0,   // 11: P11       -      1+    1+   -
         25,  // 12: NOP       -      2/1   1    1nN/1N
-        26,  // 13: SYNC      -      4     1    1nXXN
+        26,  // 13: SYNC      -      4+    1    1nXXN@1n{x}XN@1n{x}N
         27,  // 14: SEXW      -      4     1    1nxxN
         0,   // 15: -         -      -     -    -
         28,  // 16: LBRA      r16    5/4   3    122xxJ@122xxN/122xJ@122xN
@@ -444,8 +444,7 @@ constexpr uint8_t P00_TABLE[] = {
         39,  // 3A: ABX       -      3/1   1    1nxN/1N
         40,  // 3B: RTI       -     15/17  1
              // 1nRrrrrrrrrrrrXP@1nRrrXP/1nRrrrrrrrrrrrrrXP
-        41,  // 3C: CWAI      -     20/22  2
-             // 12nxwWWWWWWWWWWWN/12nxwWWWWWWWWWWWWWN
+        41,  // 3C: CWAI      -     20/22  2    12nxw{W}{x}VrxP/12xxw{W}{x}VrxP
         42,  // 3D: MUL       -     11/10  1    1n{x}N
         0,   // 3E: -         -      -     -    -
         43,  // 3F: SWI       -     19/21  1

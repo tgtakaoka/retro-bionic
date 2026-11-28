@@ -6,6 +6,10 @@
 namespace debugger {
 namespace mc6809 {
 
+bool Signals::syncAck() const {
+    return (cntl() & (CNTL_BA | CNTL_BS)) == CNTL_BA;
+}
+
 void Signals::print() const {
     LOG_MATCH(cli.printDec(pos(), 3));
     LOG_MATCH(if (fetch()) cli.printDec(matched(), 3); else cli.print("   "));
